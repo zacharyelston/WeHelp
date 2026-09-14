@@ -33,6 +33,12 @@ Work is tracked on GitHub, not in this repo's docs:
   audit tables — DB triggers forbid it.
 - Every PHI-touching write must be wrapped in a transaction that also calls
   `audit.Record`.
+- Git: ONE-LINE commit subjects only — context goes in CHANGELOG.md, not the
+  commit body.
+- Changelog: every PR-worthy change gets a `CHANGELOG.md` entry (Keep a
+  Changelog format).
+- Shell: NEVER use heredocs. Write content to a file with file tools first,
+  then rename/reference it.
 - Swift: iOS 17+, SwiftUI, `@Observable` for state, `async/await` for
   networking. Health data goes through HealthKit, not raw BLE, unless a
   device requires it.

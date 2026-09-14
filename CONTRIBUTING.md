@@ -38,5 +38,8 @@ bootstrap: read it first, then pick up work from GitHub.
   `.xcodeproj`.
 - Migrations are goose SQL in `internal/store/migrations/` — numbered,
   forward-only, with a matching `Down`.
-- Commits: concise imperative subject explaining *why*. PRs: use the
-  template.
+- Commits: ONE-LINE subjects only — context belongs in `CHANGELOG.md`
+  (Keep a Changelog format), not the commit body.
+- Shell: never use heredocs — write files with file tools, then reference
+  them.
+- PRs: use the template.
