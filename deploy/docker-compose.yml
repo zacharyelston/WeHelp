@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wehelp
+      POSTGRES_PASSWORD: wehelp
+      POSTGRES_DB: wehelp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wehelp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      WEHELP_DATABASE_URL: postgres://wehelp:wehelp@db:5432/wehelp?sslmode=disable
+      WEHELP_ENV: dev
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
