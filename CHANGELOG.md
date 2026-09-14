@@ -6,6 +6,8 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Direction: auth is interim local credentials; the target is OIDC SSO —
+  Google, Microsoft, Sign in with Apple (issue #18).
 - Contribution rules: one-line commit subjects, notes live in this
   changelog, no heredocs in shell commands (write files instead).
 - Auth: register/login/refresh endpoints with argon2id password hashing,

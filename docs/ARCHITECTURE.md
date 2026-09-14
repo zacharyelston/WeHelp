@@ -41,9 +41,11 @@
 ## API shape
 
 `/api/v1/...` behind chi. Health endpoints: `/healthz` (process), `/readyz`
-(db). Auth (next step): email + password → short-lived access token
-(refresh token in iOS Keychain); every request resolves `(tenant, user, role)`
-before touching data.
+(db). Auth is live: email + password → short-lived access token + rotating
+refresh token (#17). Local credentials are **interim** — the target is OIDC
+SSO (Google, Microsoft, Sign in with Apple; #18), keeping local login as an
+on-prem fallback. Every request resolves `(tenant, user, role)` before
+touching data.
 
 ## iOS app
 
@@ -54,6 +56,8 @@ don't commit `.xcodeproj`. `AppState` (@Observable) holds session state;
 
 ## Later, deliberately deferred
 
+- **SSO** via OIDC — Google, Microsoft, Sign in with Apple (#18). Apple is
+  mandatory once any third-party login ships (App Store rule).
 - **FHIR** mapping layer (`Patient`, `Observation`, `Appointment` map cleanly
   onto `users`, `messages.metadata`, `appointments`).
 - E2E encryption for message bodies.
