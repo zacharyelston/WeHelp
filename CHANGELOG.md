@@ -6,6 +6,12 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Web client: a vanilla-JS SPA (`web/`) embedded in the Go binary via
+  `embed.FS` and served at `/` by the chi router. No framework, no build
+  step, no Node.js — matches the "one Go binary" appliance model. Login,
+  messaging (send/inbox/mark-read), appointments (create/list/cancel/
+  complete), and links (invite/accept/revoke). Falls back to `index.html`
+  for unknown non-API paths (SPA deep-link support).
 - Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
