@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/zacharyelston/wehelp/internal/audit"
 )
 
@@ -67,15 +66,12 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "cannot message yourself")
 		return
 	}
-	if len(req.Metadata) > 0 {
-		var m map[string]any
-		if err := json.Unmarshal(req.Metadata, &m); err != nil {
-			writeErr(w, http.StatusBadRequest, "metadata must be a JSON object")
-			return
-		}
-	} else {
-		req.Metadata = json.RawMessage(`{}`)
+	meta, err := normalizeMetadata(req.Metadata)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "metadata must be a JSON object")
+		return
 	}
+	req.Metadata = meta
 
 	ctx := r.Context()
 	tx, err := s.pool.Begin(ctx)
@@ -106,10 +102,15 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	detail, err := json.Marshal(map[string]string{"kind": req.Kind, "recipient": req.RecipientID.String()})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "audit detail failed")
+		return
+	}
 	if err := audit.Record(ctx, tx, audit.Event{
 		TenantID: id.TenantID, ActorID: &id.UserID,
 		Action: "message.create", ResourceType: "message", ResourceID: msgID.String(),
-		Detail: json.RawMessage(`{"kind":"` + req.Kind + `","recipient":"` + req.RecipientID.String() + `"}`),
+		Detail: detail,
 	}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
@@ -151,8 +152,6 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Keyset pagination on (created_at, id), newest first.
-	var rows pgx.Rows
-	var err error
 	base := `
 		select id, sender_id, recipient_id, kind, body, metadata, read_at, created_at
 		from messages
@@ -162,12 +161,13 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 		base += ` and read_at is null`
 	}
 	if !before.IsZero() {
-		base += ` and (created_at, id) < ($3, $4)`
+		base += fmt.Sprintf(` and (created_at, id) < ($%d, $%d)`, len(args)+1, len(args)+2)
 		args = append(args, before, beforeID)
 	}
-	base += ` order by created_at desc, id desc limit ` + strconv.Itoa(limit+1)
+	base += fmt.Sprintf(` order by created_at desc, id desc limit $%d`, len(args)+1)
+	args = append(args, limit+1)
 
-	rows, err = s.pool.Query(r.Context(), base, args...)
+	rows, err := s.pool.Query(r.Context(), base, args...)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "query failed")
 		return
@@ -183,12 +183,16 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		msgs = append(msgs, m)
 	}
+	if err := rows.Err(); err != nil {
+		writeErr(w, http.StatusInternalServerError, "rows failed")
+		return
+	}
 
-	resp := map[string]any{"messages": msgs}
+	resp := map[string]any{}
 	if len(msgs) > limit {
 		last := msgs[limit-1]
-		msgs = msgs[:limit]
 		resp["next_cursor"] = encodeCursor(last.CreatedAt, last.ID)
+		msgs = msgs[:limit]
 	}
 	resp["messages"] = msgs
 	writeJSON(w, http.StatusOK, resp)
@@ -247,6 +251,24 @@ func (s *Server) MarkRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "read"})
+}
+
+// normalizeMetadata validates that metadata is a JSON object (or empty/null)
+// and returns a non-null jsonb value. Empty and JSON null default to "{}" so
+// the column never stores SQL/JSON null. Returns an error if the bytes are
+// present but not a JSON object (e.g. an array or scalar).
+func normalizeMetadata(raw json.RawMessage) (json.RawMessage, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return json.RawMessage(`{}`), nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return json.RawMessage(`{}`), nil
+	}
+	return raw, nil
 }
 
 // Cursor = base64("RFC3339Nano|uuid") — opaque to clients.
