@@ -6,6 +6,12 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Lit review (`docs/LIT_REVIEW.md`): prior-art survey per feature, now the
+  mandatory first step of spec review. Outcomes: adopt River for
+  reminder/job scheduling (transactional enqueue fits our audit model),
+  go-oidc for SSO with Zitadel as a candidate self-hosted IdP, apns2 for
+  push; reference Open mHealth schemas for check-ins, Formance/TigerBeetle
+  for ledger design, immudb/Trillian for audit.
 - Spec-review gate: issues flow `needs-spec` → `spec-review` →
   `agent-ready`; reviewer validates approach currency, dependency health,
   testable criteria, and scope. CODEOWNERS requests owner review on all PRs.

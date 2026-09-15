@@ -35,6 +35,10 @@ Spec maturity is tracked by labels: `needs-spec` → `spec-review` →
 
 A reviewer validates, in order:
 
+- **Lit review first.** Survey prior art before anything else — Go libs and
+  open-source projects doing the same thing. Record findings in
+  `docs/LIT_REVIEW.md` and the issue. Adopt, reference, or hand-roll — but
+  decide deliberately, never by default.
 - **Is the approach still current?** Check every named library/pattern
   against its repo: last release, open-issue health, known vulns, whether
   prominent dependents have dropped it. Flag anything stale.
