@@ -21,6 +21,8 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- CI: Dockerfile and workflow pinned to Go 1.25 while go.mod requires 1.26 —
+  bumped both to 1.26.
 - `audit.Record` genesis event: first event in a tenant chain now links to
   an empty bytea instead of violating the `NOT NULL` `prev_hash` column.
 
