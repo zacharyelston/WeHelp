@@ -1,5 +1,9 @@
--- +goose Up
--- +goose StatementBegin
+-- WeHelp initial schema.
+-- Manual rollback: drop tables in reverse dependency order
+-- (audit_events, ledger_entries, ledger_transactions, ledger_accounts,
+--  messages, appointments, provider_patients, users, user_role, tenants)
+-- plus the forbid_mutation() trigger function.
+
 create extension if not exists citext;
 create extension if not exists pgcrypto;
 
@@ -124,24 +128,3 @@ create trigger ledger_transactions_immutable
 create trigger audit_events_immutable
     before update or delete on audit_events
     for each row execute function forbid_mutation();
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
-drop trigger if exists audit_events_immutable on audit_events;
-drop trigger if exists ledger_transactions_immutable on ledger_transactions;
-drop trigger if exists ledger_entries_immutable on ledger_entries;
-drop function if exists forbid_mutation();
-drop table if exists audit_events;
-drop table if exists ledger_entries;
-drop table if exists ledger_transactions;
-drop table if exists ledger_accounts;
-drop table if exists messages;
-drop table if exists appointments;
-drop table if exists provider_patients;
-drop table if exists users;
-drop type if exists user_role;
-drop table if exists tenants;
-drop extension if exists pgcrypto;
-drop extension if exists citext;
--- +goose StatementEnd

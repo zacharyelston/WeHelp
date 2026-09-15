@@ -35,4 +35,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose -f deploy/docker-compose.yml config --quiet
+      - run: docker compose -f deploy/docker-compose.yml run --rm migrate
       - run: docker build -f deploy/Dockerfile .

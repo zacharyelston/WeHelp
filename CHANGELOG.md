@@ -5,8 +5,18 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- Migrations moved from embedded goose to **Flyway**: `db/migrations/
+  V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
+  compose `migrate` service runs before `server`; `make db-migrate` is the
+  containerized path and `wehelpd migrate` wraps a local flyway CLI.
+  `serve`/`seed` no longer auto-migrate; `WEHELP_AUTO_MIGRATE` is gone.
+  Existing goose-managed dev DBs need `flyway baseline` or a fresh volume.
+- Server binary renamed `wehelp` → `wehelpd`: viper found the binary itself
+  when it sat at the container's CWD and tried to parse it as YAML.
+
 ### Added
-- Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
+- Seed data + demo script (issue #14): `wehelpd seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
   appointment — so devs and agents can exercise the API instantly. Applies
