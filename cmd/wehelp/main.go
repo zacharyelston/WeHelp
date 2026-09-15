@@ -11,7 +11,7 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "wehelp",
+	Use:   "wehelpd",
 	Short: "WeHelp — open source software suite for healthcare providers",
 }
 

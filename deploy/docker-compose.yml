@@ -15,6 +15,21 @@ services:
     ports:
       - "5432:5432"
 
+  migrate:
+    image: flyway/flyway:13
+    command: migrate
+    volumes:
+      - ../db/migrations:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:postgresql://db:5432/wehelp
+      FLYWAY_USER: wehelp
+      FLYWAY_PASSWORD: wehelp
+      FLYWAY_CONNECT_RETRIES: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   server:
     build:
       context: ..
@@ -25,6 +40,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"
 

@@ -1,6 +1,7 @@
--- +goose Up
--- +goose StatementBegin
--- Tenants are looked up by name at register/login time.
+-- Refresh tokens + unique tenant names (required for tenant upsert at
+-- register/login). Manual rollback: drop refresh_tokens, drop
+-- tenants_name_key.
+
 create unique index tenants_name_key on tenants (name);
 
 create table refresh_tokens (
@@ -13,10 +14,3 @@ create table refresh_tokens (
     created_at timestamptz not null default now()
 );
 create index refresh_tokens_user_idx on refresh_tokens (user_id);
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
-drop table if exists refresh_tokens;
-drop index if exists tenants_name_key;
--- +goose StatementEnd

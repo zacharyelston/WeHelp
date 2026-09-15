@@ -1,6 +1,6 @@
-BIN := bin/wehelp
+BIN := bin/wehelpd
 
-.PHONY: build test vet run migrate seed compose-up compose-down ios ios-build clean
+.PHONY: build test vet run migrate db-migrate seed compose-up compose-down ios ios-build clean
 
 build:
 	go build -o $(BIN) ./cmd/wehelp
@@ -16,6 +16,10 @@ run: build
 
 migrate: build
 	$(BIN) migrate
+
+# Containerized Flyway — no local install needed. Starts db if down.
+db-migrate:
+	docker compose -f deploy/docker-compose.yml run --rm migrate
 
 seed: build
 	$(BIN) seed
