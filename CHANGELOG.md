@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Scale budget + deployment shape (docs/ARCHITECTURE.md): the reference
+  target is an office appliance PC serving ~500 patients — one Go binary +
+  Postgres, no distributed machinery. Cloud tier is the same artifact.
 - Rule: all changes land via feature branches + PRs; `main` is protected
   against direct pushes.
 - Direction: auth is interim local credentials; the target is OIDC SSO —

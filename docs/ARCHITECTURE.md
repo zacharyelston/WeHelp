@@ -11,6 +11,27 @@
 - An internal credit system for resource accounting that survives an audit.
 - Document-standard-agnostic now, FHIR-mappable later.
 
+## Scale budget & deployment shape
+
+The reference deployment is an **appliance PC in a provider's office** —
+a Mac mini or small x86 box on gigabit fiber or a 5G business line,
+serving one practice:
+
+- **≤ ~500 active patients**, tens of staff. Peak load is tens of
+  requests/second, not thousands. Do not design for hospital-network scale.
+- One Go binary + one Postgres instance. No service mesh, no shards, no
+  stream processors — a job queue is a Postgres table (River), never Kafka.
+- Must idle quietly for years between OS updates. Recovery = restore the
+  DB backup and start the binary.
+- The cloud-hosted tier runs the *same artifact* with many tenants; scale
+  is a cloud ops problem, never a code-architecture problem.
+
+Design consequence: prefer boring, inspectable code over clever scale
+machinery. A feature needing infrastructure beyond Postgres + object
+storage requires explicit justification in its issue. We are not competing
+with Salesforce; we're a tight, correct tool providers can run and audit
+themselves.
+
 ## Non-negotiables
 
 1. **PHI handling.** Every access to patient data must be attributable. All
@@ -23,8 +44,10 @@
 3. **Audit is tamper-evident.** `audit_events` rows are hash-chained per
    tenant (`prev_hash` → `hash`, SHA-256) and immutable by trigger.
    `audit.Verify` re-checks a chain. See `internal/audit`.
-4. **Multi-tenancy from day one.** Every table carries `tenant_id`. On-prem
-   deployments run one tenant; cloud runs many. There is no tenant-less data.
+4. **Multi-tenancy from day one — but cheap.** Every table carries
+   `tenant_id`. On-prem deployments run one tenant; the hosted tier runs
+   many. This is a cheap isolation column, not a scale play — no tenant
+   routing infrastructure.
 5. **No cloud-locked dependencies.** Postgres + S3-compatible object storage
    only, so the same artifact runs in a clinic closet or in our cloud.
 
