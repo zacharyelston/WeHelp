@@ -6,6 +6,16 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
+  demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
+  link (one active, one pending), a short message thread, and an
+  appointment — so devs and agents can exercise the API instantly. Applies
+  migrations first, so it works against a fresh `make compose-up` stack.
+  Idempotent: every entity uses check-then-insert, so re-runs perform no
+  writes and append no duplicate audit events. Reuses `auth.HashPassword`
+  and `audit.Record` and mirrors the validated SQL in `internal/server`
+  rather than reaching around the service layer. Demo credentials are
+  printed to stdout; README quickstart updated with login examples.
 - Scale budget + deployment shape (docs/ARCHITECTURE.md): the reference
   target is an office appliance PC serving ~500 patients — one Go binary +
   Postgres, no distributed machinery. Cloud tier is the same artifact.

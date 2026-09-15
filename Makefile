@@ -1,6 +1,6 @@
 BIN := bin/wehelp
 
-.PHONY: build test vet run migrate compose-up compose-down ios ios-build clean
+.PHONY: build test vet run migrate seed compose-up compose-down ios ios-build clean
 
 build:
 	go build -o $(BIN) ./cmd/wehelp
@@ -16,6 +16,9 @@ run: build
 
 migrate: build
 	$(BIN) migrate
+
+seed: build
+	$(BIN) seed
 
 compose-up:
 	docker compose -f deploy/docker-compose.yml up --build -d
