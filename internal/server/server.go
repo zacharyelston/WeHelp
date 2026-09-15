@@ -72,6 +72,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 			r.Get("/links", s.ListLinks)
 			r.Post("/links/{userID}/accept", s.AcceptLink)
 			r.Post("/links/{userID}/revoke", s.RevokeLink)
+			r.Post("/messages", s.CreateMessage)
+			r.Get("/messages", s.ListMessages)
+			r.Post("/messages/{messageID}/read", s.MarkRead)
 		})
 	})
 

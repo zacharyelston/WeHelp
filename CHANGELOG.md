@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Messages API (issue #2): send, paginated inbox (`?unread`, `?limit`,
+  opaque `?cursor`), and mark-read. Sending requires an active
+  provider-patient link; creates and read-receipts are audit-chained in the
+  same transaction.
 - Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
