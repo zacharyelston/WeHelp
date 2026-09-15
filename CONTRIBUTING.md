@@ -28,6 +28,29 @@ bootstrap: read it first, then pick up work from GitHub.
 5. **PR with the template filled in.** Link the issue (`Closes #N`).
    Keep diffs scoped; drive-by refactors get rejected.
 
+## The review gate
+
+Spec maturity is tracked by labels: `needs-spec` → `spec-review` →
+`agent-ready`. Nothing becomes `agent-ready` without a reviewer pass.
+
+A reviewer validates, in order:
+
+- **Lit review first.** Survey prior art before anything else — Go libs and
+  open-source projects doing the same thing. Record findings in
+  `docs/LIT_REVIEW.md` and the issue. Adopt, reference, or hand-roll — but
+  decide deliberately, never by default.
+- **Is the approach still current?** Check every named library/pattern
+  against its repo: last release, open-issue health, known vulns, whether
+  prominent dependents have dropped it. Flag anything stale.
+- **Are dependencies maintained?** Prefer deps with activity in the last
+  ~year. Hand-roll before adopting abandonware.
+- **Are acceptance criteria testable?** Every box must be verifiable by a
+  command, request, or query — not vibes.
+- **Is scope tight?** An empty "Out of scope" usually means it isn't.
+
+Findings go in issue comments. The reviewer either fixes the body and flips
+to `agent-ready`, or leaves concrete questions and keeps `needs-spec`.
+
 ## Standards (the short list — details in the files above)
 
 - Never commit secrets. Config goes through Viper (`WEHELP_*` env vars).

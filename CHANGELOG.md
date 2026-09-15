@@ -9,6 +9,22 @@ All notable changes to WeHelp are documented here. Format follows
 - Scale budget + deployment shape (docs/ARCHITECTURE.md): the reference
   target is an office appliance PC serving ~500 patients — one Go binary +
   Postgres, no distributed machinery. Cloud tier is the same artifact.
+- Lit review (`docs/LIT_REVIEW.md`): prior-art survey per feature, now the
+  mandatory first step of spec review. Outcomes: adopt River for
+  reminder/job scheduling (transactional enqueue fits our audit model),
+  go-oidc for SSO with Zitadel as a candidate self-hosted IdP, apns2 for
+  push; reference Open mHealth schemas for check-ins, Formance/TigerBeetle
+  for ledger design, immudb/Trillian for audit.
+- Spec-review gate: issues flow `needs-spec` → `spec-review` →
+  `agent-ready`; reviewer validates approach currency, dependency health,
+  testable criteria, and scope. CODEOWNERS requests owner review on all PRs.
+- Issue #16 corrected on review: both Go FHIR libraries are stale
+  (samply v0.3.2 2022, google/fhir Go v0.7.4 2022); recommendation is now
+  hand-rolled minimal R4 structs, matching CMSgov/bcda-app's approach.
+- Provider-patient links: invite by email (provider only), patient accepts,
+  either side revokes; `GET /api/v1/links` lists the caller's relationships.
+  All transitions audited (issue #3). Path param on accept/revoke is the
+  *other* party's user ID.
 - Rule: all changes land via feature branches + PRs; `main` is protected
   against direct pushes.
 - Direction: auth is interim local credentials; the target is OIDC SSO —

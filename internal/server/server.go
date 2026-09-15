@@ -68,6 +68,10 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me", s.Me)
+			r.Post("/links", s.CreateLink)
+			r.Get("/links", s.ListLinks)
+			r.Post("/links/{userID}/accept", s.AcceptLink)
+			r.Post("/links/{userID}/revoke", s.RevokeLink)
 		})
 	})
 
