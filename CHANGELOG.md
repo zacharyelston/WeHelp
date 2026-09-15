@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Provider-patient links: invite by email (provider only), patient accepts,
+  either side revokes; `GET /api/v1/links` lists the caller's relationships.
+  All transitions audited (issue #3). Path param on accept/revoke is the
+  *other* party's user ID.
 - Rule: all changes land via feature branches + PRs; `main` is protected
   against direct pushes.
 - Direction: auth is interim local credentials; the target is OIDC SSO —
