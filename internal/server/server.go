@@ -75,6 +75,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		})
 	})
 
+	// Static web client (SPA) — served at root, falls back to API routes above.
+	s.webRoutes(r)
+
 	srv := &http.Server{
 		Addr:              s.cfg.ListenAddr,
 		Handler:           r,
