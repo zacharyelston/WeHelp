@@ -35,6 +35,8 @@ Work is tracked on GitHub, not in this repo's docs:
   `audit.Record`.
 - Git: ONE-LINE commit subjects only — context goes in CHANGELOG.md, not the
   commit body.
+- Git: never commit/push to `main` — every change lands via a feature
+  branch + PR.
 - Changelog: every PR-worthy change gets a `CHANGELOG.md` entry (Keep a
   Changelog format).
 - Shell: NEVER use heredocs. Write content to a file with file tools first,
