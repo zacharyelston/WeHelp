@@ -63,6 +63,9 @@ to `agent-ready`, or leaves concrete questions and keeps `needs-spec`.
   `.xcodeproj`.
 - Migrations are goose SQL in `internal/store/migrations/` — numbered,
   forward-only, with a matching `Down`.
+- API routes are documented in `api/openapi.yaml`. Every route change
+  (new endpoint, changed request/response shape, new status code) must
+  update the spec in the same PR. CI validates the spec parses.
 - Commits: ONE-LINE subjects only — context belongs in `CHANGELOG.md`
   (Keep a Changelog format), not the commit body.
 - Shell: never use heredocs — write files with file tools, then reference

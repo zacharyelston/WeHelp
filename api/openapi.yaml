@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: WeHelp API
+  version: 1.0.0
+  description: |
+    WeHelp — open source software suite for healthcare providers.
+    Provider-patient messaging, scheduling, check-ins, and an internal
+    credit ledger. Designed for an on-prem appliance (~500 patients).
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+servers:
+  - url: /
+    description: Local / on-prem
+  - url: https://api.wehelp.example
+    description: Cloud-hosted (same artifact)
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Short-lived HMAC JWT access token from /api/v1/auth/login or
+        /api/v1/auth/refresh. Pass as `Authorization: Bearer <token>`.
+
+  # -------------------------------------------------------------------------
+  # Reusable parameters
+  # -------------------------------------------------------------------------
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Page size for paginated listings.
+    Unread:
+      name: unread
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: Filter inbox to unread messages only.
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Opaque keyset cursor from a previous page's `next_cursor`.
+    FromParam:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Lower bound (inclusive) for appointment `starts_at`.
+    ToParam:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Upper bound (exclusive) for appointment `starts_at`.
+
+  # -------------------------------------------------------------------------
+  # Schemas
+  # -------------------------------------------------------------------------
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    TokenResponse:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: Short-lived HMAC JWT.
+        refresh_token:
+          type: string
+          description: Opaque rotating refresh token (SHA-256 hashed at rest).
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds.
+          example: 900
+
+    RegisterRequest:
+      type: object
+      required: [tenant, email, password, role]
+      properties:
+        tenant:
+          type: string
+          description: Tenant name (created if new).
+          example: Demo Clinic
+        email:
+          type: string
+          format: email
+          example: dr.shaw@demo.wehelp
+        password:
+          type: string
+          format: password
+          minLength: 12
+          description: Must be at least 12 characters.
+        role:
+          type: string
+          enum: [provider, patient]
+          description: Self-serve registration is restricted to these roles.
+        display_name:
+          type: string
+          example: Dr. Ada Shaw
+
+    LoginRequest:
+      type: object
+      required: [tenant, email, password]
+      properties:
+        tenant:
+          type: string
+          example: Demo Clinic
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    MeResponse:
+      type: object
+      required: [user_id, tenant_id, role]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [provider, patient, admin]
+
+    LinkView:
+      type: object
+      required: [provider_id, patient_id, status]
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, active, revoked]
+
+    CreateLinkRequest:
+      type: object
+      required: [patient_email]
+      properties:
+        patient_email:
+          type: string
+          format: email
+          description: Email of an existing patient in the same tenant.
+
+    MessageView:
+      type: object
+      required: [id, sender_id, recipient_id, kind, body, metadata, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        recipient_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [message, memo, checkin, reminder]
+        body:
+          type: string
+        metadata:
+          type: object
+          description: Kind-specific JSON payload (e.g. check-in reading).
+          additionalProperties: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    CreateMessageRequest:
+      type: object
+      required: [recipient_id, body]
+      properties:
+        recipient_id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [message, memo, checkin, reminder]
+          default: message
+        body:
+          type: string
+          minLength: 1
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional JSON object; defaults to `{}`.
+
+    MessageListResponse:
+      type: object
+      required: [messages]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageView"
+        next_cursor:
+          type: string
+          description: Opaque cursor for the next page; absent if no more results.
+
+    AppointmentView:
+      type: object
+      required: [id, provider_id, patient_id, starts_at, ends_at, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, cancelled, completed, no_show]
+        created_at:
+          type: string
+          format: date-time
+
+    CreateAppointmentRequest:
+      type: object
+      required: [patient_id, starts_at, ends_at]
+      properties:
+        patient_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, cancelled, completed, no_show]
+          default: scheduled
+
+    UpdateAppointmentRequest:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [scheduled, cancelled, completed, no_show]
+
+    AppointmentListResponse:
+      type: object
+      required: [appointments]
+      properties:
+        appointments:
+          type: array
+          items:
+            $ref: "#/components/schemas/AppointmentView"
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: Process health check
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /readyz:
+    get:
+      tags: [health]
+      summary: Database readiness check
+      security: []
+      responses:
+        "200":
+          description: DB reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        "503":
+          description: DB unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/ping:
+    get:
+      tags: [health]
+      summary: Authenticated ping
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: pong
+
+  # -------------------------------------------------------------------------
+  # Auth
+  # -------------------------------------------------------------------------
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new tenant + user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email already registered in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate refresh token and get a new token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # -------------------------------------------------------------------------
+  # Me
+  # -------------------------------------------------------------------------
+  /api/v1/me:
+    get:
+      tags: [me]
+      summary: Return the authenticated identity
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # -------------------------------------------------------------------------
+  # Links
+  # -------------------------------------------------------------------------
+  /api/v1/links:
+    post:
+      tags: [links]
+      summary: Invite a patient by email (provider only)
+      description: Creates a pending provider-patient link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLinkRequest"
+      responses:
+        "201":
+          description: Link created (pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkView"
+        "400":
+          description: Invalid request or user is not a patient
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Only providers can invite patients
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No patient with that email in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Link already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [links]
+      summary: List the caller's links (provider or patient side)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkView"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/links/{userID}/accept:
+    post:
+      tags: [links]
+      summary: Accept a pending invite (patient only)
+      description: "`{userID}` is the provider's user ID."
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Link activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: active
+        "403":
+          description: Only patients can accept invites
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No pending invite from that provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/links/{userID}/revoke:
+    post:
+      tags: [links]
+      summary: Revoke a pending or active link (either party)
+      description: "`{userID}` is the other party's user ID."
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Link revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: revoked
+        "404":
+          description: No link with that user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # -------------------------------------------------------------------------
+  # Messages
+  # -------------------------------------------------------------------------
+  /api/v1/messages:
+    post:
+      tags: [messages]
+      summary: Send a message
+      description: |
+        Requires an active provider-patient link (either direction) with
+        the recipient. Kind defaults to `message` if omitted. Metadata
+        must be a JSON object (or omitted/null for `{}`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMessageRequest"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  kind:
+                    type: string
+        "400":
+          description: Invalid request (bad kind, empty body, self-message, bad metadata)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: No active link with that user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [messages]
+      summary: List the caller's inbox (newest first, keyset-paginated)
+      parameters:
+        - $ref: "#/components/parameters/Unread"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+        "400":
+          description: Invalid limit or cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/messages/{messageID}/read:
+    post:
+      tags: [messages]
+      summary: Mark a message as read (recipient only, idempotent)
+      parameters:
+        - name: messageID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Marked read or already read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [read, "already read"]
+        "404":
+          description: Message not found or not addressed to caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # -------------------------------------------------------------------------
+  # Appointments (M2 — planned, not yet implemented)
+  # -------------------------------------------------------------------------
+  /api/v1/appointments:
+    post:
+      tags: [appointments]
+      summary: Create an appointment (provider only)
+      description: |
+        Requires an active provider-patient link. The provider cannot
+        double-book — overlapping appointments are rejected with 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAppointmentRequest"
+      responses:
+        "201":
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentView"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a provider or no active link with patient
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Overlapping appointment exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [appointments]
+      summary: List appointments scoped to the caller
+      description: |
+        Providers see their appointments; patients see appointments where
+        they are the patient. Optional `from`/`to` bounds on `starts_at`.
+      parameters:
+        - $ref: "#/components/parameters/FromParam"
+        - $ref: "#/components/parameters/ToParam"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentListResponse"
+
+  /api/v1/appointments/{appointmentID}:
+    patch:
+      tags: [appointments]
+      summary: Update an appointment (reschedule and/or status transition)
+      description: |
+        Provider can reschedule (new `starts_at`/`ends_at`) and/or change
+        status (`scheduled` → `cancelled` | `completed` | `no_show`).
+        Rescheduling re-checks for overlaps.
+      parameters:
+        - name: appointmentID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAppointmentRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentView"
+        "403":
+          description: Not the provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Appointment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Reschedule would overlap an existing appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

@@ -6,6 +6,11 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- OpenAPI spec (issue #4): `api/openapi.yaml` is the contract between
+  backend, iOS, and agents — covers healthz/readyz + all v1 routes (auth,
+  me, links, messages) plus the planned appointments API. CI validates the
+  spec with openapi-spec-validator. CONTRIBUTING.md notes that route
+  changes require spec updates in the same PR.
 - Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
