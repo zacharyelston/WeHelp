@@ -35,8 +35,28 @@ make compose-up
 make build
 ./bin/wehelp serve          # auto-migrates, listens on :8080
 
+# seed a demo tenant, provider, two patients, a link, messages, and an
+# appointment — idempotent, prints credentials to stdout
+make seed
+
 # iOS app
 make ios                    # generates WeHelp.xcodeproj, opens Xcode
+```
+
+`make seed` is idempotent: re-running it against an already-seeded database
+performs no writes and appends no duplicate audit events. It applies
+migrations first, so it works against a fresh `make compose-up` stack. The
+demo credentials it prints (tenant, emails, passwords) let you log in
+immediately:
+
+```sh
+# log in as the demo provider
+curl -s localhost:8080/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  -d '{"tenant":"Demo Clinic","email":"dr.ada.shaw@demo.wehelp","password":"wehelp-demo-provider"}'
+
+# then call an authenticated endpoint with the returned access_token
+curl -s localhost:8080/api/v1/me -H 'authorization: Bearer <access_token>'
 ```
 
 Config: `wehelp.yaml` or `WEHELP_*` environment variables
