@@ -6,6 +6,12 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Appointments API (issue #7): POST/GET/PATCH /api/v1/appointments.
+  Provider-only create requires an active link with the patient and rejects
+  overlapping scheduled appointments (409). List is scoped to the caller
+  (provider or patient) with optional `?from`/`?to` bounds on `starts_at`.
+  PATCH supports reschedule (re-checks overlap) and status transitions
+  (scheduled → cancelled | completed | no_show). All mutations audited.
 - Seed data + demo script (issue #14): `wehelp seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
