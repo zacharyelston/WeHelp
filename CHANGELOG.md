@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Scale budget + deployment shape (docs/ARCHITECTURE.md): the reference
+  target is an office appliance PC serving ~500 patients — one Go binary +
+  Postgres, no distributed machinery. Cloud tier is the same artifact.
 - Lit review (`docs/LIT_REVIEW.md`): prior-art survey per feature, now the
   mandatory first step of spec review. Outcomes: adopt River for
   reminder/job scheduling (transactional enqueue fits our audit model),

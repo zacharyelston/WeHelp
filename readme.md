@@ -3,8 +3,12 @@
 Open source software suite for healthcare providers — the backend they want and
 deserve. Providers and patients connect, share health data, schedule visits,
 exchange memos and check-ins, and sync readings from Bluetooth health
-monitors. Deployable on-prem or cloud-hosted (Jira-style), with an internal
-credit system for tracking resource spend.
+monitors. **For providers and patients, by providers and patients.**
+
+Designed to run on an appliance PC in a provider's office (one Go binary +
+Postgres, ~500 patients per practice). A cloud-hosted tier runs the same
+artifact — but the on-prem box is the reference deployment, not an
+afterthought. Includes an internal credit system for tracking resource spend.
 
 ## Layout
 

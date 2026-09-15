@@ -37,6 +37,9 @@ Work is tracked on GitHub, not in this repo's docs:
   commit body.
 - Git: never commit/push to `main` — every change lands via a feature
   branch + PR.
+- Scale budget: the target is an office appliance serving ~500 patients —
+  see docs/ARCHITECTURE.md. Prefer boring code; no new infra beyond
+  Postgres + object storage without issue-level justification.
 - Changelog: every PR-worthy change gets a `CHANGELOG.md` entry (Keep a
   Changelog format).
 - Shell: NEVER use heredocs. Write content to a file with file tools first,
