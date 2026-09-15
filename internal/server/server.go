@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -15,12 +16,21 @@ import (
 )
 
 type Server struct {
-	cfg  config.Config
-	pool *pgxpool.Pool
+	cfg       config.Config
+	pool      *pgxpool.Pool
+	jwtSecret []byte
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
-	return &Server{cfg: cfg, pool: pool}
+	secret := []byte(cfg.JWTSecret)
+	if cfg.JWTSecret == "" {
+		secret = make([]byte, 32)
+		if _, err := rand.Read(secret); err != nil {
+			panic(err)
+		}
+		slog.Warn("WEHELP_JWT_SECRET unset; using ephemeral secret — tokens will not survive restart")
+	}
+	return &Server{cfg: cfg, pool: pool, jwtSecret: secret}
 }
 
 func (s *Server) ListenAndServe(ctx context.Context) error {
@@ -47,6 +57,17 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{"message": "pong"})
+		})
+
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", s.Register)
+			r.Post("/login", s.Login)
+			r.Post("/refresh", s.Refresh)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(s.authenticate)
+			r.Get("/me", s.Me)
 		})
 	})
 

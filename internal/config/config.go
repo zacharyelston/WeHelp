@@ -3,16 +3,20 @@ package config
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	ListenAddr  string `mapstructure:"listen_addr"`
-	DatabaseURL string `mapstructure:"database_url"`
-	LogLevel    string `mapstructure:"log_level"`
-	Env         string `mapstructure:"env"`
-	AutoMigrate bool   `mapstructure:"auto_migrate"`
+	ListenAddr  string        `mapstructure:"listen_addr"`
+	DatabaseURL string        `mapstructure:"database_url"`
+	LogLevel    string        `mapstructure:"log_level"`
+	Env         string        `mapstructure:"env"`
+	AutoMigrate bool          `mapstructure:"auto_migrate"`
+	JWTSecret   string        `mapstructure:"jwt_secret"`
+	AccessTTL   time.Duration `mapstructure:"access_ttl"`
+	RefreshTTL  time.Duration `mapstructure:"refresh_ttl"`
 }
 
 // Load initializes Viper: defaults, WEHELP_* env vars, and an optional YAML
@@ -27,6 +31,9 @@ func Load(cfgFile string) error {
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("env", "dev")
 	viper.SetDefault("auto_migrate", true)
+	viper.SetDefault("jwt_secret", "") // empty = ephemeral per-boot secret (dev only)
+	viper.SetDefault("access_ttl", "15m")
+	viper.SetDefault("refresh_ttl", "720h")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

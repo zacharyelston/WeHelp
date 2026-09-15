@@ -36,6 +36,9 @@ func Record(ctx context.Context, tx pgx.Tx, e Event) error {
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("audit: read chain head: %w", err)
 	}
+	if prev == nil {
+		prev = []byte{} // genesis event links to an empty bytea, not NULL
+	}
 
 	detail := e.Detail
 	if detail == nil {
