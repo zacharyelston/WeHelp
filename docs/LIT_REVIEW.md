@@ -78,6 +78,12 @@ office's Back Office without being able to read it. See ARCHITECTURE.md,
 | LiveKit (Go SFU) | **evaluate** — supports end-to-end encrypted media with client-held keys, so the SFU forwards ciphertext. LiveKit vs Pion is still an open owner decision |
 | pion/webrtc | **evaluate** — lower-level Go WebRTC if LiveKit is too heavy for the Relay |
 | SFrame (RFC 9605) | **reference** — the standard for end-to-end media encryption through an SFU |
+| Go `html/template` + `embed` | **adopt** — practice sites are rendered by the Back Office from the office profile using built-in templates. No new tooling, and offices write no HTML |
+| Hugo (Go static site generator) | **reference** — the right tool if offices ever want hand-edited multi-page sites. Too much for a profile-driven site with a few pages |
+| Hosted site builders (Squarespace, Wix) | **skip** — fine for an office that already has a site, which can link to the app. Not something we integrate with |
+| Apple Universal Links | **adopt** — site links like "My appointments" open the app when installed and fall back to the App Store. They need an `apple-app-site-association` file on the office hostname, served by the Relay |
+| Secure Enclave keys (CryptoKit `SecureEnclave.P256`) | **adopt** — a device-bound key generated at enrollment; the private key never leaves the phone |
+| Apple App Attest (DeviceCheck) | **evaluate** — proves requests come from the genuine app on a real device. Adds an Apple round trip at enrollment |
 | HHS cloud-computing guidance (HIPAA) | **reference** — a service that stores or routinely handles ePHI is a business associate even when the data is encrypted. The narrow "conduit" exception covers transmission only. Plan on BAAs for the Relay; designing it to hold no PHI limits exposure, but it does not remove that obligation. This is not legal advice |
 
 ## Non-Go prior art worth knowing

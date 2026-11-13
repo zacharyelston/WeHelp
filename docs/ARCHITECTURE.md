@@ -59,14 +59,35 @@ WeHelp is two separately deployed systems. The rule between them: **the part
 that connects phones and the web does not hold patient data.**
 
 ```
- phones / patient web ──TLS──► Relay (cloud, multi-office, paid tier)
-                                 │  routes by hostname, never decrypts
-                                 ▼
-                          outbound tunnel opened by the office
-                                 │
- office staff (LAN) ─────► Back Office (Mac mini in the office: wehelpd + Postgres)
-                           all PHI, scheduling, audit, ledger
+ website visitors ──HTTPS──► Relay: static practice site (no PHI, no logins)
+
+ patient app (iPhone) ─TLS─► Relay (cloud, multi-office, paid tier)
+                               │  routes by hostname, never decrypts
+                               ▼
+                        outbound tunnel opened by the office
+                               │
+ office staff (LAN) ───────► Back Office (Mac mini in the office: wehelpd + Postgres)
+                             all PHI, scheduling, audit, ledger
 ```
+
+### Patient access is mobile-only (for now)
+
+The mobile app is the only place a patient sees their data: appointments,
+office visit notes, messages, telehealth. A phone is a personal device that
+can hold a key we enroll on it, which a shared browser cannot. There is **no
+patient web portal**. The web is an attack surface we are choosing to avoid
+for now, and reversing that choice needs its own design.
+
+- **Device enrollment.** At registration the app generates a key pair in the
+  Secure Enclave (the private key never leaves the phone). It registers the
+  public key with the Back Office, through the Relay tunnel. Sessions are then
+  bound to that device key, not only to a password. This builds on the
+  Keychain token work in #5. App Attest can additionally prove that the
+  request comes from the genuine WeHelp app.
+- **Telehealth** runs in the app. End-to-end media keys live on the
+  participants' devices.
+- **Staff web UI** (the embedded SPA) is for office staff on the LAN only.
+  Patient-role accounts get no web UI.
 
 ### Back Office (`wehelpd`, this repo today)
 
@@ -80,23 +101,30 @@ that connects phones and the web does not hold patient data.**
   office's public hostname lives on the Back Office (ACME TLS-ALPN-01 works
   through an SNI-passthrough relay), never on the Relay.
 - Patient login, tokens, and every API call are handled here, as today.
-- Staff and admin routes are served on the LAN only by default. Exposing them
-  through the Relay is an explicit per-office setting.
+- The staff web UI and staff/admin API routes are served on the LAN only by
+  default. Exposing them through the Relay is an explicit per-office setting.
+  Through the tunnel, only the patient-app API is reachable.
 
 ### Relay (planned; separate binary and deployment)
 
 The Relay is the paid "Web & Tele Hosting" service. Each office registers with
 a **subscription key**, which entitles it to:
 
-1. **Traffic routing.** Phones and patient browsers connect to the office's
-   public hostname. The Relay reads only the TLS SNI, looks up the office, and
+1. **Traffic routing.** The patient app connects to the office's public
+   hostname. The Relay reads only the TLS SNI, looks up the office, and
    forwards the still-encrypted bytes down that office's tunnel. It cannot
    read requests, responses, credentials or tokens.
-2. **Website hosting.** The Back Office publishes the office's public website
-   (hours, providers, directions) to the Relay, which serves it alongside
-   other offices' sites. Published content must contain no PHI. Forms on the
-   site (appointment requests, contact) submit through the tunnel to the Back
-   Office; the Relay does not store submissions.
+2. **Website hosting.** Each office gets a static practice website: about,
+   providers, hours, location and contact details. It has links to download
+   the app and deep links into it ("Register", "My appointments", "Visit
+   notes"), which open the app or the App Store. The site has no logins, no
+   forms and no patient data.
+   - **How it is made:** the office fills in a "Practice profile" page in the
+     Back Office staff UI. The Back Office renders the site from a few built-in
+     templates (Go `html/template`) and publishes the static files to the
+     Relay. Offices never write HTML or run a site builder.
+   - **How it is served:** the Relay serves each office's files by hostname,
+     like any shared static host. No per-office server-side code runs.
 3. **Telehealth routing.** The Relay runs signaling and media forwarding for
    video visits. Who meets whom and when stays in the Back Office, which mints
    short-lived room tokens. Media is end-to-end encrypted between participants

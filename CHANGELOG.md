@@ -23,8 +23,12 @@ All notable changes to WeHelp are documented here. Format follows
   phone and web traffic by SNI without decrypting it. It also hosts office
   websites, forwards end-to-end encrypted telehealth media and sends PHI-free
   pushes. The Relay must not import PHI packages, and a test will enforce
-  that. The lit-review entry covers tunnels, certmagic, LiveKit/Pion, SFrame
-  and HIPAA business-associate guidance.
+  that. Patient access is mobile-only for now: there is no patient web
+  portal, and the app enrolls a Secure Enclave device key. Practice websites
+  are static. The Back Office renders them from an office profile with
+  `html/template` and publishes them to the Relay, with Universal Links into
+  the app. The lit-review entry covers tunnels, certmagic, LiveKit/Pion,
+  SFrame, site tooling, device keys and HIPAA business-associate guidance.
 - Seed data + demo script (issue #14): `wehelpd seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
