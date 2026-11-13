@@ -47,7 +47,7 @@ struct SignInView: View {
                 Text("Signing in registers this phone with your practice.")
             }
         }
-        .navigationTitle(connection.tenant)
+        .navigationTitle(connection.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

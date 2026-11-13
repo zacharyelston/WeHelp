@@ -43,6 +43,8 @@
 	<string>$(WEHELP_DEV_EMAIL)</string>
 	<key>WeHelpDevPassword</key>
 	<string>$(WEHELP_DEV_PASSWORD)</string>
+	<key>WeHelpDevServers</key>
+	<string>$(WEHELP_DEV_SERVERS)</string>
 	<key>WeHelpDevTenant</key>
 	<string>$(WEHELP_DEV_TENANT)</string>
 </dict>

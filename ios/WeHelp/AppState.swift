@@ -48,15 +48,29 @@ final class AppState {
         let stored = defaults.data(forKey: Self.connectionsKey)
             .flatMap { try? JSONDecoder().decode([SavedConnection].self, from: $0) } ?? []
         var list = stored
-        if let preset = SavedConnection.devPreset(bundle: bundle, serverURL: Self.defaultServerURL(bundle: bundle)),
-           !hiddenPresets.contains(preset.id) {
+        let hidden = hiddenPresets
+        for preset in SavedConnection.devPresets(bundle: bundle, defaultServerURL: Self.defaultServerURL(bundle: bundle))
+        where !hidden.contains(preset.id) {
             if let i = list.firstIndex(where: { $0.id == preset.id }) {
                 list[i].devPassword = preset.devPassword
+                if list[i].label == nil { list[i].label = preset.label }
             } else {
                 list.append(preset)
             }
         }
         savedConnections = list
+    }
+
+    /// Debug builds: whether any demo presets exist to restore.
+    var hasDevPresets: Bool {
+        !SavedConnection.devPresets(defaultServerURL: Self.defaultServerURL()).isEmpty
+    }
+
+    /// Brings back demo presets the user deleted or edited away.
+    func restoreDevPresets() {
+        hiddenPresets = []
+        persistConnections()
+        loadConnections(bundle: .main)
     }
 
     private func persistConnections() {
@@ -70,6 +84,7 @@ final class AppState {
         var conn = SavedConnection(serverURL: api.baseURL, tenant: tenant, email: email)
         if let existing = savedConnections.first(where: { $0.id == conn.id }) {
             conn.devPassword = existing.devPassword
+            conn.label = existing.label
         }
         savedConnections.removeAll { $0.id == conn.id }
         savedConnections.insert(conn, at: 0)

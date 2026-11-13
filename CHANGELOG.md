@@ -25,7 +25,13 @@ All notable changes to WeHelp are documented here. Format follows
     edit or delete it. The editor has a Delete server button, and each
     sign-in screen has an Edit button. Deletes ask for confirmation.
   - The Debug "Demo" entry can be edited or deleted too, and a deleted demo
-    entry does not come back at the next launch. Debug builds
+    entry does not come back at the next launch.
+  - An optional **Label** ("Barnacle") is shown in place of the practice
+    name. It is local only; the practice name must still match the server.
+  - Debug builds can define several demo servers as `Label|URL` pairs in
+    `WEHELP_DEV_SERVERS`, set in the gitignored `Local.xcconfig` (see
+    `Local.xcconfig.example`). Each uses the demo login. A "Restore demo
+    servers" button brings back any you deleted. Debug builds
   add a "Demo Clinic" connection from `ios/Config/Debug.xcconfig` (seed
   credentials, including the demo password) for device testing. Release
   builds leave those settings empty.

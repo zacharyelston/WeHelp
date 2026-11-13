@@ -19,6 +19,9 @@ struct ConnectionsView: View {
                     } actions: {
                         Button("Add server") { editing = .new }
                             .buttonStyle(.borderedProminent)
+                        if appState.hasDevPresets {
+                            Button("Restore demo servers") { appState.restoreDevPresets() }
+                        }
                     }
                 } else {
                     List {
@@ -38,6 +41,13 @@ struct ConnectionsView: View {
                             }
                         } footer: {
                             Text("Tap a practice to sign in. Tap ⓘ to edit or delete it.")
+                        }
+                        if appState.hasDevPresets {
+                            Section {
+                                Button("Restore demo servers") { appState.restoreDevPresets() }
+                            } footer: {
+                                Text("Debug builds only.")
+                            }
                         }
                     }
                 }

@@ -9,5 +9,8 @@ WEHELP_DEFAULT_SERVER_URL = http:/$()/localhost:8080
 WEHELP_DEV_TENANT = Demo Clinic
 WEHELP_DEV_EMAIL = jordan.lee@demo.wehelp
 WEHELP_DEV_PASSWORD = wehelp-demo-patient
+// Demo servers as `Label|URL` pairs, comma-separated. Empty = one demo
+// server at WEHELP_DEFAULT_SERVER_URL. Set your own in Local.xcconfig.
+WEHELP_DEV_SERVERS =
 
 #include? "Local.xcconfig"

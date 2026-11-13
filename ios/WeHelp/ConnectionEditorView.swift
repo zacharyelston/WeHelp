@@ -13,6 +13,7 @@ struct ConnectionEditorView: View {
     @State private var confirmDelete = false
     @State private var tenant = ""
     @State private var email = ""
+    @State private var label = ""
     @State private var status: Status = .idle
 
     enum Status: Equatable { case idle, checking, ok, failed(String) }
@@ -25,6 +26,14 @@ struct ConnectionEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    TextField("e.g. Barnacle, Main office", text: $label)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Label (optional)")
+                } footer: {
+                    Text("Only shown on this phone.")
+                }
                 Section {
                     TextField("http://192.168.1.50:8080", text: $server)
                         .keyboardType(.URL)
@@ -40,10 +49,14 @@ struct ConnectionEditorView: View {
                 } footer: {
                     Text("Ask your practice for this address.")
                 }
-                Section("Practice") {
+                Section {
                     TextField("Practice name", text: $tenant)
                         .textContentType(.organizationName)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Practice")
+                } footer: {
+                    Text("Must match your practice's name on the server exactly. Use Label for a nickname.")
                 }
                 Section {
                     TextField("Email (optional)", text: $email)
@@ -96,6 +109,7 @@ struct ConnectionEditorView: View {
             server = original.serverURL.absoluteString
             tenant = original.tenant
             email = original.email
+            label = original.label ?? ""
         } else if server.isEmpty {
             server = AppState.defaultServerURL().absoluteString
         }
@@ -117,7 +131,8 @@ struct ConnectionEditorView: View {
         var conn = SavedConnection(
             serverURL: url,
             tenant: tenant.trimmingCharacters(in: .whitespaces),
-            email: email.trimmingCharacters(in: .whitespaces))
+            email: email.trimmingCharacters(in: .whitespaces),
+            label: label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label.trimmingCharacters(in: .whitespaces))
         // Keep the demo password only if the demo connection is unchanged.
         if let original, original.id == conn.id { conn.devPassword = original.devPassword }
         appState.saveConnection(conn, replacing: original?.id)
