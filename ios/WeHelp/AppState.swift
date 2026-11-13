@@ -68,6 +68,14 @@ final class AppState {
         persistConnections()
     }
 
+    /// Adds a connection, or replaces `replacing` (the old ID) when editing.
+    func saveConnection(_ conn: SavedConnection, replacing oldID: SavedConnection.ID? = nil) {
+        let index = oldID.flatMap { id in savedConnections.firstIndex { $0.id == id } }
+        savedConnections.removeAll { $0.id == conn.id || $0.id == oldID }
+        savedConnections.insert(conn, at: min(index ?? 0, savedConnections.count))
+        persistConnections()
+    }
+
     func forgetConnection(_ conn: SavedConnection) {
         savedConnections.removeAll { $0.id == conn.id }
         persistConnections()

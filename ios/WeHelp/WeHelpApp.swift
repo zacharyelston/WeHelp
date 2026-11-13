@@ -22,7 +22,7 @@ struct RootView: View {
         case .launching:
             ProgressView().task { await appState.bootstrap() }
         case .signedOut:
-            SignInView()
+            ConnectionsView()
         case .signedIn:
             ContentView()
         }

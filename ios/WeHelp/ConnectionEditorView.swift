@@ -1,0 +1,112 @@
+import SwiftUI
+
+/// Add or edit a server connection: address, practice, and the email to sign
+/// in as. "Test connection" pings the address before saving.
+struct ConnectionEditorView: View {
+    @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
+
+    /// nil when adding a new server.
+    let original: SavedConnection?
+
+    @State private var server = ""
+    @State private var tenant = ""
+    @State private var email = ""
+    @State private var status: Status = .idle
+
+    enum Status: Equatable { case idle, checking, ok, failed(String) }
+
+    private var url: URL? { AppState.validURL(server) }
+    private var canSave: Bool {
+        url != nil && !tenant.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("http://192.168.1.50:8080", text: $server)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .onChange(of: server) { status = .idle }
+                    Button("Test connection") { Task { await test() } }
+                        .disabled(url == nil || status == .checking)
+                    statusRow
+                } header: {
+                    Text("Server address")
+                } footer: {
+                    Text("Ask your practice for this address.")
+                }
+                Section("Practice") {
+                    TextField("Practice name", text: $tenant)
+                        .textContentType(.organizationName)
+                        .autocorrectionDisabled()
+                }
+                Section {
+                    TextField("Email (optional)", text: $email)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Account")
+                } footer: {
+                    Text("Your password is never saved.")
+                }
+            }
+            .navigationTitle(original == nil ? "New server" : "Edit server")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(!canSave) }
+            }
+            .onAppear(perform: load)
+        }
+    }
+
+    @ViewBuilder private var statusRow: some View {
+        switch status {
+        case .idle: EmptyView()
+        case .checking: HStack { ProgressView(); Text("Checking…") }
+        case .ok:
+            Label("Server reachable", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .failed(let msg):
+            Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+        }
+    }
+
+    private func load() {
+        if let original {
+            server = original.serverURL.absoluteString
+            tenant = original.tenant
+            email = original.email
+        } else if server.isEmpty {
+            server = AppState.defaultServerURL().absoluteString
+        }
+    }
+
+    private func test() async {
+        guard let url else { return }
+        status = .checking
+        do {
+            _ = try await APIClient(baseURL: url, session: appState.session).ping()
+            status = .ok
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
+    private func save() {
+        guard let url else { return }
+        var conn = SavedConnection(
+            serverURL: url,
+            tenant: tenant.trimmingCharacters(in: .whitespaces),
+            email: email.trimmingCharacters(in: .whitespaces))
+        // Keep the demo password only if the demo connection is unchanged.
+        if let original, original.id == conn.id { conn.devPassword = original.devPassword }
+        appState.saveConnection(conn, replacing: original?.id)
+        dismiss()
+    }
+}

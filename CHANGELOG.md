@@ -16,8 +16,12 @@ All notable changes to WeHelp are documented here. Format follows
   Sign-out revokes the device on the server and wipes the token and key.
   Settings shows the role from `/api/v1/me`.
 - iOS saved connections: each successful sign-in saves its server, practice
-  and email (never the password) in UserDefaults. The sign-in screen lists
-  saved connections and fills the form from the latest one. Debug builds
+  and email (never the password) in UserDefaults. When signed out, the app
+  opens on a **Servers** list:
+  - "+" opens a New server screen (address with Test connection, practice,
+    optional email).
+  - Tapping a server opens its own sign-in screen.
+  - Swiping a row edits or deletes it. Debug builds
   add a "Demo Clinic" connection from `ios/Config/Debug.xcconfig` (seed
   credentials, including the demo password) for device testing. Release
   builds leave those settings empty.
