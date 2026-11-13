@@ -4,4 +4,10 @@
 // LAN address there.
 WEHELP_DEFAULT_SERVER_URL = http:/$()/localhost:8080
 
+// Demo connection shown on the sign-in screen (seed data from `make seed`,
+// already public in the README). Release builds leave these empty.
+WEHELP_DEV_TENANT = Demo Clinic
+WEHELP_DEV_EMAIL = jordan.lee@demo.wehelp
+WEHELP_DEV_PASSWORD = wehelp-demo-patient
+
 #include? "Local.xcconfig"

@@ -1,12 +1,14 @@
 import SwiftUI
 
 /// Password sign-in. On success the app enrolls this phone's device key, so
-/// later launches resume without the password.
+/// later launches resume without the password, and the connection (server,
+/// practice, email) is saved for next time.
 struct SignInView: View {
     @Environment(AppState.self) private var appState
     @State private var tenant = ""
     @State private var email = ""
     @State private var password = ""
+    @State private var selectedID: SavedConnection.ID?
     @State private var working = false
     @State private var error: String?
 
@@ -17,6 +19,18 @@ struct SignInView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if !appState.savedConnections.isEmpty {
+                    Section("Saved connections") {
+                        ForEach(appState.savedConnections) { conn in
+                            Button { select(conn) } label: { row(conn) }
+                                .swipeActions {
+                                    if conn.devPassword == nil {
+                                        Button("Forget", role: .destructive) { appState.forgetConnection(conn) }
+                                    }
+                                }
+                        }
+                    }
+                }
                 Section("Practice") {
                     TextField("Practice name", text: $tenant)
                         .textContentType(.organizationName)
@@ -50,8 +64,40 @@ struct SignInView: View {
                 ServerSection()
             }
             .navigationTitle("WeHelp")
-            .onAppear { if tenant.isEmpty { tenant = appState.lastTenant } }
+            .onAppear {
+                if let first = appState.savedConnections.first {
+                    select(first)
+                } else if tenant.isEmpty {
+                    tenant = appState.lastTenant
+                }
+            }
         }
+    }
+
+    private func row(_ conn: SavedConnection) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(conn.title).foregroundStyle(.primary)
+                Text(conn.subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if conn.devPassword != nil {
+                Text("Demo").font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(.orange.opacity(0.2), in: Capsule())
+            }
+            if selectedID == conn.id {
+                Image(systemName: "checkmark").foregroundStyle(.tint)
+            }
+        }
+    }
+
+    private func select(_ conn: SavedConnection) {
+        selectedID = conn.id
+        appState.use(conn)
+        tenant = conn.tenant
+        email = conn.email
+        password = conn.devPassword ?? ""
+        error = nil
     }
 
     private func submit() {

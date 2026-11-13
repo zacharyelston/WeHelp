@@ -113,6 +113,10 @@ struct ServerSection: View {
                     Text("The address of your clinic's WeHelp server.")
                 }
                 .onAppear { serverText = appState.api.baseURL.absoluteString }
+                .onChange(of: appState.api.baseURL) { _, url in
+                    serverText = url.absoluteString
+                    status = .idle
+                }
     }
 
     @ViewBuilder private var statusRow: some View {

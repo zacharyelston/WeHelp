@@ -15,6 +15,12 @@ All notable changes to WeHelp are documented here. Format follows
   single-flight refresh. Launch resumes the session using the device key.
   Sign-out revokes the device on the server and wipes the token and key.
   Settings shows the role from `/api/v1/me`.
+- iOS saved connections: each successful sign-in saves its server, practice
+  and email (never the password) in UserDefaults. The sign-in screen lists
+  saved connections and fills the form from the latest one. Debug builds
+  add a "Demo Clinic" connection from `ios/Config/Debug.xcconfig` (seed
+  credentials, including the demo password) for device testing. Release
+  builds leave those settings empty.
 - Server: `POST /api/v1/auth/enroll` and `/auth/logout`, plus migration
   `V3__devices.sql` (a `devices` table and `refresh_tokens.device_id`).
   - Device-bound refresh tokens need an ECDSA-P256 proof over

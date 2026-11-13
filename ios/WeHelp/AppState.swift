@@ -29,11 +29,61 @@ final class AppState {
         set { defaults.set(newValue, forKey: Self.tenantKey) }
     }
 
+    // MARK: Saved connections
+
+    static let connectionsKey = "savedConnections"
+
+    /// Most recent first. The Debug demo preset is listed after the user's
+    /// own connections unless one of them already matches it.
+    private(set) var savedConnections: [SavedConnection] = []
+
+    private func loadConnections(bundle: Bundle) {
+        let stored = defaults.data(forKey: Self.connectionsKey)
+            .flatMap { try? JSONDecoder().decode([SavedConnection].self, from: $0) } ?? []
+        var list = stored
+        if let preset = SavedConnection.devPreset(bundle: bundle, serverURL: Self.defaultServerURL(bundle: bundle)) {
+            if let i = list.firstIndex(where: { $0.id == preset.id }) {
+                list[i].devPassword = preset.devPassword
+            } else {
+                list.append(preset)
+            }
+        }
+        savedConnections = list
+    }
+
+    private func persistConnections() {
+        if let data = try? JSONEncoder().encode(savedConnections) {
+            defaults.set(data, forKey: Self.connectionsKey)
+        }
+    }
+
+    /// Moves (or inserts) the connection to the top of the list.
+    func rememberConnection(tenant: String, email: String) {
+        var conn = SavedConnection(serverURL: api.baseURL, tenant: tenant, email: email)
+        if let existing = savedConnections.first(where: { $0.id == conn.id }) {
+            conn.devPassword = existing.devPassword
+        }
+        savedConnections.removeAll { $0.id == conn.id }
+        savedConnections.insert(conn, at: 0)
+        persistConnections()
+    }
+
+    func forgetConnection(_ conn: SavedConnection) {
+        savedConnections.removeAll { $0.id == conn.id }
+        persistConnections()
+    }
+
+    /// Points the client at the connection's server.
+    func use(_ conn: SavedConnection) {
+        setServerURL(conn.serverURL.absoluteString)
+    }
+
     init(defaults: UserDefaults = .standard, bundle: Bundle = .main) {
         self.defaults = defaults
         let stored = defaults.string(forKey: Self.serverURLKey)
         let url = stored.flatMap(Self.validURL) ?? Self.defaultServerURL(bundle: bundle)
         api = APIClient(baseURL: url, session: session)
+        loadConnections(bundle: bundle)
     }
 
     // MARK: Session
@@ -65,6 +115,7 @@ final class AppState {
         let bound = try await api.enroll(loginRefreshToken: login.refreshToken, key: key, name: UIDevice.current.name)
         try await session.store(bound)
         lastTenant = tenant
+        rememberConnection(tenant: tenant, email: email)
         me = try await api.me()
         phase = .signedIn
     }
