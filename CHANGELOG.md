@@ -5,6 +5,17 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- Architecture: Back Office / Relay split (docs/ARCHITECTURE.md). The office's
+  Mac mini (`wehelpd` + Postgres) holds all PHI, accepts no inbound internet
+  connections, and terminates its own TLS. A separate cloud Relay, enabled by
+  each office's subscription key (the paid "Web & Tele Hosting" tier), routes
+  phone and web traffic by SNI without decrypting it. It also hosts office
+  websites, forwards end-to-end encrypted telehealth media and sends PHI-free
+  pushes. The Relay must not import PHI packages, and a test will enforce
+  that. The lit-review entry covers tunnels, certmagic, LiveKit/Pion, SFrame
+  and HIPAA business-associate guidance.
+
 ### Changed
 - Migrations moved from embedded goose to **Flyway**: `db/migrations/
   V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The

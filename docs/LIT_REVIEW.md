@@ -62,6 +62,24 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 |---|---|
 | oapi-codegen/oapi-codegen | **evaluate** — spec-first codegen for chi; alternatively keep hand-written handlers + spec as documentation, generate the Swift client from the spec later |
 
+## Relay: tunnels, site hosting, telehealth (Back Office / Relay split)
+
+Requirement: the cloud Relay routes phone, web and video traffic to each
+office's Back Office without being able to read it. See ARCHITECTURE.md,
+"Back Office and Relay".
+
+| Candidate | Verdict |
+|---|---|
+| Tailscale Funnel | **reference** — the closest design: the public edge routes by SNI and the node terminates TLS, so the edge never sees plaintext |
+| fatedier/frp (Go) | **evaluate** — self-hosted reverse proxy over an outbound tunnel, with SNI-routed HTTPS vhosts that pass TLS through. Either adopt it, or use it as the reference for a small hand-rolled relay |
+| hashicorp/yamux | **adopt** if hand-rolled — multiplexes many streams over the one outbound tunnel connection |
+| Cloudflare Tunnel, ngrok (default edges) | **skip** — they terminate TLS at the edge, so the provider sees PHI. ngrok's TLS-passthrough edges are acceptable but third-party |
+| caddyserver/certmagic | **adopt** — the Back Office obtains its own certificates. TLS-ALPN-01 works through an SNI-passthrough relay |
+| LiveKit (Go SFU) | **evaluate** — supports end-to-end encrypted media with client-held keys, so the SFU forwards ciphertext. LiveKit vs Pion is still an open owner decision |
+| pion/webrtc | **evaluate** — lower-level Go WebRTC if LiveKit is too heavy for the Relay |
+| SFrame (RFC 9605) | **reference** — the standard for end-to-end media encryption through an SFU |
+| HHS cloud-computing guidance (HIPAA) | **reference** — a service that stores or routinely handles ePHI is a business associate even when the data is encrypted. The narrow "conduit" exception covers transmission only. Plan on BAAs for the Relay; designing it to hold no PHI limits exposure, but it does not remove that obligation. This is not legal advice |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all

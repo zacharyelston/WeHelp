@@ -8,6 +8,8 @@
   CoreBluetooth only for devices Apple doesn't cover.
 - Two deployment shapes from one artifact: **on-prem** (single container +
   Postgres) and **cloud-hosted** (multi-tenant).
+- Patient-facing connectivity (phones, web, telehealth, push) goes through a
+  separate **Relay** that holds no patient data. See "Back Office and Relay".
 - An internal credit system for resource accounting that survives an audit.
 - Document-standard-agnostic now, FHIR-mappable later.
 
@@ -50,6 +52,84 @@ themselves.
    routing infrastructure.
 5. **No cloud-locked dependencies.** Postgres + S3-compatible object storage
    only, so the same artifact runs in a clinic closet or in our cloud.
+
+## Back Office and Relay: two systems, one boundary
+
+WeHelp is two separately deployed systems. The rule between them: **the part
+that connects phones and the web does not hold patient data.**
+
+```
+ phones / patient web ──TLS──► Relay (cloud, multi-office, paid tier)
+                                 │  routes by hostname, never decrypts
+                                 ▼
+                          outbound tunnel opened by the office
+                                 │
+ office staff (LAN) ─────► Back Office (Mac mini in the office: wehelpd + Postgres)
+                           all PHI, scheduling, audit, ledger
+```
+
+### Back Office (`wehelpd`, this repo today)
+
+- Runs in the office and is managed by the office through its web UI on the
+  office network. It holds all PHI: patients, messages, appointments,
+  check-ins, audit chain, ledger.
+- It **accepts no inbound connections from the internet.** It reaches the
+  Relay by opening an outbound tunnel, so the office router needs no port
+  forwarding.
+- It terminates TLS for patient traffic itself. The certificate for the
+  office's public hostname lives on the Back Office (ACME TLS-ALPN-01 works
+  through an SNI-passthrough relay), never on the Relay.
+- Patient login, tokens, and every API call are handled here, as today.
+- Staff and admin routes are served on the LAN only by default. Exposing them
+  through the Relay is an explicit per-office setting.
+
+### Relay (planned; separate binary and deployment)
+
+The Relay is the paid "Web & Tele Hosting" service. Each office registers with
+a **subscription key**, which entitles it to:
+
+1. **Traffic routing.** Phones and patient browsers connect to the office's
+   public hostname. The Relay reads only the TLS SNI, looks up the office, and
+   forwards the still-encrypted bytes down that office's tunnel. It cannot
+   read requests, responses, credentials or tokens.
+2. **Website hosting.** The Back Office publishes the office's public website
+   (hours, providers, directions) to the Relay, which serves it alongside
+   other offices' sites. Published content must contain no PHI. Forms on the
+   site (appointment requests, contact) submit through the tunnel to the Back
+   Office; the Relay does not store submissions.
+3. **Telehealth routing.** The Relay runs signaling and media forwarding for
+   video visits. Who meets whom and when stays in the Back Office, which mints
+   short-lived room tokens. Media is end-to-end encrypted between participants
+   with keys exchanged through the Back Office, so the media server forwards
+   ciphertext. Nothing is recorded on the Relay.
+4. **Push.** APNs keys belong to the app publisher, so pushes are sent from the
+   Relay. The Back Office sends an opaque request (device token plus a generic
+   category); payloads never contain PHI ("You have a new message", not its
+   text).
+
+What the Relay is allowed to store: office records (ID, subscription key hash,
+hostnames, plan, tunnel status, billing), published website bundles, and push
+device tokens mapped to an office. Nothing else. Connection logs are kept
+minimal and short-lived, because knowing that a device talks to a given clinic
+is itself sensitive.
+
+### Enforcing the boundary
+
+- The Relay is its own binary (`cmd/wehelp-relay`) with its own small
+  database. It must not import `internal/store`, `internal/audit`,
+  `internal/ledger`, `internal/seed` or the PHI handlers in `internal/server`.
+  A test fails the build if it does.
+- The Relay never holds TLS private keys for office hostnames. Traffic to
+  them is passthrough-only.
+- Relay APIs for the Back Office (publish site, mint room, send push) take
+  opaque identifiers, never patient names, contact details or message
+  content.
+- On the LAN, phones may talk to the Back Office directly. The iOS app's
+  configurable server URL already supports both cases.
+
+This section is the issue-level justification for the Relay as infrastructure
+beyond Postgres and object storage (see "Scale budget"). Prior art is in
+docs/LIT_REVIEW.md, under "Relay".
 
 ## Data model (migration 00001)
 
