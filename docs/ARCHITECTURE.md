@@ -194,3 +194,21 @@ don't commit `.xcodeproj`. `AppState` (@Observable) holds session state;
 - E2E encryption for message bodies.
 - APNs push for reminders (server → device token table).
 - Object storage for attachments/imaging.
+- **In-office iPad kiosk for patient data entry** (needs spec). The office
+  will run an iPad in kiosk mode so patients can enter their own data
+  (intake forms, check-in, history) at the practice. It differs from the
+  patient's phone: it is a shared, office-owned device on the office LAN
+  that talks to the Back Office directly, never through the Relay. Before
+  any code, the spec must settle:
+  - **Device trust:** enroll the iPad as an office device (its own device
+    key and role) rather than as any patient's device.
+  - **Patient identity:** how a patient is matched or verified at the
+    kiosk without a personal login (staff hand-off, code, date of birth).
+  - **Session isolation:** wipe all entered data from the iPad between
+    patients, with an idle timeout.
+  - **Lockdown:** Guided Access or Single App Mode, and whether MDM is
+    needed.
+  - **Staff review:** whether entries go straight into the record or into
+    a staff review queue.
+  - **Audit:** how audit attribution works for patient-entered data on a
+    shared device.
