@@ -1,0 +1,3 @@
+// Release build settings. No dev default: the server URL is set in the app
+// (and later by clinic-manifest onboarding).
+WEHELP_DEFAULT_SERVER_URL =

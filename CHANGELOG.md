@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
+  `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).
+  The HealthKit entitlement is kept; it provisions on this paid team.
 - Migrations moved from embedded goose to **Flyway**: `db/migrations/
   V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
   compose `migrate` service runs before `server`; `make db-migrate` is the
@@ -16,6 +19,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- iOS: run on a physical device against a local backend. The server URL can
+  now be set in Settings (persisted in UserDefaults; it is not a secret),
+  with "Save and test connection" calling `/api/v1/ping` and a reset to the
+  build default. The build default comes from `ios/Config/*.xcconfig`:
+  Debug uses `http://localhost:8080` (simulator) unless a gitignored
+  `ios/Config/Local.xcconfig` overrides it with the Mac's LAN address (see
+  `Local.xcconfig.example`). Release has no default. This is the first step
+  toward clinic-manifest onboarding.
+- iOS: `NSAppTransportSecurity` → `NSAllowsLocalNetworking` so dev builds
+  can use plain HTTP to LAN hosts only (no `NSAllowsArbitraryLoads`), plus an
+  `NSLocalNetworkUsageDescription` for the local-network prompt.
 - Seed data + demo script (issue #14): `wehelpd seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
