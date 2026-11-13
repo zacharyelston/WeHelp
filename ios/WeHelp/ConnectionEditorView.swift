@@ -6,10 +6,11 @@ struct ConnectionEditorView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
 
-    /// nil when adding a new server.
-    let original: SavedConnection?
+    let target: EditTarget
+    private var original: SavedConnection? { target.original }
 
     @State private var server = ""
+    @State private var confirmDelete = false
     @State private var tenant = ""
     @State private var email = ""
     @State private var status: Status = .idle
@@ -54,6 +55,19 @@ struct ConnectionEditorView: View {
                     Text("Account")
                 } footer: {
                     Text("Your password is never saved.")
+                }
+                if let original {
+                    Section {
+                        Button("Delete server", role: .destructive) { confirmDelete = true }
+                    }
+                    .confirmationDialog("Delete this server?", isPresented: $confirmDelete) {
+                        Button("Delete \(original.tenant)", role: .destructive) {
+                            appState.forgetConnection(original)
+                            dismiss()
+                        }
+                    } message: {
+                        Text("\(original.subtitle) will be removed from this phone.")
+                    }
                 }
             }
             .navigationTitle(original == nil ? "New server" : "Edit server")

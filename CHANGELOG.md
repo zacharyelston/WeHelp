@@ -21,7 +21,11 @@ All notable changes to WeHelp are documented here. Format follows
   - "+" opens a New server screen (address with Test connection, practice,
     optional email).
   - Tapping a server opens its own sign-in screen.
-  - Swiping a row edits or deletes it. Debug builds
+  - Each row has an ⓘ button, plus a long-press menu and swipe actions, to
+    edit or delete it. The editor has a Delete server button, and each
+    sign-in screen has an Edit button. Deletes ask for confirmation.
+  - The Debug "Demo" entry can be edited or deleted too, and a deleted demo
+    entry does not come back at the next launch. Debug builds
   add a "Demo Clinic" connection from `ios/Config/Debug.xcconfig` (seed
   credentials, including the demo password) for device testing. Release
   builds leave those settings empty.

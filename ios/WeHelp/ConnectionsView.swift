@@ -1,21 +1,12 @@
 import SwiftUI
 
 /// Signed-out home: the practices/servers this phone knows. Tap one to sign
-/// in; "+" adds a new server; swipe to edit or delete.
+/// in; "+" adds a server; the ⓘ button, a long press, or a swipe edits or
+/// deletes one.
 struct ConnectionsView: View {
     @Environment(AppState.self) private var appState
     @State private var editing: EditTarget?
-
-    enum EditTarget: Identifiable {
-        case new
-        case existing(SavedConnection)
-        var id: String {
-            switch self {
-            case .new: "new"
-            case .existing(let c): c.id
-            }
-        }
-    }
+    @State private var confirmDelete: SavedConnection?
 
     var body: some View {
         NavigationStack {
@@ -33,16 +24,20 @@ struct ConnectionsView: View {
                     List {
                         Section {
                             ForEach(appState.savedConnections) { conn in
-                                NavigationLink(value: conn) { ConnectionRow(conn: conn) }
-                                    .swipeActions {
-                                        if conn.devPassword == nil {
-                                            Button("Delete", role: .destructive) { appState.forgetConnection(conn) }
-                                        }
-                                        Button("Edit") { editing = .existing(conn) }.tint(.blue)
-                                    }
+                                NavigationLink(value: conn) {
+                                    ConnectionRow(conn: conn) { editing = .existing(conn) }
+                                }
+                                .contextMenu {
+                                    Button { editing = .existing(conn) } label: { Label("Edit", systemImage: "pencil") }
+                                    Button(role: .destructive) { confirmDelete = conn } label: { Label("Delete", systemImage: "trash") }
+                                }
+                                .swipeActions {
+                                    Button("Delete", role: .destructive) { confirmDelete = conn }
+                                    Button("Edit") { editing = .existing(conn) }.tint(.blue)
+                                }
                             }
                         } footer: {
-                            Text("Choose your practice to sign in.")
+                            Text("Tap a practice to sign in. Tap ⓘ to edit or delete it.")
                         }
                     }
                 }
@@ -54,18 +49,39 @@ struct ConnectionsView: View {
                     Button { editing = .new } label: { Label("Add server", systemImage: "plus") }
                 }
             }
-            .sheet(item: $editing) { target in
-                switch target {
-                case .new: ConnectionEditorView(original: nil)
-                case .existing(let conn): ConnectionEditorView(original: conn)
-                }
+            .sheet(item: $editing) { ConnectionEditorView(target: $0) }
+            .confirmationDialog("Delete this server?", isPresented: Binding(
+                get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }),
+                presenting: confirmDelete
+            ) { conn in
+                Button("Delete \(conn.tenant)", role: .destructive) { appState.forgetConnection(conn) }
+            } message: { conn in
+                Text("\(conn.subtitle) will be removed from this phone.")
             }
         }
     }
 }
 
+/// What the editor sheet is editing.
+enum EditTarget: Identifiable {
+    case new
+    case existing(SavedConnection)
+
+    var id: String {
+        switch self {
+        case .new: "new"
+        case .existing(let c): c.id
+        }
+    }
+
+    var original: SavedConnection? {
+        if case .existing(let c) = self { c } else { nil }
+    }
+}
+
 struct ConnectionRow: View {
     let conn: SavedConnection
+    var onInfo: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -77,6 +93,13 @@ struct ConnectionRow: View {
             if conn.devPassword != nil {
                 Text("Demo").font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.orange.opacity(0.2), in: Capsule())
+            }
+            if let onInfo {
+                Button(action: onInfo) {
+                    Image(systemName: "info.circle").imageScale(.large)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Edit \(conn.tenant)")
             }
         }
     }

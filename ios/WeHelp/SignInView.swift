@@ -4,7 +4,9 @@ import SwiftUI
 /// device key, so later launches resume without the password.
 struct SignInView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.dismiss) private var dismiss
     let connection: SavedConnection
+    @State private var editing: EditTarget?
 
     @State private var email = ""
     @State private var password = ""
@@ -47,6 +49,16 @@ struct SignInView: View {
         }
         .navigationTitle(connection.tenant)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Edit") { editing = .existing(connection) }
+            }
+        }
+        .sheet(item: $editing) { ConnectionEditorView(target: $0) }
+        // Edited or deleted: this screen shows a stale server, so go back.
+        .onChange(of: appState.savedConnections) { _, list in
+            if !list.contains(where: { $0.id == connection.id }) { dismiss() }
+        }
         .onAppear {
             appState.use(connection)
             if email.isEmpty { email = connection.email }

@@ -32,16 +32,24 @@ final class AppState {
     // MARK: Saved connections
 
     static let connectionsKey = "savedConnections"
+    static let hiddenPresetsKey = "hiddenPresetConnections"
 
     /// Most recent first. The Debug demo preset is listed after the user's
-    /// own connections unless one of them already matches it.
+    /// own connections unless one of them already matches it, or the user
+    /// deleted or edited it away.
     private(set) var savedConnections: [SavedConnection] = []
+
+    private var hiddenPresets: Set<String> {
+        get { Set(defaults.stringArray(forKey: Self.hiddenPresetsKey) ?? []) }
+        set { defaults.set(Array(newValue), forKey: Self.hiddenPresetsKey) }
+    }
 
     private func loadConnections(bundle: Bundle) {
         let stored = defaults.data(forKey: Self.connectionsKey)
             .flatMap { try? JSONDecoder().decode([SavedConnection].self, from: $0) } ?? []
         var list = stored
-        if let preset = SavedConnection.devPreset(bundle: bundle, serverURL: Self.defaultServerURL(bundle: bundle)) {
+        if let preset = SavedConnection.devPreset(bundle: bundle, serverURL: Self.defaultServerURL(bundle: bundle)),
+           !hiddenPresets.contains(preset.id) {
             if let i = list.firstIndex(where: { $0.id == preset.id }) {
                 list[i].devPassword = preset.devPassword
             } else {
@@ -70,6 +78,10 @@ final class AppState {
 
     /// Adds a connection, or replaces `replacing` (the old ID) when editing.
     func saveConnection(_ conn: SavedConnection, replacing oldID: SavedConnection.ID? = nil) {
+        if let oldID, oldID != conn.id,
+           savedConnections.first(where: { $0.id == oldID })?.devPassword != nil {
+            hiddenPresets.insert(oldID)   // an edited preset must not come back
+        }
         let index = oldID.flatMap { id in savedConnections.firstIndex { $0.id == id } }
         savedConnections.removeAll { $0.id == conn.id || $0.id == oldID }
         savedConnections.insert(conn, at: min(index ?? 0, savedConnections.count))
@@ -77,6 +89,7 @@ final class AppState {
     }
 
     func forgetConnection(_ conn: SavedConnection) {
+        if conn.devPassword != nil { hiddenPresets.insert(conn.id) }
         savedConnections.removeAll { $0.id == conn.id }
         persistConnections()
     }
