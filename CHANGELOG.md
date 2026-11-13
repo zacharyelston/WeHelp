@@ -5,6 +5,26 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- iOS sign-in with device-bound sessions (#5). There is a sign-in screen
+  (practice, email, password, server). After a password login the app creates
+  a P-256 key in the Secure Enclave (a software key on the simulator) and
+  enrolls it. The refresh token is kept in the Keychain
+  (`AfterFirstUnlockThisDeviceOnly`) and the access token in memory only.
+  `APIClient` attaches the Bearer token and refreshes once on a 401, with
+  single-flight refresh. Launch resumes the session using the device key.
+  Sign-out revokes the device on the server and wipes the token and key.
+  Settings shows the role from `/api/v1/me`.
+- Server: `POST /api/v1/auth/enroll` and `/auth/logout`, plus migration
+  `V3__devices.sql` (a `devices` table and `refresh_tokens.device_id`).
+  - Device-bound refresh tokens need an ECDSA-P256 proof over
+    `wehelp-device-v1\n{purpose}\n{refresh_token}\n{unix_ts}` (±5 min).
+    Single-use rotation makes a captured proof useless.
+  - Patient accounts can only refresh device-bound tokens, which keeps
+    patients mobile-only per docs/ARCHITECTURE.md. Staff tokens are
+    unaffected.
+  - Enroll, refresh and logout are audited.
+
 ### Changed
 - iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
   `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).

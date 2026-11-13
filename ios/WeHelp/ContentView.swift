@@ -58,6 +58,33 @@ struct AppointmentsView: View {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @State private var signingOut = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Account") {
+                    LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
+                    LabeledContent("Server", value: appState.api.baseURL.absoluteString)
+                }
+                Section {
+                    Button("Sign out", role: .destructive) {
+                        signingOut = true
+                        Task { await appState.signOut() }
+                    }
+                    .disabled(signingOut)
+                } footer: {
+                    Text("Signing out removes this phone's key. You'll need your password to sign in again.")
+                }
+            }
+            .navigationTitle("Settings")
+        }
+    }
+}
+
+/// Server address field with "Save and test connection".
+struct ServerSection: View {
+    @Environment(AppState.self) private var appState
     @State private var serverText = ""
     @State private var status: ConnectionStatus = .idle
 
@@ -66,11 +93,6 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Account") {
-                    LabeledContent("Role", value: appState.role?.rawValue ?? "not signed in")
-                }
                 Section {
                     TextField("http://192.168.1.50:8080", text: $serverText)
                         .keyboardType(.URL)
@@ -90,10 +112,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("The address of your clinic's WeHelp server.")
                 }
-            }
-            .navigationTitle("Settings")
-            .onAppear { serverText = appState.api.baseURL.absoluteString }
-        }
+                .onAppear { serverText = appState.api.baseURL.absoluteString }
     }
 
     @ViewBuilder private var statusRow: some View {
