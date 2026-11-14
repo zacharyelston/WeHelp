@@ -28,7 +28,27 @@ type Config struct {
 
 	// Back Office identity (#35): keys, local CA and Registry registration.
 	OfficeDir   string `mapstructure:"office_dir"`   // mode 700, outside the repo
-	RegistryURL string `mapstructure:"registry_url"` // where wehelpd init installs
+	RegistryURL string `mapstructure:"registry_url"` // where wehelpd init installs; the Relay pulls lists here too
+
+	// Office → Relay tunnel (#4), started by wehelpd serve once installed.
+	RelayTunnel          bool   `mapstructure:"relay_tunnel"`
+	RelayAddressOverride string `mapstructure:"relay_address_override"` // demos only
+
+	// WeHelp Relay (wehelp-relay, #4). WEHELP_RELAY_* env vars.
+	RelayDir          string        `mapstructure:"relay_dir"` // host key, TLS key, list cache; mode 700
+	RelayID           string        `mapstructure:"relay_id"`  // from wehelp-registry relay add
+	RelaySSHAddr      string        `mapstructure:"relay_ssh_addr"`
+	RelayConnectAddr  string        `mapstructure:"relay_connect_addr"`
+	RelayRegistryKey  string        `mapstructure:"relay_registry_key"` // pinned: wehelp-registry pubkey
+	RelayListInterval time.Duration `mapstructure:"relay_list_interval"`
+}
+
+func defaultRelayDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/var/lib/wehelp-relay"
+	}
+	return filepath.Join(home, ".wehelp", "relay")
 }
 
 // defaultRegistryKey keeps the signing key outside the repo by default.
@@ -72,6 +92,15 @@ func Load(cfgFile string) error {
 
 	viper.SetDefault("office_dir", defaultOfficeDir())
 	viper.SetDefault("registry_url", "http://localhost:8090")
+	viper.SetDefault("relay_tunnel", true)
+	viper.SetDefault("relay_address_override", "")
+
+	viper.SetDefault("relay_dir", defaultRelayDir())
+	viper.SetDefault("relay_id", "")
+	viper.SetDefault("relay_ssh_addr", ":2222")
+	viper.SetDefault("relay_connect_addr", ":8443")
+	viper.SetDefault("relay_registry_key", "")
+	viper.SetDefault("relay_list_interval", "1m")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

@@ -6,9 +6,12 @@ package keyfile
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -90,4 +93,29 @@ func ReadEd25519(path string) (ed25519.PrivateKey, error) {
 		return nil, fmt.Errorf("keyfile: %s is not an ed25519 key", path)
 	}
 	return priv, nil
+}
+
+// P256Pin is the pin phones use for the office and Relay TLS keys: base64
+// SHA-256 of the uncompressed X9.63 public key (04 || X || Y). Those are the
+// SPKI subjectPublicKey bits, and what iOS SecKeyCopyExternalRepresentation
+// returns (spike S1).
+func P256Pin(pub *ecdsa.PublicKey) string {
+	raw, err := pub.Bytes()
+	if err != nil {
+		panic(err)
+	}
+	sum := sha256.Sum256(raw)
+	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+// CheckPrivate refuses a key file that group or others can read.
+func CheckPrivate(path string) error {
+	st, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("keyfile: %w", err)
+	}
+	if st.Mode().Perm()&0o077 != 0 {
+		return fmt.Errorf("keyfile: %s is mode %v; it must not be readable by group or others (chmod 600)", path, st.Mode().Perm())
+	}
+	return nil
 }
