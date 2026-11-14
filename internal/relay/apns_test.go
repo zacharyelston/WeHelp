@@ -54,7 +54,8 @@ func newFakeAPNs(t *testing.T) (*fakeAPNs, *APNs, *ecdsa.PrivateKey) {
 	return f, a, key
 }
 
-const testToken = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+// A made-up, deliberately low-entropy device token (not a real one).
+var testToken = strings.Repeat("ab", 32)
 
 func TestAPNsSend(t *testing.T) {
 	f, a, key := newFakeAPNs(t)

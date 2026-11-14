@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,7 +33,8 @@ func (f *fakePusher) count() int {
 	return len(f.sent)
 }
 
-const tokA = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+// A made-up, deliberately low-entropy device token (not a real one).
+var tokA = strings.Repeat("ab", 32)
 
 // TestPushOnNewMessage is #7 on the Back Office side: devices register
 // tokens; a message pushes a fixed category to the recipient's devices;

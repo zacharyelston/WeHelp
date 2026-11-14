@@ -62,7 +62,7 @@ func TestPushThroughRelay(t *testing.T) {
 	}()
 	eventually(t, "office connected", func() bool { return h.rl.Connected(id.Registration.OfficeID) })
 
-	const token = "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+	token := strings.Repeat("ab", 32) // made up, deliberately low-entropy
 	var res string
 	eventually(t, "push sent", func() bool {
 		res, _ = pusher.Push(context.Background(), tunnel.PushRequest{Token: token, Environment: "sandbox", Category: "new_message"})
