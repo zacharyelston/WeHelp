@@ -83,6 +83,13 @@ The boot job (`~/Library/LaunchAgents/com.wehelp.appliance.plist`) runs
 3. It waits up to 5 minutes for `/healthz` and logs `healthy` or
    `UNHEALTHY` to `~/Library/Logs/wehelp-appliance.log`.
 
+If Docker isn't up a minute after login, the boot job steps in once.
+After a reboot, Lima's `vz.pid` can name a process ID that macOS has given
+to something else, and Colima then refuses to start ("vz driver is running
+but host agent is not"). The boot job removes that stale file, along with
+`ha.sock`, and restarts Colima. This happened on Barnacle after a macOS
+update (2026-11-14) and was fixed in #123.
+
 **Before a planned reboot or macOS update,** run
 `make appliance-stop-for-reboot`. It stops the stack and Colima cleanly, so
 the VM saves container state.
