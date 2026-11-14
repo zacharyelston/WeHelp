@@ -37,6 +37,7 @@ struct TodayView: View {
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var signingOut = false
+    @State private var confirmUnpair = false
 
     var body: some View {
         NavigationStack {
@@ -51,13 +52,18 @@ struct SettingsView: View {
                     NavigationLink("Devices") { DevicesView() }
                 }
                 Section {
-                    Button("Sign out", role: .destructive) {
-                        signingOut = true
-                        Task { await appState.signOut() }
-                    }
-                    .disabled(signingOut)
+                    Button("Unpair this device…", role: .destructive) { confirmUnpair = true }
+                        .disabled(signingOut)
+                        .confirmationDialog("Unpair this device?", isPresented: $confirmUnpair, titleVisibility: .visible) {
+                            Button("Unpair", role: .destructive) {
+                                signingOut = true
+                                Task { await appState.signOut() }
+                            }
+                        } message: {
+                            Text("This removes \(appState.lastTenant.isEmpty ? "your practice" : appState.lastTenant) from this device. To use WeHelp here again, scan a new pairing code at the practice.")
+                        }
                 } footer: {
-                    Text("Signing out removes this phone's key. You'll need your password to sign in again.")
+                    Text("Your health information is protected by Face ID or your passcode. You don't need to unpair to keep it private.")
                 }
             }
             .navigationTitle("Settings")

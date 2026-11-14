@@ -10,7 +10,9 @@ enum Role: String, Codable {
 @MainActor
 @Observable
 final class AppState {
-    enum Phase: Equatable { case launching, signedOut, signedIn }
+    /// unreachable: this device is paired but the practice can't be reached
+    /// right now. The account is kept; it is never treated as unpaired.
+    enum Phase: Equatable { case launching, signedOut, signedIn, unreachable(String) }
 
     /// UserDefaults keys. Neither is a secret.
     static let officeKey = "currentOffice"
@@ -170,10 +172,15 @@ final class AppState {
         } catch APIError.unauthorized, APIError.notEnrolled {
             await wipeLocalSession()
         } catch {
-            // Server unreachable: keep the stored session so a later launch
-            // can resume it; show sign-in for now.
-            phase = .signedOut
+            // Practice unreachable (Relay down, no network, office offline):
+            // keep the pairing and offer to try again, never the pair screen.
+            phase = .unreachable(error.localizedDescription)
         }
+    }
+
+    /// Tries to reach the practice again after `.unreachable`.
+    func retry() {
+        phase = .launching
     }
 
     /// Password login, then enroll this device and keep only the

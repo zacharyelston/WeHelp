@@ -25,6 +25,8 @@ struct RootView: View {
             ProgressView().task { await appState.bootstrap() }
         case .signedOut:
             WelcomeView()
+        case .unreachable(let message):
+            UnreachableView(message: message)
         case .signedIn:
             ContentView()
                 // Signed-in screens show PHI: cover them whenever the app is
