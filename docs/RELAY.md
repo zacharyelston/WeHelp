@@ -45,7 +45,8 @@ make build
 bin/wehelp-relay init      # ~/.wehelp/relay: SSH host key, TLS key (prints its pin); never replaces a key
 bin/wehelp-registry relay add --name laptop \
   --ssh-address 192.168.1.20:2222 --connect-address 192.168.1.20:8443 \
-  --host-key-file ~/.wehelp/relay/ssh_host_ed25519.pub         # prints the relay ID
+  --host-key-file ~/.wehelp/relay/ssh_host_ed25519.pub \
+  --tls-pin <tls_key_pin from init>                            # prints the relay ID
 export WEHELP_RELAY_ID=<relay id>
 export WEHELP_RELAY_REGISTRY_KEY="$(bin/wehelp-registry pubkey)"
 export WEHELP_REGISTRY_URL=http://127.0.0.1:8090
@@ -97,5 +98,6 @@ handles.
      new host key (OFFICE_KEYS.md).
 - **TLS key:**
   1. Move `tls.key` and `tls.crt` aside and run `init`.
-  2. Phones pin the Relay key, so they need the new pin: re-pair them, or
-     wait for the pin to arrive through the app's office identity (#36).
+  2. `wehelp-registry relay set-tls-pin <name> <new pin>`, then reinstall
+     each office on this Relay so its pairing identity carries the new pin.
+  3. Phones pin the Relay key, so they must be re-paired (#37).

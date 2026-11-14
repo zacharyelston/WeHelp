@@ -76,6 +76,15 @@ from it.
 Every phone takes this path, including on the office Wi-Fi. There is one path
 to secure, test and audit.
 
+The app checks two pins, each the base64 SHA-256 of a P-256 public key in
+X9.63 form: the Relay's (outer TLS) and the office's (inner TLS). Both come
+from pairing: the office's pairing identity carries the Relay address, Relay
+pin, office ID and office pin. A mismatch fails closed with an error that
+names which side failed. iOS needs one scoped ATS exception for
+`*.wehelp.invalid` (TLS 1.3 still required), because default ATS rejects a
+pinned self-signed certificate (spike S1). There is no plain-HTTP or
+direct-LAN path in Debug or Release builds (#36).
+
 ### Registry → Relay: signed office list
 
 - The Registry publishes an **office list**: office ID, office SSH public
