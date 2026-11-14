@@ -107,7 +107,7 @@ components:
 
     Relay:
       type: object
-      required: [id, name, ssh_address, connect_address, ssh_host_key]
+      required: [id, name, ssh_address, connect_address, ssh_host_key, tls_pin]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -120,6 +120,9 @@ components:
         ssh_host_key:
           type: string
           description: The Relay's SSH host key (authorized_keys format), pinned by the office.
+        tls_pin:
+          type: string
+          description: Base64 SHA-256 of the Relay's TLS public key (uncompressed X9.63), pinned by phones.
 
     InstallResult:
       type: object

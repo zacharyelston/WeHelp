@@ -20,8 +20,18 @@
 	<string>1</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>wehelp.invalid</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionMinimumTLSVersion</key>
+				<string>TLSv1.3</string>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>WeHelp connects to your Bluetooth health monitors.</string>
@@ -30,15 +40,13 @@
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>WeHelp records check-ins and readings to your health data.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>WeHelp connects to your clinic's server on the local network.</string>
+	<string>WeHelp connects to your practice's relay, which may be on your local network.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
-	<key>WeHelpDefaultServerURL</key>
-	<string>$(WEHELP_DEFAULT_SERVER_URL)</string>
 	<key>WeHelpDevEmail</key>
 	<string>$(WEHELP_DEV_EMAIL)</string>
 	<key>WeHelpDevPassword</key>
