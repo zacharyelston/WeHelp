@@ -42,6 +42,15 @@ WEHELP_REGISTRY_URL=https://registry.example deploy/appliance.sh init-office
 unset WEHELP_INSTALL_TOKEN
 ```
 
+**Demo topology (Registry on the dev laptop):** on macOS, Colima can't reach
+LAN addresses until Local Network is approved on the Mac mini's screen
+(APPLIANCE.md, step 5). Until then the install fails with `connection
+refused`, and the token stays unused. To install anyway, carry the request
+over SSH, which Apple's sshd is allowed to do. From the laptop:
+`ssh -R 18090:127.0.0.1:8090 <mac mini>`, then run `init-office` there with
+`WEHELP_REGISTRY_URL=http://192.168.5.2:18090` (Colima's address for the
+Mac's loopback). Barnacle was installed this way on 2026-11-14.
+
 Outside the appliance, run `wehelpd init --install-token …` or set
 `WEHELP_INSTALL_TOKEN`. Install sends only the token and the office SSH
 public key. The office then stores the Registry's answer after checking that
