@@ -89,6 +89,23 @@ All notable changes to WeHelp are documented here. Format follows
 - Issues: self-registration decision (#79), training seed (#80),
   `wehelpd doctor` (#81), kiosk questionnaires (#82), local agent (#83) and
   training videos (#84).
+- The iOS app reaches its office only through the Relay (#36).
+  - Every request is an HTTP `CONNECT` to the Relay (`ProxyConfiguration`).
+    It pins the Relay's TLS key on the outer hop and the office's key on the
+    inner, end-to-end TLS 1.3. Both checks fail closed, with an error that
+    says whether the Relay or the office didn't match.
+  - Saved practices are now office endpoints: Relay address, Relay pin,
+    office ID and office pin. The editor can paste the `pairing` JSON that
+    `wehelpd init` prints.
+  - `NSAllowsLocalNetworking` and the plain-HTTP, direct-LAN path are
+    removed from Debug and Release. The only ATS exception is
+    `*.wehelp.invalid`, with TLS 1.3 required.
+  - Debug demo practices come from `WEHELP_DEV_SERVERS`
+    (`Label|relay|relay pin|office ID|office pin`), compiled out of Release.
+  - The Registry now stores each Relay's TLS pin: migration V2,
+    `relay add --tls-pin` and `relay set-tls-pin`. Install returns it, and
+    the office's pairing identity includes `relay_pin` for the QR code
+    (#37).
 - WeHelp Relay (#4): the new `wehelp-relay` binary and the office tunnel.
   - Offices connect out over SSH with their office key. The Relay accepts
     only keys on the Registry's signed office list for its own relay ID, and

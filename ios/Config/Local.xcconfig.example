@@ -1,8 +1,10 @@
 // Copy to Local.xcconfig (gitignored) to override Debug settings on this Mac.
-// Find your LAN address with: ipconfig getifaddr en0
-// The `$()` stops xcconfig from treating `//` as a comment.
-WEHELP_DEFAULT_SERVER_URL = http:/$()/192.168.1.50:8080
-
-// Demo servers shown on the Servers screen, as `Label|URL` pairs. Each uses
-// the demo practice, email and password from Debug.xcconfig.
-WEHELP_DEV_SERVERS = This Mac|http:/$()/192.168.1.50:8080, Test host|http:/$()/testhost.local:8080
+//
+// Demo practices, comma-separated, each
+//   Label|relay host:port|relay pin|office ID|office pin
+// Get the values from:
+//   wehelp-relay init   -> tls_key_pin (the relay pin)
+//   wehelpd init        -> pairing.office and pairing.key_pin
+// Find the Relay's LAN address with: ipconfig getifaddr en0
+// A literal "//" starts a comment in xcconfig; write it as /$()/ if a pin contains it.
+WEHELP_DEV_SERVERS = Barnacle|192.168.1.50:8443|<relay pin>|<office id>|<office pin>

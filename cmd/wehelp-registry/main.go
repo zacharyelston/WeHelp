@@ -190,6 +190,20 @@ func relayCmd() *cobra.Command {
 	add.Flags().StringVar(&r.ConnectAddress, "connect-address", "", "host:port phones dial with CONNECT")
 	add.Flags().StringVar(&r.SSHHostKey, "host-key", "", "Relay SSH host public key (authorized_keys line)")
 	add.Flags().StringVar(&hostKeyFile, "host-key-file", "", "file holding the Relay SSH host public key")
+	add.Flags().StringVar(&r.TLSPin, "tls-pin", "", "Relay TLS key pin that phones check (wehelp-relay init prints it)")
+	setPin := &cobra.Command{
+		Use:   "set-tls-pin <relay-name> <pin>",
+		Short: "Record a Relay's TLS pin after its TLS key is created or rotated",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, closeDB, err := open(cmd.Context(), false)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+			return st.SetRelayTLSPin(cmd.Context(), actor, args[0], args[1])
+		},
+	}
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List Relays",
@@ -211,7 +225,7 @@ func relayCmd() *cobra.Command {
 			return tw.Flush()
 		},
 	}
-	cmd.AddCommand(add, list)
+	cmd.AddCommand(add, list, setPin)
 	return cmd
 }
 

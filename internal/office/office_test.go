@@ -128,7 +128,8 @@ func validResponse(t *testing.T) map[string]any {
 	return map[string]any{
 		"office_id": "8c1f5a8e-4f40-4b6e-9b8e-2f7b3a1d9c10",
 		"relay": map[string]string{"id": "r1", "name": "laptop", "ssh_address": "relay.test:2222",
-			"connect_address": "relay.test:8443", "ssh_host_key": strings.TrimSpace(string(ssh.MarshalAuthorizedKey(hk)))},
+			"connect_address": "relay.test:8443", "ssh_host_key": strings.TrimSpace(string(ssh.MarshalAuthorizedKey(hk))),
+			"tls_pin": "Ar1cxddT3OFraDM2dIXtqUQKiaz5jzUiiH/IBXyI8Ik="},
 		"registry_signing_key": officelist.PublicKeyString(pub),
 	}
 }
@@ -173,7 +174,7 @@ func TestInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.OfficeID != r.OfficeID || p.RelayAddress != "relay.test:8443" || p.KeyPin != pinBefore {
+	if p.OfficeID != r.OfficeID || p.RelayAddress != "relay.test:8443" || p.KeyPin != pinBefore || p.RelayPin != "Ar1cxddT3OFraDM2dIXtqUQKiaz5jzUiiH/IBXyI8Ik=" {
 		t.Errorf("pairing %+v", p)
 	}
 	cert, err := readCert(filepath.Join(dir, TLSCertFile))
@@ -200,6 +201,7 @@ func TestInstallRefusals(t *testing.T) {
 		"bad signing key": func(m map[string]any) { m["registry_signing_key"] = "ed25519:nope" },
 		"bad office id":   func(m map[string]any) { m["office_id"] = "../../etc" },
 		"bad host key":    func(m map[string]any) { m["relay"].(map[string]string)["ssh_host_key"] = "junk" },
+		"no relay pin":    func(m map[string]any) { m["relay"].(map[string]string)["tls_pin"] = "" },
 		"no relay":        func(m map[string]any) { m["relay"].(map[string]string)["connect_address"] = "" },
 	} {
 		resp := validResponse(t)

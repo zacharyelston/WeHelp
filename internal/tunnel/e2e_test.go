@@ -152,7 +152,7 @@ func (h *harness) newOffice(t *testing.T) *office.Identity {
 		OfficeID: uuid.NewString(), RegistryURL: h.registry.URL,
 		RegistrySigningKey: officelist.PublicKeyString(h.reg.key.Public().(ed25519.PublicKey)),
 		Relay: office.Relay{ID: h.relayID, Name: "test", SSHAddress: h.sshAddr, ConnectAddress: h.connect.Addr().String(),
-			SSHHostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(h.keys.HostKey.PublicKey())))},
+			SSHHostKey: strings.TrimSpace(string(ssh.MarshalAuthorizedKey(h.keys.HostKey.PublicKey()))), TLSPin: h.keys.TLSPin},
 	})
 	if err != nil {
 		t.Fatal(err)

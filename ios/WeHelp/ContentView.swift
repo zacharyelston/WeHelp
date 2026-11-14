@@ -39,7 +39,8 @@ struct SettingsView: View {
             Form {
                 Section("Account") {
                     LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
-                    LabeledContent("Server", value: appState.api.baseURL.absoluteString)
+                    LabeledContent("Office", value: appState.api.office.map { String($0.officeID.prefix(8)) + "…" } ?? "none")
+                    LabeledContent("Relay", value: appState.api.office?.relay ?? "none")
                 }
                 Section {
                     Button("Sign out", role: .destructive) {

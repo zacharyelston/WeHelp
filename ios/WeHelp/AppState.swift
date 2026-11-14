@@ -13,7 +13,7 @@ final class AppState {
     enum Phase: Equatable { case launching, signedOut, signedIn }
 
     /// UserDefaults keys. Neither is a secret.
-    static let serverURLKey = "serverURL"
+    static let officeKey = "currentOffice"
     static let tenantKey = "tenant"
 
     private(set) var phase: Phase = .launching
@@ -45,11 +45,18 @@ final class AppState {
     }
 
     private func loadConnections(bundle: Bundle) {
+        // Decoded one by one so a stale entry (e.g. a pre-Relay server URL)
+        // is dropped without losing the rest.
+        struct Lenient: Decodable {
+            let value: SavedConnection?
+            init(from decoder: Decoder) throws { value = try? SavedConnection(from: decoder) }
+        }
         let stored = defaults.data(forKey: Self.connectionsKey)
-            .flatMap { try? JSONDecoder().decode([SavedConnection].self, from: $0) } ?? []
+            .flatMap { try? JSONDecoder().decode([Lenient].self, from: $0) }?
+            .compactMap(\.value) ?? []
         var list = stored
         let hidden = hiddenPresets
-        for preset in SavedConnection.devPresets(bundle: bundle, defaultServerURL: Self.defaultServerURL(bundle: bundle))
+        for preset in SavedConnection.devPresets(bundle: bundle)
         where !hidden.contains(preset.id) {
             if let i = list.firstIndex(where: { $0.id == preset.id }) {
                 list[i].devPassword = preset.devPassword
@@ -63,7 +70,7 @@ final class AppState {
 
     /// Debug builds: whether any demo presets exist to restore.
     var hasDevPresets: Bool {
-        !SavedConnection.devPresets(defaultServerURL: Self.defaultServerURL()).isEmpty
+        !SavedConnection.devPresets().isEmpty
     }
 
     /// Brings back demo presets the user deleted or edited away.
@@ -81,7 +88,8 @@ final class AppState {
 
     /// Moves (or inserts) the connection to the top of the list.
     func rememberConnection(tenant: String, email: String) {
-        var conn = SavedConnection(serverURL: api.baseURL, tenant: tenant, email: email)
+        guard let office = api.office else { return }
+        var conn = SavedConnection(office: office, tenant: tenant, email: email)
         if let existing = savedConnections.first(where: { $0.id == conn.id }) {
             conn.devPassword = existing.devPassword
             conn.label = existing.label
@@ -109,16 +117,17 @@ final class AppState {
         persistConnections()
     }
 
-    /// Points the client at the connection's server.
+    /// Points the client at the connection's office and persists the choice.
     func use(_ conn: SavedConnection) {
-        setServerURL(conn.serverURL.absoluteString)
+        setOffice(conn.office)
     }
 
     init(defaults: UserDefaults = .standard, bundle: Bundle = .main) {
         self.defaults = defaults
-        let stored = defaults.string(forKey: Self.serverURLKey)
-        let url = stored.flatMap(Self.validURL) ?? Self.defaultServerURL(bundle: bundle)
-        api = APIClient(baseURL: url, session: session)
+        let stored = defaults.data(forKey: Self.officeKey)
+            .flatMap { try? JSONDecoder().decode(OfficeEndpoint.self, from: $0) }
+        api = APIClient(office: stored, session: session)
+        defaults.removeObject(forKey: "serverURL") // pre-Relay setting (#36)
         loadConnections(bundle: bundle)
     }
 
@@ -169,37 +178,13 @@ final class AppState {
         phase = .signedOut
     }
 
-    // MARK: Server URL
+    // MARK: Office
 
-    /// Points the client at a new server and persists the choice.
-    /// Returns false (and changes nothing) if the string is not an http(s) URL.
-    @discardableResult
-    func setServerURL(_ string: String) -> Bool {
-        guard let url = Self.validURL(string) else { return false }
-        api = APIClient(baseURL: url, session: session)
-        defaults.set(url.absoluteString, forKey: Self.serverURLKey)
-        return true
-    }
-
-    /// Forgets the user-chosen URL and returns to the build default.
-    func resetServerURL(bundle: Bundle = .main) {
-        defaults.removeObject(forKey: Self.serverURLKey)
-        api = APIClient(baseURL: Self.defaultServerURL(bundle: bundle), session: session)
-    }
-
-    /// Build-time default from Info.plist (set per configuration in
-    /// ios/Config/*.xcconfig), falling back to localhost.
-    nonisolated static func defaultServerURL(bundle: Bundle = .main) -> URL {
-        let raw = bundle.object(forInfoDictionaryKey: "WeHelpDefaultServerURL") as? String
-        return raw.flatMap(validURL) ?? URL(string: "http://localhost:8080")!
-    }
-
-    nonisolated static func validURL(_ string: String) -> URL? {
-        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
-              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
-              url.host?.isEmpty == false
-        else { return nil }
-        return url
+    /// Points the client at an office (through its Relay) and persists it.
+    func setOffice(_ office: OfficeEndpoint) {
+        api = APIClient(office: office, session: session)
+        if let data = try? JSONEncoder().encode(office) {
+            defaults.set(data, forKey: Self.officeKey)
+        }
     }
 }

@@ -4,12 +4,23 @@ enum APIError: Error, LocalizedError {
     case unauthorized(String)
     case http(Int, String)
     case notEnrolled
+    case noOffice
+    case badEndpoint(OfficeEndpoint.Problem)
+    /// A pin check failed: the relay or office presented a key other than the
+    /// one this phone was paired with. Never retried or bypassed.
+    case pinMismatch(PinnedParty)
 
     var errorDescription: String? {
         switch self {
         case .unauthorized(let msg): "Not signed in: \(msg)"
         case .http(let code, let msg): "Server error \(code): \(msg)"
         case .notEnrolled: "This device is not enrolled."
+        case .noOffice: "Choose a practice first."
+        case .badEndpoint(let p): p.errorDescription
+        case .pinMismatch(.relay):
+            "The relay's identity didn't match the one this phone was set up with, so the app refused to connect. Check the relay pin, or ask your practice."
+        case .pinMismatch(.office):
+            "Your practice's identity didn't match the one this phone was set up with, so the app refused to connect. Check the office pin, or ask your practice to pair this phone again."
         }
     }
 }
@@ -24,11 +35,13 @@ struct Me: Decodable, Sendable {
     }
 }
 
-/// The single network seam for the WeHelp backend. Attaches the Bearer
-/// token and, on a 401, refreshes once (with a device proof) and retries.
-/// Tokens never touch UserDefaults.
+/// The single network seam for the WeHelp backend. Every request goes
+/// through the office's Relay with both pins checked (OfficeTransport).
+/// Attaches the Bearer token and, on a 401, refreshes once (with a device
+/// proof) and retries. Tokens never touch UserDefaults.
 struct APIClient: Sendable {
-    let baseURL: URL
+    /// nil until the user picks a practice.
+    let office: OfficeEndpoint?
     let session: SessionStore
 
     struct Ping: Decodable { let message: String }
@@ -61,7 +74,7 @@ struct APIClient: Sendable {
     @discardableResult
     func refresh() async throws -> TokenPair {
         let session = session
-        let base = baseURL
+        let office = office
         return try await session.refresh {
             guard let token = await session.refreshToken else { throw APIError.unauthorized("no session") }
             guard let key = DeviceKey.load() else { throw APIError.notEnrolled }
@@ -69,7 +82,7 @@ struct APIClient: Sendable {
             let body: [String: any Sendable & Encodable] = [
                 "refresh_token": token, "timestamp": proof.timestamp, "signature": proof.signature,
             ]
-            return try await APIClient(baseURL: base, session: session)
+            return try await APIClient(office: office, session: session)
                 .send("POST", "api/v1/auth/refresh", body: AnyEncodable(body))
         }
     }
@@ -138,7 +151,8 @@ struct APIClient: Sendable {
     }
 
     func send<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> T {
-        var url = baseURL.appending(path: path)
+        guard let office else { throw APIError.noOffice }
+        var url = office.baseURL.appending(path: path)
         if !query.isEmpty { url.append(queryItems: query) }
         var req = URLRequest(url: url)
         req.httpMethod = method
@@ -148,7 +162,7 @@ struct APIClient: Sendable {
         }
         if let bearer { req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
 
-        let (data, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await OfficeTransport.shared(for: office).data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(status)"

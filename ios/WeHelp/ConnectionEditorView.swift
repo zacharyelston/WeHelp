@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Add or edit a server connection: address, practice, and the email to sign
-/// in as. "Test connection" pings the address before saving.
+/// Add or edit a practice connection: how to reach its office through the
+/// Relay (relay address and pin, office ID and pin), the practice name, and
+/// the email to sign in as. "Test connection" pings the office through the
+/// Relay with both pins checked. QR pairing (#37) will fill these in.
 struct ConnectionEditorView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +11,10 @@ struct ConnectionEditorView: View {
     let target: EditTarget
     private var original: SavedConnection? { target.original }
 
-    @State private var server = ""
+    @State private var relay = ""
+    @State private var relayPin = ""
+    @State private var officeID = ""
+    @State private var officePin = ""
     @State private var confirmDelete = false
     @State private var tenant = ""
     @State private var email = ""
@@ -18,9 +23,14 @@ struct ConnectionEditorView: View {
 
     enum Status: Equatable { case idle, checking, ok, failed(String) }
 
-    private var url: URL? { AppState.validURL(server) }
+    private var office: OfficeEndpoint {
+        OfficeEndpoint(relay: relay.trimmingCharacters(in: .whitespaces),
+                       relayPin: relayPin.trimmingCharacters(in: .whitespaces),
+                       officeID: officeID.trimmingCharacters(in: .whitespaces).lowercased(),
+                       officePin: officePin.trimmingCharacters(in: .whitespaces))
+    }
     private var canSave: Bool {
-        url != nil && !tenant.trimmingCharacters(in: .whitespaces).isEmpty
+        office.problem == nil && !tenant.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -35,19 +45,22 @@ struct ConnectionEditorView: View {
                     Text("Only shown on this phone.")
                 }
                 Section {
-                    TextField("http://192.168.1.50:8080", text: $server)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .onChange(of: server) { status = .idle }
+                    Button("Paste pairing details", systemImage: "doc.on.clipboard", action: pastePairing)
+                    field("Relay address (host:port)", $relay)
+                    field("Relay pin", $relayPin)
+                    field("Office ID", $officeID)
+                    field("Office pin", $officePin)
                     Button("Test connection") { Task { await test() } }
-                        .disabled(url == nil || status == .checking)
+                        .disabled(office.problem != nil || status == .checking)
                     statusRow
                 } header: {
-                    Text("Server address")
+                    Text("Office")
                 } footer: {
-                    Text("Ask your practice for this address.")
+                    if let problem = office.problem, !relay.isEmpty || !officeID.isEmpty {
+                        Text(problem.localizedDescription)
+                    } else {
+                        Text("The app reaches your practice only through its relay, and only if both pins match.")
+                    }
                 }
                 Section {
                     TextField("Practice name", text: $tenant)
@@ -71,9 +84,9 @@ struct ConnectionEditorView: View {
                 }
                 if let original {
                     Section {
-                        Button("Delete server", role: .destructive) { confirmDelete = true }
+                        Button("Delete practice", role: .destructive) { confirmDelete = true }
                     }
-                    .confirmationDialog("Delete this server?", isPresented: $confirmDelete) {
+                    .confirmationDialog("Delete this practice?", isPresented: $confirmDelete) {
                         Button("Delete \(original.tenant)", role: .destructive) {
                             appState.forgetConnection(original)
                             dismiss()
@@ -83,7 +96,7 @@ struct ConnectionEditorView: View {
                     }
                 }
             }
-            .navigationTitle(original == nil ? "New server" : "Edit server")
+            .navigationTitle(original == nil ? "New practice" : "Edit practice")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -98,7 +111,7 @@ struct ConnectionEditorView: View {
         case .idle: EmptyView()
         case .checking: HStack { ProgressView(); Text("Checking…") }
         case .ok:
-            Label("Server reachable", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+            Label("Office reachable through the relay", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed(let msg):
             Label(msg, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
         }
@@ -106,20 +119,42 @@ struct ConnectionEditorView: View {
 
     private func load() {
         if let original {
-            server = original.serverURL.absoluteString
+            fill(original.office)
             tenant = original.tenant
             email = original.email
             label = original.label ?? ""
-        } else if server.isEmpty {
-            server = AppState.defaultServerURL().absoluteString
         }
     }
 
+    private func field(_ title: String, _ text: Binding<String>) -> some View {
+        TextField(title, text: text)
+            .font(.callout.monospaced())
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .onChange(of: text.wrappedValue) { status = .idle }
+    }
+
+    private func fill(_ o: OfficeEndpoint) {
+        relay = o.relay
+        relayPin = o.relayPin
+        officeID = o.officeID
+        officePin = o.officePin
+    }
+
+    /// Accepts the "pairing" JSON that `wehelpd init` prints.
+    private func pastePairing() {
+        guard let text = UIPasteboard.general.string, let o = OfficeEndpoint.fromPairingJSON(text) else {
+            status = .failed("The clipboard doesn't hold pairing details.")
+            return
+        }
+        fill(o)
+    }
+
     private func test() async {
-        guard let url else { return }
+        guard office.problem == nil else { return }
         status = .checking
         do {
-            _ = try await APIClient(baseURL: url, session: appState.session).ping()
+            _ = try await APIClient(office: office, session: appState.session).ping()
             status = .ok
         } catch {
             status = .failed(error.localizedDescription)
@@ -127,9 +162,9 @@ struct ConnectionEditorView: View {
     }
 
     private func save() {
-        guard let url else { return }
+        guard office.problem == nil else { return }
         var conn = SavedConnection(
-            serverURL: url,
+            office: office,
             tenant: tenant.trimmingCharacters(in: .whitespaces),
             email: email.trimmingCharacters(in: .whitespaces),
             label: label.trimmingCharacters(in: .whitespaces).isEmpty ? nil : label.trimmingCharacters(in: .whitespaces))
