@@ -13,6 +13,8 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "wehelpd",
 	Short: "WeHelp — open source software suite for healthcare providers",
+	// Print the error alone on runtime failures, not the usage text.
+	SilenceUsage: true,
 }
 
 func init() {
@@ -23,7 +25,7 @@ func init() {
 		}
 	})
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ./wehelp.yaml or /etc/wehelp/wehelp.yaml)")
-	rootCmd.AddCommand(serveCmd, migrateCmd, seedCmd)
+	rootCmd.AddCommand(serveCmd, migrateCmd, seedCmd, initCmd)
 }
 
 func main() {

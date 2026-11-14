@@ -3,6 +3,8 @@
 # Docker host). See docs/APPLIANCE.md.
 #
 #   appliance.sh init-env         create deploy/.env with a random secret (if missing)
+#   appliance.sh init-office      create the office keys; with WEHELP_INSTALL_TOKEN set,
+#                                 also install with the Registry (WEHELP_REGISTRY_URL)
 #   appliance.sh up               build and start the stack
 #   appliance.sh down             stop and remove the containers (data volume kept)
 #   appliance.sh boot             login-time job: wait for Docker, start, check health
@@ -68,6 +70,15 @@ case "$cmd" in
   init-env)
     init_env
     ;;
+  init-office)
+    # Runs `wehelpd init` in the server image against the officekeys volume.
+    # The token comes from the environment (see docs/OFFICE_KEYS.md: read -rs).
+    init_env
+    compose run --rm --no-deps \
+      -e WEHELP_INSTALL_TOKEN="${WEHELP_INSTALL_TOKEN:-}" \
+      -e WEHELP_REGISTRY_URL="${WEHELP_REGISTRY_URL:-http://localhost:8090}" \
+      server init
+    ;;
   up)
     init_env
     compose up -d --build
@@ -110,7 +121,7 @@ case "$cmd" in
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,12p' "$0"
+    sed -n '2,14p' "$0"
     exit 2
     ;;
 esac

@@ -123,6 +123,10 @@ At install, the Back Office generates:
 - the **office TLS key** (for patient connections, pinned by phones);
 - a **local CA** (for the staff UI on the LAN).
 
+`wehelpd init` creates them and, with an install token, installs the office
+with the Registry. Files, the key pin format and rotation:
+[OFFICE_KEYS.md](OFFICE_KEYS.md).
+
 These keys stay on the Back Office. FileVault and the backup encryption
 protect them at rest.
 
