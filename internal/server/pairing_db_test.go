@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pquerna/otp/totp"
 	"github.com/zacharyelston/wehelp/internal/auth"
 	"github.com/zacharyelston/wehelp/internal/config"
 	"github.com/zacharyelston/wehelp/internal/office"
@@ -91,10 +92,13 @@ func migrationNum(path string) int {
 }
 
 type client struct {
-	t     *testing.T
-	h     http.Handler
-	token string
-	relay bool // send as if through the Relay
+	t       *testing.T
+	h       http.Handler
+	token   string
+	relay   bool // send as if through the Relay
+	cookies map[string]*http.Cookie
+	csrf    string // sent as X-CSRF-Token
+	last    *http.Response
 }
 
 func (c *client) do(method, path string, body any) (int, map[string]any) {
@@ -112,17 +116,58 @@ func (c *client) do(method, path string, body any) (int, map[string]any) {
 	if c.relay {
 		req = req.WithContext(tunnel.WithViaRelay(req.Context()))
 	}
+	for _, ck := range c.cookies {
+		req.AddCookie(ck)
+	}
+	if c.csrf != "" {
+		req.Header.Set("X-CSRF-Token", c.csrf)
+	}
 	rec := httptest.NewRecorder()
 	c.h.ServeHTTP(rec, req)
+	c.last = rec.Result()
+	for _, ck := range c.last.Cookies() {
+		if c.cookies == nil {
+			c.cookies = map[string]*http.Cookie{}
+		}
+		if ck.MaxAge < 0 {
+			delete(c.cookies, ck.Name)
+		} else {
+			c.cookies[ck.Name] = ck
+		}
+	}
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
 }
 
-func login(t *testing.T, h http.Handler, email, password string) string {
+// enableTOTP turns on TOTP for a staff account directly and returns its
+// secret, as if the person had enrolled in the web UI.
+func enableTOTP(t *testing.T, pool *pgxpool.Pool, email string) string {
 	t.Helper()
+	const secret = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
+	if _, err := pool.Exec(context.Background(),
+		`update users set totp_secret = $2, totp_enabled_at = now(), totp_last_step = null where email = $1`, email, secret); err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
+func totpNow(t *testing.T, secret string) string {
+	t.Helper()
+	code, err := totp.GenerateCode(secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return code
+}
+
+// login signs a staff member in for a bearer token (password + TOTP, #38).
+func login(t *testing.T, h http.Handler, pool *pgxpool.Pool, email, password string) string {
+	t.Helper()
+	secret := enableTOTP(t, pool, email)
 	c := &client{t: t, h: h}
-	code, out := c.do("POST", "/auth/login", map[string]string{"tenant": seed.DemoTenant, "email": email, "password": password})
+	code, out := c.do("POST", "/auth/login", map[string]string{"tenant": seed.DemoTenant, "email": email,
+		"password": password, "code": totpNow(t, secret)})
 	if code != http.StatusOK {
 		t.Fatalf("login %s: %d %v", email, code, out)
 	}
@@ -183,7 +228,7 @@ func patientID(t *testing.T, pool *pgxpool.Pool, email string) string {
 func TestPairingFlow(t *testing.T) {
 	s, pool := testBackOffice(t)
 	h := s.Router()
-	staff := &client{t: t, h: h, token: login(t, h, seed.ProviderEmail, seed.ProviderPassword)}
+	staff := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}
 	phoneSide := &client{t: t, h: h, relay: true} // phones arrive through the Relay
 	jordan := patientID(t, pool, seed.Patient1Email)
 
@@ -195,7 +240,7 @@ func TestPairingFlow(t *testing.T) {
 
 	// Staff routes are refused through the Relay.
 	viaRelay := &client{t: t, h: h, token: staff.token, relay: true}
-	if code, _ := viaRelay.do("POST", "/pairing/invites", map[string]string{"patient_id": jordan}); code != http.StatusForbidden {
+	if code, _ := viaRelay.do("POST", "/pairing/invites", map[string]string{"patient_id": jordan}); code != http.StatusNotFound {
 		t.Errorf("invite via relay: %d", code)
 	}
 
@@ -267,7 +312,7 @@ func TestPairingExpiryAndScope(t *testing.T) {
 	s, pool := testBackOffice(t)
 	h := s.Router()
 	s.SetPairing(office.Pairing{RelayAddress: "r:1", RelayPin: "cA==", OfficeID: uuid.NewString(), KeyPin: "aw=="})
-	staff := &client{t: t, h: h, token: login(t, h, seed.ProviderEmail, seed.ProviderPassword)}
+	staff := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}
 	phoneSide := &client{t: t, h: h, relay: true}
 	jordan := patientID(t, pool, seed.Patient1Email)
 
@@ -326,12 +371,12 @@ func TestPatientsHaveNoPassword(t *testing.T) {
 	}
 
 	// Staff add patients (no password) on the LAN only.
-	staff := &client{t: t, h: h, token: login(t, h, seed.ProviderEmail, seed.ProviderPassword)}
+	staff := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}
 	if code, out := staff.do("POST", "/patients", map[string]string{"display_name": "Pat New", "email": "pat.new@demo.wehelp"}); code != http.StatusCreated || out["link_status"] != "active" {
 		t.Fatalf("create patient: %d %v", code, out)
 	}
 	viaRelay := &client{t: t, h: h, token: staff.token, relay: true}
-	if code, _ := viaRelay.do("POST", "/patients", map[string]string{"display_name": "X", "email": "x@demo.wehelp"}); code != http.StatusForbidden {
+	if code, _ := viaRelay.do("POST", "/patients", map[string]string{"display_name": "X", "email": "x@demo.wehelp"}); code != http.StatusNotFound {
 		t.Errorf("create patient via relay: %d", code)
 	}
 }

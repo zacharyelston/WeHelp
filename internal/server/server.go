@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -21,6 +23,7 @@ type Server struct {
 	pool      *pgxpool.Pool
 	jwtSecret []byte
 	pairing   *office.Pairing // nil until the office is installed (#35)
+	httpsPort string          // set: plain HTTP only redirects to HTTPS (#38)
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -64,11 +67,22 @@ func (s *Server) Router() chi.Router {
 		})
 
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", s.Register)
-			r.Post("/login", s.Login)
+			// Password routes are office-LAN only (#38); phones use pairing.
+			r.With(lanOnly).Post("/register", s.Register)
+			r.With(lanOnly).Post("/login", s.Login)
 			r.Post("/refresh", s.Refresh)
 			r.Post("/enroll", s.Enroll)
 			r.Post("/logout", s.Logout)
+		})
+
+		// Staff web sign-in (#38): password + TOTP, cookie session, LAN only.
+		r.Route("/staff", func(r chi.Router) {
+			r.Use(lanOnly)
+			r.Post("/login", s.StaffLogin)
+			r.Post("/totp/setup", s.StaffTOTPSetup)
+			r.Post("/totp/confirm", s.StaffTOTPConfirm)
+			r.Get("/me", s.StaffMe)
+			r.Post("/logout", s.StaffLogout)
 		})
 
 		// Phones pair through the Relay (#37); no session yet.
@@ -89,6 +103,12 @@ func (s *Server) Router() chi.Router {
 			r.Patch("/appointments/{appointmentID}", s.UpdateAppointment)
 			r.Get("/devices", s.ListMyDevices)
 			r.Delete("/devices/{deviceID}", s.RevokeMyDevice)
+		})
+
+		// Staff routes: office LAN only. Through the Relay they are a 404
+		// before any authentication runs (#38).
+		r.Group(func(r chi.Router) {
+			r.Use(lanOnly, s.authenticate)
 			r.Get("/patients/{patientID}/devices", s.ListPatientDevices)
 			r.Delete("/patients/{patientID}/devices/{deviceID}", s.RevokePatientDevice)
 			r.Get("/patients", s.ListPatients)
@@ -104,10 +124,56 @@ func (s *Server) Router() chi.Router {
 	return r
 }
 
+// RedirectHTTPTo makes the plain-HTTP listener serve only health checks and
+// redirect everything else to HTTPS on this port (#38).
+func (s *Server) RedirectHTTPTo(httpsPort string) { s.httpsPort = httpsPort }
+
+// healthOrRedirect keeps /healthz and /readyz on plain HTTP (container
+// health checks) and sends everything else to the HTTPS staff listener.
+func healthOrRedirect(next http.Handler, httpsPort string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		http.Redirect(w, r, "https://"+net.JoinHostPort(host, httpsPort)+r.URL.RequestURI(), http.StatusPermanentRedirect)
+	})
+}
+
+// ServeStaffTLS serves the API and staff web UI over HTTPS on the office LAN
+// with the certificate issued by the office's local CA (#38).
+func (s *Server) ServeStaffTLS(ctx context.Context, addr string, cert tls.Certificate) error {
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s.Router(),
+		ReadHeaderTimeout: 10 * time.Second,
+		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12},
+	}
+	go func() {
+		<-ctx.Done()
+		sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(sctx)
+	}()
+	slog.Info("wehelp staff HTTPS listening", "addr", addr)
+	if err := srv.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	handler := http.Handler(s.Router())
+	if s.httpsPort != "" {
+		handler = healthOrRedirect(handler, s.httpsPort)
+	}
 	srv := &http.Server{
 		Addr:              s.cfg.ListenAddr,
-		Handler:           s.Router(),
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/zacharyelston/wehelp/internal/tunnel"
 	"github.com/zacharyelston/wehelp/web"
 )
 
@@ -45,6 +46,11 @@ func isAPIPath(p string) bool {
 }
 
 func serveStatic(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) {
+	// The staff web UI exists only on the office LAN (#38).
+	if tunnel.ViaRelay(r.Context()) {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
 	data, err := fs.ReadFile(fsys, name)
 	if err != nil {
 		http.NotFound(w, r)

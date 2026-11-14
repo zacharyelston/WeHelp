@@ -38,7 +38,7 @@ func TestDeviceManagement(t *testing.T) {
 	s, pool := testBackOffice(t)
 	h := s.Router()
 	s.SetPairing(office.Pairing{RelayAddress: "r:1", RelayPin: "cA==", OfficeID: uuid.NewString(), KeyPin: "aw=="})
-	staff := &client{t: t, h: h, token: login(t, h, seed.ProviderEmail, seed.ProviderPassword)}
+	staff := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}
 	phoneSide := &client{t: t, h: h, relay: true}
 	jordan := patientID(t, pool, seed.Patient1Email)
 
@@ -97,11 +97,11 @@ func TestDeviceManagement(t *testing.T) {
 		t.Errorf("staff list: %d %v", code, out)
 	}
 	viaRelay := &client{t: t, h: h, token: staff.token, relay: true}
-	if code, _ := viaRelay.do("DELETE", "/patients/"+jordan+"/devices/"+sessA["device_id"].(string), nil); code != http.StatusForbidden {
+	if code, _ := viaRelay.do("DELETE", "/patients/"+jordan+"/devices/"+sessA["device_id"].(string), nil); code != http.StatusNotFound {
 		t.Errorf("staff revoke via relay: %d", code)
 	}
-	// A patient can't use the staff routes.
-	if code, _ := a.do("GET", "/patients/"+jordan+"/devices", nil); code != http.StatusForbidden {
+	// A patient (on its phone, through the Relay) can't reach the staff routes.
+	if code, _ := a.do("GET", "/patients/"+jordan+"/devices", nil); code != http.StatusNotFound {
 		t.Errorf("patient on staff route: %d", code)
 	}
 	if code, _ := staff.do("DELETE", "/patients/"+jordan+"/devices/"+sessA["device_id"].(string), nil); code != http.StatusNoContent {
