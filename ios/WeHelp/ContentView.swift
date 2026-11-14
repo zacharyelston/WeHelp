@@ -58,75 +58,26 @@ struct AppointmentsView: View {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
-    @State private var serverText = ""
-    @State private var status: ConnectionStatus = .idle
-
-    enum ConnectionStatus: Equatable {
-        case idle, checking, ok(String), failed(String)
-    }
+    @State private var signingOut = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Account") {
-                    LabeledContent("Role", value: appState.role?.rawValue ?? "not signed in")
+                    LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
+                    LabeledContent("Server", value: appState.api.baseURL.absoluteString)
                 }
                 Section {
-                    TextField("http://192.168.1.50:8080", text: $serverText)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .onSubmit(save)
-                    Button("Save and test connection", action: save)
-                    Button("Reset to default", role: .destructive) {
-                        appState.resetServerURL()
-                        serverText = appState.api.baseURL.absoluteString
-                        Task { await check() }
+                    Button("Sign out", role: .destructive) {
+                        signingOut = true
+                        Task { await appState.signOut() }
                     }
-                    statusRow
-                } header: {
-                    Text("Server")
+                    .disabled(signingOut)
                 } footer: {
-                    Text("The address of your clinic's WeHelp server.")
+                    Text("Signing out removes this phone's key. You'll need your password to sign in again.")
                 }
             }
             .navigationTitle("Settings")
-            .onAppear { serverText = appState.api.baseURL.absoluteString }
-        }
-    }
-
-    @ViewBuilder private var statusRow: some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .checking:
-            HStack { ProgressView(); Text("Checking…") }
-        case .ok(let message):
-            Label("Connected (\(message))", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-        case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
-        }
-    }
-
-    private func save() {
-        guard appState.setServerURL(serverText) else {
-            status = .failed("Enter an http:// or https:// address.")
-            return
-        }
-        serverText = appState.api.baseURL.absoluteString
-        Task { await check() }
-    }
-
-    private func check() async {
-        status = .checking
-        do {
-            let pong = try await appState.api.ping()
-            status = .ok(pong.message)
-        } catch {
-            status = .failed(error.localizedDescription)
         }
     }
 }

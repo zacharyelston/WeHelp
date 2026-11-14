@@ -33,6 +33,11 @@ targets:
           NSAllowsLocalNetworking: true
         # Default server URL; per-build value comes from Config/*.xcconfig.
         WeHelpDefaultServerURL: $(WEHELP_DEFAULT_SERVER_URL)
+        # Debug-only demo connection (empty in Release).
+        WeHelpDevTenant: $(WEHELP_DEV_TENANT)
+        WeHelpDevEmail: $(WEHELP_DEV_EMAIL)
+        WeHelpDevPassword: $(WEHELP_DEV_PASSWORD)
+        WeHelpDevServers: $(WEHELP_DEV_SERVERS)
     entitlements:
       path: WeHelp/WeHelp.entitlements
       properties:

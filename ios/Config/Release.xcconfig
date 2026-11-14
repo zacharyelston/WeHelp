@@ -1,3 +1,7 @@
 // Release build settings. No dev default: the server URL is set in the app
-// (and later by clinic-manifest onboarding).
+// (and later by clinic-manifest onboarding). No demo connection.
 WEHELP_DEFAULT_SERVER_URL =
+WEHELP_DEV_TENANT =
+WEHELP_DEV_EMAIL =
+WEHELP_DEV_PASSWORD =
+WEHELP_DEV_SERVERS =
