@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/zacharyelston/wehelp/internal/office"
+	"github.com/zacharyelston/wehelp/internal/turncred"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -146,7 +147,25 @@ func connectOnce(ctx context.Context, addr string, cfg *ssh.ClientConfig, ln *ch
 		_ = nc.Close()
 		return err
 	}
-	client := ssh.NewClient(conn, chans, reqs)
+	// The Relay's one update to the office: its TURN key (#6). Everything
+	// else goes on to the client, which discards it as before.
+	other := make(chan *ssh.Request)
+	go func() {
+		defer close(other)
+		for req := range reqs {
+			if req.Type == turncred.RequestType {
+				if opt.Pusher != nil {
+					opt.Pusher.setTURNKey(req.Payload)
+				}
+				if req.WantReply {
+					_ = req.Reply(true, nil)
+				}
+				continue
+			}
+			other <- req
+		}
+	}()
+	client := ssh.NewClient(conn, chans, other)
 	defer client.Close()
 	phones := client.HandleChannelOpen(ChannelType) // all other types are rejected
 	if opt.Pusher != nil {

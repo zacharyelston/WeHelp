@@ -81,7 +81,7 @@ attacker, and jailbroken devices with root on the patient's own phone.
   Office pins the Relay host key.
 - The Relay can only open phone channels to an office, and the Back Office
   accepts only that channel type.
-- Relay requests from the Back Office (push, TURN credentials, publish site)
+- Relay requests from the Back Office (push, publish site)
   carry opaque IDs and fixed categories. The Relay validates them and the
   Back Office never sends free text.
 
@@ -125,6 +125,20 @@ attacker, and jailbroken devices with root on the patient's own phone.
   authentic.
 - Media is DTLS-SRTP end to end, relay-only ICE through the Relay's TURN, with
   short-lived TURN credentials per visit.
+- TURN (#6, as built in the Relay):
+  - **Credentials:** the master secret stays on the Relay. Each office gets a
+    derived key, with an opaque key ID, so no office ID appears in a TURN
+    username. Credentials die with the visit's window and when the office
+    leaves the signed list.
+  - **Not a proxy:** peers are limited to the Relay's own relay address,
+    so TURN can't be used to reach the internet or the Relay's network.
+  - **Limits:** allocations are capped per credential and live visits per
+    office.
+  - **What the Relay sees:** RTP headers, packet sizes and timing, never
+    media or keys.
+  - **TURN over TLS** uses a publicly trusted certificate (Let's Encrypt),
+    because libwebrtc can't pin. A man in the middle on that hop could at
+    most use up one visit's allocations.
 - No recording. A visit is audited as started, joined and ended, with no
   content.
 

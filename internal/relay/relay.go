@@ -72,6 +72,8 @@ type Relay struct {
 	pushes    map[string][]time.Time // office ID → recent pushes (rate limit)
 	published map[string]time.Time   // office ID → last site publish (#97)
 	siteMu    sync.RWMutex           // swaps of a site directory vs. reads
+	turn      *turnState             // video-visit TURN (#6); nil = off
+	turnKeys  map[string]string      // TURN key ID → office ID, for offices on the list
 }
 
 // New returns a Relay, loading the cached list if there is one.
@@ -93,6 +95,9 @@ func New(cfg Config) (*Relay, error) {
 	}
 	if cfg.PushPerMin <= 0 {
 		cfg.PushPerMin = 120
+	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
 	}
 	r := &Relay{cfg: cfg, allowed: map[string]string{}, offices: map[string]*officeConn{}, active: map[string]int{},
 		pushes: map[string][]time.Time{}, published: map[string]time.Time{}}
@@ -150,6 +155,7 @@ func (r *Relay) Serve(ctx context.Context, sshLn, connectLn net.Listener) error 
 		defer cancel()
 		_ = srv.Shutdown(sctx)
 		r.closeAll()
+		r.closeTURN()
 	}()
 	err := srv.ServeTLS(connectLn, "", "")
 	if errors.Is(err, http.ErrServerClosed) {
@@ -209,6 +215,7 @@ func (r *Relay) serveOffice(nc net.Conn, cfg *ssh.ServerConfig) {
 		_ = old.conn.Close() // a reconnect replaces the previous connection
 	}
 	slog.Info("relay: office connected", "office", id)
+	r.sendTURNKey(conn, id)
 
 	go r.officeRequests(id, reqs)
 	go func() { // offices open only website publishes (#97)
@@ -386,6 +393,7 @@ func (r *Relay) apply(l officelist.List) {
 	var drop []*officeConn
 	r.mu.Lock()
 	r.allowed, r.version = allowed, l.Version
+	r.turnKeys = r.turnKeyIDs() // an office that leaves the list loses TURN at once
 	for id, oc := range r.offices {
 		if allowed[oc.key] != id {
 			drop = append(drop, oc)

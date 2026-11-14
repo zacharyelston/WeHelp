@@ -22,6 +22,7 @@ import (
 	"github.com/zacharyelston/wehelp/internal/keyfile"
 	"github.com/zacharyelston/wehelp/internal/officelist"
 	"github.com/zacharyelston/wehelp/internal/relay"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -115,6 +116,9 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := startTURN(r, cfg); err != nil {
+				return err
+			}
 			sshLn, err := net.Listen("tcp", cfg.RelaySSHAddr)
 			if err != nil {
 				return err
@@ -137,6 +141,63 @@ func serveCmd() *cobra.Command {
 			return r.Serve(ctx, sshLn, connectLn)
 		},
 	}
+}
+
+// startTURN turns on video-visit TURN (#6) once relay_turn_public_ip is set.
+// TURN over TLS needs a publicly trusted certificate: certbot files, or
+// Let's Encrypt through autocert for relay_turn_hostname (TLS-ALPN-01 on the
+// same listener, so no port 80).
+func startTURN(r *relay.Relay, cfg config.Config) error {
+	if cfg.RelayTURNPublicIP == "" {
+		fmt.Fprintln(os.Stderr, "video-visit TURN off: set relay_turn_public_ip to turn it on")
+		return nil
+	}
+	ip := net.ParseIP(cfg.RelayTURNPublicIP)
+	if ip == nil || ip.To4() == nil {
+		return fmt.Errorf("relay_turn_public_ip %q: want an IPv4 address", cfg.RelayTURNPublicIP)
+	}
+	lo, hi, err := relay.ParsePortRange(cfg.RelayTURNPorts)
+	if err != nil {
+		return err
+	}
+	secretPath := cfg.RelayTURNSecret
+	if secretPath == "" {
+		secretPath = filepath.Join(cfg.RelayDir, relay.TURNSecretFile)
+	}
+	secret, err := relay.EnsureTURNSecret(secretPath)
+	if err != nil {
+		return err
+	}
+	opt := relay.TURNOptions{Addr: cfg.RelayTURNAddr, TLSAddr: cfg.RelayTURNTLSAddr, Hostname: cfg.RelayTURNHostname,
+		PublicIP: ip.To4(), PortMin: lo, PortMax: hi, Secret: secret, MaxVisits: cfg.RelayTURNMaxVisits}
+	switch {
+	case cfg.RelayTURNTLSAddr == "":
+	case cfg.RelayTURNTLSCert != "":
+		if err := keyfile.CheckPrivate(cfg.RelayTURNTLSKey); err != nil {
+			return fmt.Errorf("TURN TLS key: %w", err)
+		}
+		cert, err := tls.LoadX509KeyPair(cfg.RelayTURNTLSCert, cfg.RelayTURNTLSKey)
+		if err != nil {
+			return fmt.Errorf("TURN TLS certificate: %w", err)
+		}
+		opt.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	case cfg.RelayTURNHostname != "":
+		dir := cfg.RelayACMEDir
+		if dir == "" {
+			dir = filepath.Join(cfg.RelayDir, "acme")
+		}
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		m := &autocert.Manager{Prompt: autocert.AcceptTOS, HostPolicy: autocert.HostWhitelist(cfg.RelayTURNHostname),
+			Cache: autocert.DirCache(dir)}
+		opt.TLSConfig = m.TLSConfig()
+		opt.TLSConfig.MinVersion = tls.VersionTLS12
+	default:
+		fmt.Fprintln(os.Stderr, "TURN over TLS off: set relay_turn_hostname (Let's Encrypt) or relay_turn_tls_cert and relay_turn_tls_key")
+		opt.TLSAddr = ""
+	}
+	return r.StartTURN(opt)
 }
 
 // serveSites starts the practice website listener (#97). It uses the
