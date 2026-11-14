@@ -75,7 +75,7 @@ func TestVideoVisit(t *testing.T) {
 	h := s.Router()
 	ctx := context.Background()
 	visitPollWait = 300 * time.Millisecond
-	t.Cleanup(func() { visitPollWait = 25 * time.Second })
+	t.Cleanup(func() { visitPollWait = 15 * time.Second })
 	s.SetPairing(office.Pairing{RelayAddress: "r:1", RelayPin: "cA==", OfficeID: uuid.NewString(), KeyPin: "aw=="})
 	relay := &client{t: t, h: h, relay: true}
 	staff := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}

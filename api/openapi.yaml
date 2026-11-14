@@ -1794,7 +1794,8 @@ paths:
       summary: Long-poll for signals from the other side
       description: |
         Returns at once with any signals after `after`, otherwise waits up to
-        25 seconds. Only while the call screen is open: the one exception to
+        15 seconds, so clients need a request timeout of at least 20 seconds.
+        Only while the call screen is open: the one exception to
         the polling rules in docs/MOBILE_CLIENT.md. Signals are held in
         memory only and never stored or logged.
       parameters:

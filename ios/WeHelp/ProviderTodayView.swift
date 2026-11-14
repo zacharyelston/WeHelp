@@ -38,7 +38,12 @@ struct ProviderTodayView: View {
                         Text(loaded ? "No visits today." : "Loading…").foregroundStyle(.secondary)
                     }
                     ForEach(today) { a in
-                        AppointmentRow(appointment: a, with: appState.name(of: a.patientID))
+                        VStack(alignment: .leading, spacing: 8) {
+                            AppointmentRow(appointment: a, with: appState.name(of: a.patientID))
+                            if a.inVisitWindow() {
+                                VisitButton(appointment: a, peerName: appState.name(of: a.patientID) ?? "your patient")
+                            }
+                        }
                     }
                 }
                 if !next.isEmpty {

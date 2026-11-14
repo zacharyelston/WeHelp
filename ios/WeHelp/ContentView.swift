@@ -69,6 +69,9 @@ struct SettingsView: View {
                 } footer: {
                     Text("WeHelp locks whenever you leave it; Face ID or your passcode opens it again. This device stays paired with your practice. Only the practice can remove it.")
                 }
+                Section {
+                    NavigationLink("Third-party licences") { LicencesView() }
+                }
             }
             .navigationTitle("Settings")
         }

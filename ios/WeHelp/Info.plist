@@ -36,7 +36,7 @@
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>WeHelp connects to your Bluetooth health monitors.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>WeHelp uses the camera to scan your practice's pairing code.</string>
+	<string>WeHelp uses the camera to scan your practice's pairing code and for video visits.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>WeHelp uses Face ID to keep your health information private.</string>
 	<key>NSHealthShareUsageDescription</key>
@@ -45,6 +45,8 @@
 	<string>WeHelp records check-ins and readings to your health data.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>WeHelp connects to your practice's relay, which may be on your local network.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WeHelp uses the microphone for video visits with your practice.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
