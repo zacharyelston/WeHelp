@@ -73,6 +73,12 @@ func (s *Server) RunReminders(ctx context.Context, interval time.Duration) {
 		} else if n > 0 {
 			slog.Info("reminders sent", "count", n)
 		}
+		// Scheduled blog posts that came due go out with a republish (#121).
+		if n, err := s.publishDuePosts(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			slog.Warn("blog: scheduled publish check failed", "err", err)
+		} else if n > 0 {
+			slog.Info("blog: sites republished for scheduled posts", "count", n)
+		}
 		select {
 		case <-ctx.Done():
 			return

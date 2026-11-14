@@ -166,3 +166,46 @@ func TestWords(t *testing.T) {
 		t.Error("default words not used")
 	}
 }
+
+// TestBlog: posts get a Blog page, a page each, and the home-page teaser;
+// text is escaped; a missing image is dropped; no posts, no Blog (#121).
+func TestBlog(t *testing.T) {
+	c := DemoContent("Clinic")
+	day := time.Date(2026, 11, 14, 9, 0, 0, 0, time.UTC)
+	c.Posts = []Post{
+		{ID: "11111111-aaaa", Title: "Flu shots are here!", Body: "First paragraph.\n\nSecond <script>x()</script>.", ImageFile: "flu.png", Author: "Dr. Ada Shaw", Date: day},
+		{ID: "22222222-bbbb", Title: "Holiday hours", Body: "Closed Dec 25.", ImageFile: "missing.png", Author: "Front Desk", Date: day.Add(-24 * time.Hour)},
+	}
+	files := []File{{Kind: "image", Title: "Flu", Filename: "flu.png", Data: []byte("png")}}
+	out, err := Render(c, nil, files, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	flu, holiday := c.Posts[0].Slug(), c.Posts[1].Slug()
+	if flu != "post-2026-11-14-flu-shots-are-here-11111111.html" {
+		t.Errorf("slug %q", flu)
+	}
+	for _, want := range []string{"blog.html", flu, holiday} {
+		if out[want] == nil {
+			t.Fatalf("missing %s", want)
+		}
+	}
+	idx, blog, post := string(out["index.html"]), string(out["blog.html"]), string(out[flu])
+	if !strings.Contains(idx, "Latest news") || !strings.Contains(idx, `href="`+flu+`"`) || !strings.Contains(idx, `href="blog.html"`) {
+		t.Error("home page lacks the latest posts or the Blog link")
+	}
+	if strings.Index(blog, "Flu shots") > strings.Index(blog, "Holiday hours") {
+		t.Error("blog not newest first")
+	}
+	if !strings.Contains(post, "&lt;script&gt;") || strings.Contains(post, "<script") || !strings.Contains(post, `src="files/flu.png"`) {
+		t.Error("post not escaped or image missing")
+	}
+	if strings.Contains(string(out[holiday]), "missing.png") {
+		t.Error("a dangling image name was kept")
+	}
+	c.Posts = nil
+	out, _ = Render(c, nil, nil, day)
+	if out["blog.html"] != nil || strings.Contains(string(out["index.html"]), "blog.html") {
+		t.Error("a site with no posts has a Blog")
+	}
+}

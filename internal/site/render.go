@@ -72,6 +72,13 @@ type category struct {
 	Products []Product
 }
 
+// postView is a post as the templates use it.
+type postView struct {
+	Post
+	File string
+	Day  string
+}
+
 type pageData struct {
 	Content
 	Page       string
@@ -81,6 +88,9 @@ type pageData struct {
 	Categories []category
 	Images     map[string]bool
 	Updated    string
+	Posts      []postView // the blog (#121)
+	Latest     []postView // the newest three, for the home page
+	Post       postView   // on a post's own page
 }
 
 // Render returns every file of the site by path: the pages, the stylesheet
@@ -106,6 +116,10 @@ func Render(c Content, products []Product, files []File, now time.Time) (map[str
 			continue
 		}
 		shown = append(shown, p)
+		// The blog comes after the team page, and only when there are posts (#121).
+		if p.File == "team.html" && len(c.Posts) > 0 {
+			shown = append(shown, page{"blog.html", "Blog", "blog"})
+		}
 	}
 	for _, p := range shown {
 		d.Nav = append(d.Nav, struct{ File, Title string }{p.File, p.Title})
@@ -144,10 +158,36 @@ func Render(c Content, products []Product, files []File, now time.Time) (map[str
 		}
 	}
 
+	// Blog posts (#121): newest first, at most MaxPosts; a dangling image
+	// name is dropped like a provider photo's.
+	posts := c.Posts
+	if len(posts) > MaxPosts {
+		posts = posts[:MaxPosts]
+	}
+	for _, p := range posts {
+		if !d.Images[p.ImageFile] {
+			p.ImageFile = ""
+		}
+		d.Posts = append(d.Posts, postView{Post: p, File: p.Slug(), Day: p.Date.In(now.Location()).Format("January 2, 2006")})
+	}
+	if len(d.Posts) > 3 {
+		d.Latest = d.Posts[:3]
+	} else {
+		d.Latest = d.Posts
+	}
+
 	for _, p := range shown {
 		d.Page, d.Title = p.File, p.Title
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, p.Template, d); err != nil {
+			return nil, fmt.Errorf("render %s: %w", p.File, err)
+		}
+		out[p.File] = buf.Bytes()
+	}
+	for _, p := range d.Posts {
+		d.Page, d.Title, d.Post = "blog.html", p.Title, p
+		var buf bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&buf, "post", d); err != nil {
 			return nil, fmt.Errorf("render %s: %w", p.File, err)
 		}
 		out[p.File] = buf.Bytes()

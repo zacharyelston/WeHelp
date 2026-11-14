@@ -313,22 +313,30 @@ func (s *Server) PublishSite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "this office is not connected to a Relay")
 		return
 	}
-	ctx := r.Context()
-	bundle, files, err := s.buildSite(ctx, id.TenantID)
+	url, files, size, status, err := s.publishSite(r.Context(), id.TenantID, &id.UserID)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeErr(w, status, err.Error())
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"url": url, "files": files, "bytes": size})
+}
+
+// publishSite builds the site, sends it to the Relay and records the
+// publish, audited. actor is nil when the scheduler publishes (#121). On
+// failure it returns the HTTP status for a handler to answer with.
+func (s *Server) publishSite(ctx context.Context, tenant uuid.UUID, actor *uuid.UUID) (string, int, int, int, error) {
+	bundle, files, err := s.buildSite(ctx, tenant)
+	if err != nil {
+		return "", 0, 0, http.StatusBadRequest, err
 	}
 	pctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	res, err := s.sitePub.PublishSite(pctx, bundle)
 	if errors.Is(err, tunnel.ErrNotConnected) {
-		writeErr(w, http.StatusServiceUnavailable, "the Relay connection is down; try again shortly")
-		return
+		return "", 0, 0, http.StatusServiceUnavailable, errors.New("the Relay connection is down; try again shortly")
 	}
 	if err != nil {
-		writeErr(w, http.StatusBadGateway, err.Error())
-		return
+		return "", 0, 0, http.StatusBadGateway, err
 	}
 	url := res.URL
 	if url == "" {
@@ -336,27 +344,23 @@ func (s *Server) PublishSite(w http.ResponseWriter, r *http.Request) {
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "tx failed")
-		return
+		return "", 0, 0, http.StatusInternalServerError, errors.New("tx failed")
 	}
 	defer tx.Rollback(ctx)
 	if _, err := tx.Exec(ctx, `
 		insert into site_profiles (tenant_id, published_at, published_url) values ($1, now(), $2)
-		on conflict (tenant_id) do update set published_at = now(), published_url = excluded.published_url`, id.TenantID, url); err != nil {
-		writeErr(w, http.StatusInternalServerError, "save failed")
-		return
+		on conflict (tenant_id) do update set published_at = now(), published_url = excluded.published_url`, tenant, url); err != nil {
+		return "", 0, 0, http.StatusInternalServerError, errors.New("save failed")
 	}
-	detail, _ := json.Marshal(map[string]any{"files": files, "bytes": len(bundle)})
-	if err := audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &id.UserID,
-		Action: "site.publish", ResourceType: "site", ResourceID: id.TenantID.String(), Detail: detail}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit failed")
-		return
+	detail, _ := json.Marshal(map[string]any{"files": files, "bytes": len(bundle), "scheduled": actor == nil})
+	if err := audit.Record(ctx, tx, audit.Event{TenantID: tenant, ActorID: actor,
+		Action: "site.publish", ResourceType: "site", ResourceID: tenant.String(), Detail: detail}); err != nil {
+		return "", 0, 0, http.StatusInternalServerError, errors.New("audit failed")
 	}
 	if err := tx.Commit(ctx); err != nil {
-		writeErr(w, http.StatusInternalServerError, "commit failed")
-		return
+		return "", 0, 0, http.StatusInternalServerError, errors.New("commit failed")
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"url": url, "files": files, "bytes": len(bundle)})
+	return url, files, len(bundle), 0, nil
 }
 
 // buildSite renders the bundle. It reads site_profiles, site_files and
@@ -376,6 +380,9 @@ func (s *Server) buildSite(ctx context.Context, tenant uuid.UUID) ([]byte, int, 
 		}
 		c.Words = pt.Words
 		c.Off = map[string]bool{"store": !on["store"], "library": !on["library"]}
+		if c.Posts, err = duePosts(ctx, tx, tenant, time.Now()); err != nil { // the blog (#121)
+			return err
+		}
 		rows, err := tx.Query(ctx, `
 			select sku, name, description, category, unit, price_cents from products
 			where tenant_id = $1 and active order by category, sort, name`, tenant)
