@@ -73,7 +73,7 @@ V1-M2 starts.
 
 ### V1-M2: Secure channel and identity
 
-Issues: #REG-CORE Registry core, #35 office identity and install, #4 Relay, #36 iOS through the Relay, #37 QR pairing, #10 devices, #38 staff sign-in.
+Issues: #60 Registry core, #35 office identity and install, #4 Relay, #36 iOS through the Relay, #37 QR pairing, #10 devices, #38 staff sign-in.
 
 - **Registry core:**
   - `wehelp-registry` with Postgres: practices, install tokens, signed
@@ -108,7 +108,7 @@ Issues: #REG-CORE Registry core, #35 office identity and install, #4 Relay, #36 
 
 ### V1-M3: Practice features
 
-Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-only web, #19 reminders, #7 push.
+Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-only web, #19 reminders, #7 push, #61 Registry console, #62 provider roster.
 
 - Messages (#14) and appointments (#18) on the secure channel.
 - iOS messages inbox and compose (#17), and iOS appointments (a new issue).
@@ -116,9 +116,9 @@ Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-o
   (#9).
 - Reminders as River jobs (#19). Push via the Relay with fixed categories
   (#7, replacing #20).
-- **Registry console** (#REG-CONSOLE): practices, providers, admin
+- **Registry console** (#61): practices, providers, admin
   contacts, Relay assignment, and Relay and office health. **Provider
-  roster** (#REG-ROSTER): the Back Office pulls its providers from the
+  roster** (#62): the Back Office pulls its providers from the
   Registry and invites their staff accounts.
 - The OpenAPI spec covers every V1 route and is validated in CI (#15).
 
@@ -190,7 +190,8 @@ live on its own hardware, and demos run only on demo hardware with demo data.
 Design: [OBSERVABILITY.md](OBSERVABILITY.md).
 
 Issues: #53 Alloy sidecar, #54 OTel metrics, #55 dashboards and load guard,
-#56 audit stream export, #57 Relay telemetry, #58 Cloud Dashboards PoC.
+#56 audit stream export, #57 Relay telemetry, #63 Registry telemetry,
+#58 Cloud Dashboards PoC.
 
 - **Alloy sidecar** on the Back Office; JSON logs and OTel metrics from
   `wehelpd`.
