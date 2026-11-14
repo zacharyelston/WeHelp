@@ -50,6 +50,28 @@ All notable changes to WeHelp are documented here. Format follows
   opaque `?cursor`), and mark-read. Sending requires an active
   provider-patient link; creates and read-receipts are audit-chained in the
   same transaction.
+- Appointments API (#18): POST/GET/PATCH /api/v1/appointments.
+  Provider-only create requires an active link with the patient and rejects
+  overlapping scheduled appointments (409); concurrent bookings for one
+  provider are serialised with a transaction-scoped advisory lock. List is
+  scoped to the caller (provider or patient) with optional `?from`/`?to`
+  bounds on `starts_at`. PATCH supports reschedule (re-checks overlap) and
+  status transitions only from `scheduled` to `cancelled`, `completed` or
+  `no_show` (409 otherwise). All mutations are audited, including the status
+  change.
+- Staff web UI: a vanilla-JS SPA (`web/`) embedded in the Go binary via
+  `embed.FS` and served at `/` by the chi router. No framework, no build
+  step, no Node.js. Messaging, appointments (create, list, cancel,
+  complete) and links. Unknown non-API paths fall back to `index.html`.
+  Patient accounts get a "use the WeHelp app" notice and no data (#9).
+  Error text is HTML-escaped. Not yet done: HttpOnly sessions, refresh,
+  TOTP and security headers (#38).
+- OpenAPI spec (#15): `api/openapi.yaml` is the contract between the Back
+  Office, the iOS app and agents. It covers health, auth (including device
+  enrol, signed refresh and logout), me, links, messages and appointments.
+  CI checks that the spec is valid OpenAPI, and `TestOpenAPICoversRoutes`
+  fails if any route registered on the server is missing from the spec.
+  CONTRIBUTING.md requires route changes to update the spec in the same PR.
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
   a P-256 key in the Secure Enclave (a software key on the simulator) and
