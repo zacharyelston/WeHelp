@@ -110,6 +110,11 @@ func (s *Server) Router() chi.Router {
 			r.Use(s.authenticate)
 			r.Get("/me", s.Me)
 			r.Get("/practice", s.GetPractice) // practice type and words (#108)
+			// Practice inbox (#110): patients any channel; the front desk on the LAN.
+			r.Get("/practice-inbox", s.GetPracticeInbox)
+			r.Get("/practice-inbox/{patientID}", s.GetPracticeInboxThread)
+			r.Post("/practice-inbox", s.PostPracticeInbox)
+			r.Post("/practice-inbox/read", s.ReadPracticeInbox)
 			r.Post("/links", s.CreateLink)
 			r.Get("/links", s.ListLinks)
 			r.Post("/links/{userID}/accept", s.AcceptLink)

@@ -86,6 +86,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Practice inbox (#110, docs/PRACTICE_TYPES.md phase 3).
+  - Patients message "the practice", and the front desk and admins answer
+    in a new staff web **Inbox** tab. Each reply is signed with the staff
+    member's name.
+  - Providers don't see it, and it is a table of its own
+    (`practice_messages`), separate from provider threads.
+  - It follows the messages switch. A provider with messages off now
+    points patients to the practice inbox.
+  - The front desk no longer sees the always-empty Messages tab.
+  - Routes: `GET`/`POST /api/v1/practice-inbox`,
+    `GET /api/v1/practice-inbox/{patientID}` and
+    `POST /api/v1/practice-inbox/read`. Patients use them on any channel;
+    the front desk only on the office LAN. Audited as
+    `practice_message.create`; pushes are generic. Migration
+    `V15__practice_inbox.sql`.
+  - The app screen follows when the test devices are back.
 - Practice and provider switches (#109, docs/PRACTICE_TYPES.md phase 2).
   - Settings has a **Features** card. An admin turns off messages,
     appointment requests, reminders, check-ins, video, the store, the

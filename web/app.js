@@ -206,9 +206,10 @@ function renderDashboard() {
     <div id="alert-area"></div>
     <div class="tabs">
       <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">${Word("patients")}</div>
-      ${feature("messages") ? `<div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>` : ""}
+      ${feature("messages") && role !== "office" ? `<div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>` : ""}
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
+      ${practiceWideRole() && feature("messages") ? `<div class="tab ${activeTab === "inbox" ? "active" : ""}" data-tab="inbox">Inbox</div>` : ""}
       ${feature("store") ? `<div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
       <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
       ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
@@ -242,6 +243,7 @@ async function loadTab() {
     else if (activeTab === "messages") await loadMessages(content);
     else if (activeTab === "appointments") await loadAppointments(content);
     else if (activeTab === "links") await loadLinks(content);
+    else if (activeTab === "inbox") await loadInbox(content);
     else if (activeTab === "orders") await loadOrders(content);
     else if (activeTab === "store") await loadStore(content);
     else if (activeTab === "website") await loadWebsite(content);
