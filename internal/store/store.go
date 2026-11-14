@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"fmt"
-	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zacharyelston/wehelp/internal/pgurl"
 )
 
 // NewPool opens a pgx connection pool and verifies connectivity.
@@ -25,19 +25,5 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// JDBCURL converts a postgres:// DSN into the JDBC URL Flyway expects,
-// carrying user/password as query params. DSNs must be in URL form.
-func JDBCURL(databaseURL string) (string, error) {
-	u, err := url.Parse(databaseURL)
-	if err != nil || u.Scheme != "postgres" && u.Scheme != "postgresql" {
-		return "", fmt.Errorf("database_url must be a postgres:// URL: %w", err)
-	}
-	q := u.Query()
-	if u.User != nil {
-		q.Set("user", u.User.Username())
-		if pw, ok := u.User.Password(); ok {
-			q.Set("password", pw)
-		}
-	}
-	return "jdbc:postgresql://" + u.Host + u.Path + "?" + q.Encode(), nil
-}
+// JDBCURL converts a postgres:// DSN into the JDBC URL Flyway expects.
+func JDBCURL(databaseURL string) (string, error) { return pgurl.JDBC(databaseURL) }

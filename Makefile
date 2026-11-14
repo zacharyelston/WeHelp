@@ -1,10 +1,22 @@
 BIN := bin/wehelpd
 
 .PHONY: build test vet run migrate db-migrate seed compose-up compose-down ios ios-build clean \
+	registry-db registry-migrate registry-run \
 	appliance-up appliance-down appliance-status appliance-install-login appliance-stop-for-reboot
 
 build:
 	go build -o $(BIN) ./cmd/wehelp
+	go build -o bin/wehelp-registry ./cmd/wehelp-registry
+
+# WeHelp Registry (#60): its own Postgres on :5433, migrations in db/registry.
+registry-db:
+	docker compose -f deploy/docker-compose.yml --profile registry up -d registry-db
+
+registry-migrate:
+	docker compose -f deploy/docker-compose.yml --profile registry run --rm registry-migrate
+
+registry-run: build
+	bin/wehelp-registry serve
 
 test:
 	go test -race ./...

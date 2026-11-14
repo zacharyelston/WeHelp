@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  title: WeHelp Registry API
+  version: 1.0.0
+  description: |
+    The WeHelp Registry (`wehelp-registry`, #60): the corporate control plane.
+    Offices install with a single-use token; Relays fetch the signed list of
+    offices they may accept. No patient data is accepted or returned.
+    The console API for WeHelp support is #61 and not part of this spec yet.
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.html
+servers:
+  - url: /
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      operationId: healthz
+      responses:
+        "200":
+          description: The Registry is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+  /v1/install:
+    post:
+      summary: Install an office with a single-use install token
+      description: |
+        Redeems an install token (single use, 24 hours, bound to one practice)
+        with the office's SSH public key. Creates the practice's office, or on
+        reinstall replaces its key and keeps the office ID, and publishes a new
+        signed office list. Every token failure (unknown, used, expired,
+        practice suspended) gets the same 401.
+      operationId: install
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [install_token, ssh_public_key]
+              properties:
+                install_token:
+                  type: string
+                  example: wht_q3J0...
+                ssh_public_key:
+                  type: string
+                  description: The office SSH public key, `ssh-ed25519` only, authorized_keys format.
+                  example: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...
+      responses:
+        "200":
+          description: Installed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstallResult" }
+        "400":
+          description: Missing fields or a malformed or non-ed25519 key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          description: Invalid install token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: The SSH key already belongs to another office.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/office-list:
+    get:
+      summary: The latest signed office list
+      description: |
+        Public. Relays fetch this every minute, verify `signature` over the
+        decoded `payload` bytes with the pinned Registry key, and reject any
+        version not newer than their last good list. Offices of suspended
+        practices are left out.
+      operationId: officeList
+      responses:
+        "200":
+          description: The newest list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedOfficeList" }
+        "503":
+          description: No list has been published yet.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    Relay:
+      type: object
+      required: [id, name, ssh_address, connect_address, ssh_host_key]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        ssh_address:
+          type: string
+          description: host:port the office dials over SSH.
+        connect_address:
+          type: string
+          description: host:port phones dial with HTTP CONNECT.
+        ssh_host_key:
+          type: string
+          description: The Relay's SSH host key (authorized_keys format), pinned by the office.
+
+    InstallResult:
+      type: object
+      required: [office_id, relay, registry_signing_key]
+      properties:
+        office_id: { type: string, format: uuid }
+        relay: { $ref: "#/components/schemas/Relay" }
+        registry_signing_key:
+          type: string
+          description: The Registry's office-list signing key, `ed25519:` plus base64.
+          example: "ed25519:Zm9v..."
+
+    SignedOfficeList:
+      type: object
+      required: [payload, signature]
+      properties:
+        payload:
+          type: string
+          format: byte
+          description: |
+            Base64 of the signed JSON bytes:
+            `{"version": int, "issued_at": RFC 3339, "offices": [{"office_id", "ssh_public_key", "relay_id"}]}`.
+        signature:
+          type: string
+          format: byte
+          description: Base64 ed25519 signature over the decoded payload bytes.

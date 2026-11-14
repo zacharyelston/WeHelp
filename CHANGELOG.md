@@ -71,6 +71,28 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- WeHelp Registry core (#60): a new `wehelp-registry` binary with its own
+  Postgres database and Flyway migrations (`db/registry`).
+  - Practices, Relays, offices, install tokens, and every published office
+    list.
+  - `POST /v1/install`: a single-use, 24-hour install token plus the office
+    SSH key returns the office ID, Relay address and host key, and the
+    Registry signing key. Reinstalling keeps the office ID and replaces the
+    key.
+  - `GET /v1/office-list`: an ed25519-signed list with a monotonic version,
+    republished in the same transaction as every change. Suspended practices
+    drop off.
+  - CLI for V1-M2 support work: `relay add`, `practice add`, `suspend`,
+    `reactivate`, `token issue`, `keygen` and `audit verify`.
+  - Its own hash-chained, append-only audit log, with length-prefixed fields
+    and jsonb-safe verification.
+  - `internal/officelist` (sign and verify, rollback check) and
+    `internal/keyfile` (mode-600 PEM keys that are never overwritten) are
+    shared with the Relay and office work.
+  - Tests: an import-boundary test, `TestOpenAPICoversRoutes` for
+    `api/registry.yaml`, and database integration tests that CI now runs
+    against a Postgres service.
+  - Runbook: docs/REGISTRY.md.
 - Spike S2, telehealth (#33): the answer is yes. Two iOS simulators held 1:1
   WebRTC calls with relay-only ICE through pion/turn. Media was DTLS-SRTP end
   to end, and the DTLS fingerprints matched each peer's SDP. Two calls at
