@@ -170,6 +170,28 @@ Issues: #45 demo kit, #46 external audit and pen test, #47 field install.
 **Exit (V1 release):** the external audit and pen test pass, the practice is
 live on its own hardware, and demos run only on demo hardware with demo data.
 
+### V1-OBS: Observability (parallel track, from V1-M0 on)
+
+Design: [OBSERVABILITY.md](OBSERVABILITY.md).
+
+- **Alloy sidecar** on the Back Office; JSON logs and OTel metrics from
+  `wehelpd`.
+- **Dashboards profile:** Grafana, Loki and Prometheus with resource limits,
+  plus the load guard.
+- **Audit stream export:** `audit_events` to syslog or OTLP with chain hashes,
+  resuming from the last acknowledged seq.
+- **Relay telemetry** once the Relay exists (after V1-M2).
+- **WeHelp Cloud Dashboards PoC:** per-office tenants, Barnacle and the
+  laptop Relay shipping to one cloud stack.
+
+**Exit:** the Demo topology shows live Back Office and Relay dashboards on a
+separate machine; the audit stream reaches a remote syslog receiver and
+verifies; the load guard has been shown to stop dashboards under load.
+
+The audit stream export is needed for V1 (HIPAA audit controls), so it must
+land before V1-M6 exits. The Cloud Dashboards offering is a PoC, not a V1
+release requirement.
+
 ## Order
 
 ```

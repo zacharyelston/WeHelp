@@ -112,6 +112,10 @@ attacker, and jailbroken devices with root on the patient's own phone.
   tokens.
 - Relay logs carry office ID and byte counts, kept for 7 days, with no device
   IPs.
+- The audit stream (each `audit_events` row with its chain hashes, IDs only)
+  can be exported off the box for retention. It goes only to a BAA-covered
+  destination over TLS. Operational telemetry is a separate stream that
+  carries no identifiers. See [OBSERVABILITY.md](OBSERVABILITY.md).
 
 ## Secure development
 

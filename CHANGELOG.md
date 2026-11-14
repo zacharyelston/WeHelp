@@ -6,6 +6,16 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- Observability designed (docs/OBSERVABILITY.md):
+  - a Grafana Alloy sidecar on every Back Office and Relay;
+  - optional Grafana, Loki and Prometheus dashboards that can run anywhere,
+    behind a load guard that stops them on small hosts under pressure;
+  - an ops stream with no identifiers, and a separate audit stream (the
+    `audit_events` chain, IDs only) sent only to BAA-covered destinations
+    over syslog or OTLP;
+  - WeHelp Cloud Dashboards specified as a PoC corporate offering.
+
+  Plan track V1-OBS added to docs/V1_PLAN.md.
 - V1 architecture defined (docs/ARCHITECTURE.md rewritten, plus
   docs/SECURITY.md and docs/V1_PLAN.md). In V1:
   - A local Back Office holds all patient data.

@@ -105,6 +105,18 @@ ARCHITECTURE.md, "Connections".
 | govulncheck, staticcheck | **adopt**: CI security and correctness checks |
 | OWASP ASVS 4.0 L2, MASVS L2 | **adopt** as the audit checklists (SECURITY.md) |
 
+## Observability and audit export (OBSERVABILITY.md)
+
+| Candidate | Verdict |
+|---|---|
+| Grafana Alloy | **adopt**: the per-host collector. Already used in the owner's hydra-aks and hydra-host projects, including a syslog listener and Loki pipelines with low-cardinality labels and structured metadata |
+| Grafana + Loki + Prometheus | **adopt** for dashboards (optional profile). Each is a single container; Loki takes logs and Prometheus metrics |
+| Mimir, Tempo | **skip for V1**: Mimir is sized for far more metrics than an office; traces are optional and can be added later through Alloy without app changes |
+| go.opentelemetry.io/otel (SDK + otelhttp) | **adopt**: metrics and traces from `wehelpd` and `wehelp-relay` over OTLP to the local Alloy |
+| Syslog RFC 5424 over TLS (RFC 5425) | **adopt** for audit export to SIEMs. Confirm in the PoC whether Alloy's `otelcol.exporter.syslog` covers it, or whether the Back Office writes syslog itself |
+| Grafana Cloud | **evaluate** in the Cloud Dashboards PoC against a self-run VPS stack: cost per office, tenancy, retention, BAA availability |
+| Docker Compose profiles and resource limits | **adopt**: dashboards are an opt-in profile with CPU and memory caps |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all
