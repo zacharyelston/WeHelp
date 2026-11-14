@@ -17,3 +17,6 @@ DerivedData/
 # OS / editor
 .DS_Store
 build/
+
+# Agent worktrees (Claude Code)
+.claude/worktrees/
