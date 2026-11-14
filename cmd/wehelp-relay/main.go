@@ -5,6 +5,8 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/zacharyelston/wehelp/internal/config"
+	"github.com/zacharyelston/wehelp/internal/keyfile"
 	"github.com/zacharyelston/wehelp/internal/officelist"
 	"github.com/zacharyelston/wehelp/internal/relay"
 	"golang.org/x/crypto/ssh"
@@ -93,15 +96,21 @@ func serveCmd() *cobra.Command {
 				}
 				fmt.Fprintf(os.Stderr, "push on: APNs key %s, topic %s\n", cfg.RelayAPNsKeyID, cfg.RelayAPNsTopic)
 			}
+			sitesDir := ""
+			if cfg.RelaySiteAddr != "" {
+				sitesDir = filepath.Join(cfg.RelayDir, "sites")
+			}
 			r, err := relay.New(relay.Config{
-				APNs:         apns,
-				RelayID:      cfg.RelayID,
-				HostKey:      keys.HostKey,
-				TLSCert:      keys.TLSCert,
-				RegistryURL:  cfg.RegistryURL,
-				RegistryKey:  regKey,
-				CachePath:    filepath.Join(cfg.RelayDir, relay.CacheFile),
-				ListInterval: cfg.RelayListInterval,
+				SitesDir:      sitesDir,
+				APNs:          apns,
+				RelayID:       cfg.RelayID,
+				HostKey:       keys.HostKey,
+				TLSCert:       keys.TLSCert,
+				RegistryURL:   cfg.RegistryURL,
+				RegistryKey:   regKey,
+				CachePath:     filepath.Join(cfg.RelayDir, relay.CacheFile),
+				ListInterval:  cfg.RelayListInterval,
+				SitePublicURL: cfg.RelaySitePublicURL,
 			})
 			if err != nil {
 				return err
@@ -117,8 +126,42 @@ func serveCmd() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
+			if cfg.RelaySiteAddr != "" {
+				if err := serveSites(ctx, r, cfg.RelaySiteAddr, cfg.RelaySiteCert, cfg.RelaySiteKey, keys.TLSCert); err != nil {
+					_ = sshLn.Close()
+					_ = connectLn.Close()
+					return err
+				}
+			}
 			fmt.Fprintf(os.Stderr, "wehelp-relay %s: ssh %s, connect %s, tls pin %s\n", cfg.RelayID, cfg.RelaySSHAddr, cfg.RelayConnectAddr, keys.TLSPin)
 			return r.Serve(ctx, sshLn, connectLn)
 		},
 	}
+}
+
+// serveSites starts the practice website listener (#97). It uses the
+// Relay's own TLS certificate unless a real one is configured.
+func serveSites(ctx context.Context, r *relay.Relay, addr, certFile, keyFile string, fallback tls.Certificate) error {
+	cert := fallback
+	if certFile != "" {
+		if err := keyfile.CheckPrivate(keyFile); err != nil {
+			return fmt.Errorf("site key: %w", err)
+		}
+		c, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			return fmt.Errorf("site certificate: %w", err)
+		}
+		cert = c
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := r.ServeSites(ctx, ln, cert); err != nil {
+			fmt.Fprintln(os.Stderr, "site listener stopped:", err)
+		}
+	}()
+	fmt.Fprintf(os.Stderr, "practice websites on https://%s/s/<office-id>/\n", addr)
+	return nil
 }

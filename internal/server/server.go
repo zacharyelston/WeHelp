@@ -25,6 +25,7 @@ type Server struct {
 	pairing   *office.Pairing // nil until the office is installed (#35)
 	httpsPort string          // set: plain HTTP only redirects to HTTPS (#38)
 	pusher    Pusher          // push through the Relay (#7); nil = off
+	sitePub   SitePublisher   // website publishing through the Relay (#97); nil = off
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -113,6 +114,13 @@ func (s *Server) Router() chi.Router {
 			r.Delete("/devices/{deviceID}", s.RevokeMyDevice)
 			r.Put("/devices/current/push", s.SetPushToken)
 			r.Delete("/devices/current/push", s.ClearPushToken)
+			// Supply store and library (#97). Staff listing orders is LAN only.
+			r.Get("/store/products", s.ListProducts)
+			r.Post("/orders", s.CreateOrder)
+			r.Get("/orders", s.ListOrders)
+			r.Post("/orders/{orderID}/cancel", s.CancelOrder)
+			r.Get("/library", s.GetLibrary)
+			r.Get("/library/files/{fileID}", s.GetLibraryFile)
 		})
 
 		// Staff routes: office LAN only. Through the Relay they are a 404
@@ -125,6 +133,16 @@ func (s *Server) Router() chi.Router {
 			r.Post("/patients", s.CreatePatient)
 			r.Post("/pairing/invites", s.CreateInvite)
 			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
+			// Practice website and store admin (#97).
+			r.Get("/site", s.GetSite)
+			r.Put("/site", s.PutSite)
+			r.Post("/site/files", s.UploadSiteFile)
+			r.Delete("/site/files/{fileID}", s.DeleteSiteFile)
+			r.Post("/site/publish", s.PublishSite)
+			r.Post("/store/products", s.CreateProduct)
+			r.Put("/store/products/{productID}", s.UpdateProduct)
+			r.Post("/store/products/demo", s.AddDemoProducts)
+			r.Post("/orders/{orderID}/status", s.SetOrderStatus)
 		})
 	})
 

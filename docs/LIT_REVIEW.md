@@ -109,6 +109,25 @@ ARCHITECTURE.md, "Connections".
 | WebRTC iOS framework (Google's build via a SwiftPM package) | **adopt** (S2): `stasel/WebRTC` 157.0.0, BSD-3, about 12 MB installed and 5.5 MB to download, roughly monthly releases. Pin it, mirror it, and update every quarter. See [spikes/S2.md](spikes/S2.md) |
 | LiveKit, SFU + SFrame | **reference**: only needed for group visits, which are post-V1 |
 
+## Practice website, library and store (V1-M5, #5, #97)
+
+Requirement: staff build a small public site in the Back Office (about us,
+bios, services, how to get the app and join, a library of podcast links and
+PDFs, and a supply catalogue) and the Relay serves it. Patients order
+supplies in the app. Orders are patient data, so they stay in the Back
+Office and never pass through the public site.
+
+| Candidate | Verdict |
+|---|---|
+| Go `html/template` + `embed` | **adopt**: renders the pages in the Back Office with contextual escaping; no build step, no dependency |
+| `archive/tar` streamed over a new SSH channel type (`wehelp-site`) | **adopt**: the bundle rides the office's existing authenticated connection, so the Relay binds it to the office ID with no extra signing scheme. SSH global requests are capped at one 256 KB packet, too small for PDFs, so a channel is used instead |
+| Hugo, Jekyll, other static site generators | **reference**: the right shape (templates plus content to static files), but a second toolchain for a site of five pages |
+| Hosted site builders (Squarespace, Wix), WordPress | **skip**: a third party or a dynamic CMS per practice, with logins and plugins to secure |
+| Content-Security-Policy `default-src 'none'` with no scripts | **adopt**: the Relay serves every site file with it, and refuses HTML with `<script`, so a site can't run code or call out |
+| Shopify, WooCommerce, Stripe Checkout | **skip for V1**: payment is out of scope ("pay at pickup or by invoice"), and an order is patient data that must stay in the Back Office |
+| Podcast RSS feeds and embedded players | **skip**: plain external links. Embedding a player means third-party scripts and trackers on the practice site |
+| iOS QuickLook (`quickLookPreview`) | **adopt**: shows library PDFs that the app fetched through its pinned tunnel |
+
 ## V1 operations (V1-M6)
 
 | Candidate | Verdict |

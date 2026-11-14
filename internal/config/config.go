@@ -55,6 +55,11 @@ type Config struct {
 	RelayAPNsKeyID string `mapstructure:"relay_apns_key_id"`
 	RelayAPNsTeam  string `mapstructure:"relay_apns_team"`
 	RelayAPNsTopic string `mapstructure:"relay_apns_topic"` // the app's bundle ID
+	// Practice websites (#97): served read-only at /s/<office-id>/.
+	RelaySiteAddr      string `mapstructure:"relay_site_addr"`       // HTTPS listener; empty = no websites
+	RelaySitePublicURL string `mapstructure:"relay_site_public_url"` // e.g. https://relay.example:8444, told to offices
+	RelaySiteCert      string `mapstructure:"relay_site_cert"`       // PEM cert for the site listener; empty = the Relay TLS cert
+	RelaySiteKey       string `mapstructure:"relay_site_key"`        // its key, mode 600
 }
 
 func defaultRelayDir() string {
@@ -124,6 +129,10 @@ func Load(cfgFile string) error {
 	viper.SetDefault("relay_apns_key_id", "")
 	viper.SetDefault("relay_apns_team", "")
 	viper.SetDefault("relay_apns_topic", "com.zacelston.wehelp")
+	viper.SetDefault("relay_site_addr", ":8444")
+	viper.SetDefault("relay_site_public_url", "")
+	viper.SetDefault("relay_site_cert", "")
+	viper.SetDefault("relay_site_key", "")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

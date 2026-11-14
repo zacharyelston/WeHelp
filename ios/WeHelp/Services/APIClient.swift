@@ -205,6 +205,52 @@ struct APIClient: Sendable {
         try await authorized("POST", "api/v1/appointment-requests/\(id.uuidString.lowercased())/cancel")
     }
 
+    // MARK: Supply store and library (#97)
+
+    func products() async throws -> ProductList {
+        try await authorized("GET", "api/v1/store/products")
+    }
+
+    func orders() async throws -> [SupplyOrder] {
+        struct List: Decodable { let orders: [SupplyOrder] }
+        let list: List = try await authorized("GET", "api/v1/orders")
+        return list.orders
+    }
+
+    private struct NewOrder: Encodable, Sendable {
+        struct Line: Encodable, Sendable { let product_id: String; let quantity: Int }
+        let items: [Line]
+        let note: String
+    }
+
+    @discardableResult
+    func placeOrder(_ quantities: [UUID: Int], note: String) async throws -> SupplyOrder {
+        let lines = quantities.filter { $0.value > 0 }
+            .map { NewOrder.Line(product_id: $0.key.uuidString.lowercased(), quantity: $0.value) }
+        return try await authorized("POST", "api/v1/orders", body: NewOrder(items: lines, note: note))
+    }
+
+    @discardableResult
+    func cancelOrder(_ id: UUID) async throws -> SupplyOrder {
+        try await authorized("POST", "api/v1/orders/\(id.uuidString.lowercased())/cancel")
+    }
+
+    func library() async throws -> Library {
+        try await authorized("GET", "api/v1/library")
+    }
+
+    /// One library file's bytes, fetched through the pinned tunnel.
+    func libraryFile(_ id: UUID) async throws -> Data {
+        let path = "api/v1/library/files/\(id.uuidString.lowercased())"
+        if await session.accessToken == nil { try await refresh() }
+        do {
+            return try await rawSend("GET", path, bearer: await session.accessToken).0
+        } catch APIError.unauthorized {
+            try await refresh()
+            return try await rawSend("GET", path, bearer: await session.accessToken).0
+        }
+    }
+
     // MARK: Plumbing
 
     /// Sends with the access token; on 401 refreshes once and retries.
@@ -226,6 +272,13 @@ struct APIClient: Sendable {
     }
 
     func send<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> T {
+        let (data, _) = try await rawSend(method, path, query: query, body: body, bearer: bearer)
+        if T.self == Empty.self || data.isEmpty, let empty = Empty() as? T { return empty }
+        return try Self.decoder.decode(T.self, from: data)
+    }
+
+    /// Sends one request and returns the body of a 2xx response.
+    func rawSend(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> (Data, HTTPURLResponse?) {
         guard let office else { throw APIError.noOffice }
         var url = office.baseURL.appending(path: path)
         if !query.isEmpty { url.append(queryItems: query) }
@@ -243,8 +296,7 @@ struct APIClient: Sendable {
             let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(status)"
             throw status == 401 ? APIError.unauthorized(msg) : APIError.http(status, msg)
         }
-        if T.self == Empty.self || data.isEmpty, let empty = Empty() as? T { return empty }
-        return try Self.decoder.decode(T.self, from: data)
+        return (data, response as? HTTPURLResponse)
     }
 
     /// Go encodes `time.Time` as RFC 3339 with 0-9 fractional digits.
