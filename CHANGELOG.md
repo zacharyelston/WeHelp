@@ -71,6 +71,21 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Device management (#10).
+  - `GET /api/v1/devices` lists your own devices, marking the current one,
+    and `DELETE /api/v1/devices/{id}` revokes one.
+  - Staff on the office LAN can list and revoke a linked patient's devices
+    with `GET` and `DELETE /api/v1/patients/{id}/devices[/{deviceID}]`.
+  - A revoke also ends that device's refresh tokens and is audited
+    (`device.revoke`).
+  - Access tokens now carry the device ID (`did`), and every request checks
+    it, so a revoked device is locked out at once rather than after up to 15
+    minutes. Patient tokens without a device are refused.
+  - Staff web UI: each patient's device count opens their devices, with
+    Revoke.
+  - iOS: Settings → Devices lists this account's devices and offers
+    "Sign out other devices". If the server ends this device's session, the
+    app signs out.
 - QR pairing; patients have no password (#37).
   - Staff web UI: a new **Patients** tab to add patients (no password) and
     **Pair phone**, which shows a QR code with the office's pairing identity
