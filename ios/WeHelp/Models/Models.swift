@@ -1,5 +1,30 @@
 import Foundation
 
+/// One paired device of the signed-in account (#10).
+struct Device: Decodable, Identifiable, Sendable {
+    let id: String
+    let name: String
+    let createdAt: Date
+    let lastSeenAt: Date?
+    let status: String // active, revoked
+    let current: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, status, current
+        case createdAt = "created_at", lastSeenAt = "last_seen_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        lastSeenAt = try c.decodeIfPresent(Date.self, forKey: .lastSeenAt)
+        status = try c.decode(String.self, forKey: .status)
+        current = try c.decodeIfPresent(Bool.self, forKey: .current) ?? false
+    }
+}
+
 /// One inbox entry from `GET /api/v1/messages`. Held in memory only; PHI is
 /// never written to disk.
 struct Message: Identifiable, Decodable, Sendable, Hashable {

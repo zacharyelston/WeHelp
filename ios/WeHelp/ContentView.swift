@@ -41,6 +41,7 @@ struct SettingsView: View {
                     LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
                     LabeledContent("Office", value: appState.api.office.map { String($0.officeID.prefix(8)) + "…" } ?? "none")
                     LabeledContent("Relay", value: appState.api.office?.relay ?? "none")
+                    NavigationLink("Devices") { DevicesView() }
                 }
                 Section {
                     Button("Sign out", role: .destructive) {

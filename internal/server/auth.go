@@ -23,6 +23,7 @@ type Identity struct {
 	UserID   uuid.UUID
 	TenantID uuid.UUID
 	Role     string
+	DeviceID *uuid.UUID // the enrolled device, for device-bound sessions
 }
 
 func identityFrom(ctx context.Context) (Identity, bool) {
@@ -44,10 +45,27 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			return
 		}
 		uid, _ := uuid.Parse(claims.Subject)
+		// Device-bound sessions stop working the moment the device is revoked
+		// (#10), not when the access token expires. Patient sessions are always
+		// device-bound.
+		if claims.DeviceID == nil && claims.Role == "patient" {
+			writeErr(w, http.StatusUnauthorized, "patient sessions must be device-bound")
+			return
+		}
+		if claims.DeviceID != nil {
+			var active bool
+			err := s.pool.QueryRow(r.Context(),
+				`select revoked_at is null from devices where id = $1 and user_id = $2`, claims.DeviceID, uid).Scan(&active)
+			if err != nil || !active {
+				writeErr(w, http.StatusUnauthorized, "device revoked")
+				return
+			}
+		}
 		ctx := context.WithValue(r.Context(), ctxIdentity, Identity{
 			UserID:   uid,
 			TenantID: claims.TenantID,
 			Role:     claims.Role,
+			DeviceID: claims.DeviceID,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -73,7 +91,7 @@ func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uu
 	if err != nil {
 		return tokenResponse{}, err
 	}
-	access, err := auth.IssueAccessToken(userID, tenantID, role, s.jwtSecret, s.cfg.AccessTTL)
+	access, err := auth.IssueAccessToken(userID, tenantID, role, deviceID, s.jwtSecret, s.cfg.AccessTTL)
 	if err != nil {
 		return tokenResponse{}, err
 	}

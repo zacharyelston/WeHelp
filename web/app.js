@@ -492,10 +492,10 @@ async function loadPatients(container) {
   if (data.patients.length === 0) {
     html += '<p class="empty">No patients yet.</p>';
   } else {
-    html += "<table><thead><tr><th>Name</th><th>Email</th><th>Phones</th><th></th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Name</th><th>Email</th><th>Devices</th><th></th></tr></thead><tbody>";
     for (const p of data.patients) {
       html += `<tr><td>${esc(p.display_name || "—")}</td><td>${esc(p.email)}</td>
-        <td>${p.devices}</td>
+        <td><button class="btn btn-sm btn-outline" onclick="showDevices('${esc(p.id)}', '${esc(p.display_name || p.email)}')">${p.devices} active</button></td>
         <td><button class="btn btn-sm" onclick="startPairing('${esc(p.id)}')">Pair phone</button></td></tr>`;
     }
     html += "</tbody></table>";
@@ -569,6 +569,51 @@ function renderPairingStatus(inviteId, st) {
     ? `<p><strong>Paired.</strong> ${esc(st.device_name || "The phone")} is signed in.</p>`
     : "<p>The code expired. Start again.</p>";
   if (st.status === "paired") setTimeout(loadTab, 1500); // refresh the phone counts
+}
+
+// A patient's paired devices (#10). Revoke a lost or replaced phone; it is
+// locked out at once. Office network only.
+async function showDevices(patientId, name) {
+  stopPairing();
+  let data;
+  try {
+    data = await api("GET", `/patients/${patientId}/devices`);
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  const el = document.getElementById("pairing");
+  let html = `<div class="card"><h2>${esc(name)}'s devices</h2>`;
+  if (data.devices.length === 0) {
+    html += '<p class="empty">No devices yet. Use Pair phone.</p>';
+  } else {
+    html += "<table><thead><tr><th>Device</th><th>Paired</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>";
+    for (const d of data.devices) {
+      const when = (t) => (t ? new Date(t).toLocaleString() : "—");
+      html += `<tr><td>${esc(d.name || "Unnamed device")}</td><td>${when(d.created_at)}</td>
+        <td>${when(d.last_seen_at)}</td>
+        <td><span class="badge badge-${d.status === "active" ? "active" : "revoked"}">${esc(d.status)}</span></td>
+        <td>${d.status === "active"
+          ? `<button class="btn btn-sm btn-danger" onclick="revokeDevice('${esc(patientId)}', '${esc(d.id)}', '${esc(name)}')">Revoke</button>`
+          : ""}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += `<button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button></div>`;
+  el.innerHTML = html;
+  el.scrollIntoView({ behavior: "smooth" });
+}
+
+async function revokeDevice(patientId, deviceId, name) {
+  if (!confirm("Revoke this device? It will be signed out immediately and must be paired again in the office.")) return;
+  try {
+    await api("DELETE", `/patients/${patientId}/devices/${deviceId}`);
+    showAlert("Device revoked", "success");
+    await loadTab();
+    showDevices(patientId, name);
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -29,7 +29,7 @@ func TestAccessTokenRoundTrip(t *testing.T) {
 	secret := []byte("test-secret-that-is-long-enough")
 	uid, tid := uuid.New(), uuid.New()
 
-	tok, err := IssueAccessToken(uid, tid, "provider", secret, time.Minute)
+	tok, err := IssueAccessToken(uid, tid, "provider", nil, secret, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestAccessTokenRoundTrip(t *testing.T) {
 		t.Fatal("expected signature failure with wrong secret")
 	}
 
-	expired, err := IssueAccessToken(uid, tid, "provider", secret, -time.Minute)
+	expired, err := IssueAccessToken(uid, tid, "provider", nil, secret, -time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

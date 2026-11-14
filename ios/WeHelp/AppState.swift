@@ -129,6 +129,13 @@ final class AppState {
         api = APIClient(office: stored, session: session)
         defaults.removeObject(forKey: "serverURL") // pre-Relay setting (#36)
         loadConnections(bundle: bundle)
+        // A revoked device (#10) is signed out as soon as the server says so.
+        Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: .weHelpSessionEnded) {
+                guard let self, self.phase == .signedIn else { continue }
+                await self.wipeLocalSession()
+            }
+        }
     }
 
     // MARK: Session
