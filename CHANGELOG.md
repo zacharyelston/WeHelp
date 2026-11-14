@@ -782,6 +782,20 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- The Back Office audit chain verifies (#28). `audit.Verify` reported a
+  break at any event with a multi-key detail.
+  - **Cause:** `Record` hashed the caller's JSON bytes, but jsonb stores them
+    rewritten.
+  - **Fix:** events are now hash version 2: every field is length-prefixed
+    (so bytes can't shift between fields) and the detail is hashed as
+    `jsonb::text`, as the Registry already does.
+  - **Locking:** a per-tenant advisory lock now covers a tenant's first
+    event too, so concurrent writers can't fork a new chain.
+  - **Older events:** they stay version 1. `Verify` checks their links,
+    reports how many it could check only that way, and refuses a version-1
+    event after a version-2 one. It now returns a result: events checked,
+    first broken event, link-only count.
+  - Migration `V21` adds `hash_version`.
 - A failed session refresh no longer deletes a patient's pairing (#136).
   Refresh tokens are single-use, so a lost reply (a Relay blip or a
   timeout) left the phone holding a retired token, and the next launch's

@@ -178,6 +178,17 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - `audit_events` records every PHI read and write, with actor, device and
   action. It is hash-chained, and `audit.Verify` runs nightly and alerts on
   failure.
+- As built (#28): each event's SHA-256 covers the previous hash and every
+  field length-prefixed, with the detail hashed as Postgres stores it
+  (`jsonb::text`), the same scheme as the Registry's chain. A per-tenant
+  advisory lock serializes writers, including a tenant's first event.
+  - Events written before #28 (hash version 1) hashed bytes that jsonb
+    rewrites. `Verify` checks their links and reports how many it could check
+    only that way.
+  - A version-1 event may not follow a version-2 one.
+  - The chain detects edits, deletions and reordering. On its own it can't
+    stop someone who rewrites the whole table and recomputes every hash;
+    exporting the chain head off the box (#56) closes that.
 - Application logs carry no PHI: IDs only, never names, message text or
   tokens.
 - Relay logs carry office ID and byte counts, kept for 7 days, with no device
