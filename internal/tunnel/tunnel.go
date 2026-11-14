@@ -40,7 +40,7 @@ type Options struct {
 	// (demos only, e.g. through an SSH port forward).
 	RelayAddress string
 	MinBackoff   time.Duration // default 1 s
-	MaxBackoff   time.Duration // default 60 s
+	MaxBackoff   time.Duration // default 30 s
 	Keepalive    time.Duration // default 30 s
 	// OnConnect, if set, is called each time the tunnel is up (tests).
 	OnConnect func()
@@ -72,7 +72,7 @@ func Run(ctx context.Context, id *office.Identity, handler http.Handler, opt Opt
 		opt.MinBackoff = time.Second
 	}
 	if opt.MaxBackoff <= 0 {
-		opt.MaxBackoff = time.Minute
+		opt.MaxBackoff = 30 * time.Second
 	}
 	if opt.Keepalive <= 0 {
 		opt.Keepalive = 30 * time.Second
