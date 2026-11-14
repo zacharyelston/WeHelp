@@ -25,6 +25,9 @@ All notable changes to WeHelp are documented here. Format follows
 - CI and `make test` run Go tests with the race detector (`-race`). `main`
   is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
   must be up to date before a PR merges (#30).
+- iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
+  `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).
+  The HealthKit entitlement is kept; it provisions on this paid team.
 - Migrations moved from embedded goose to **Flyway**: `db/migrations/
   V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
   compose `migrate` service runs before `server`; `make db-migrate` is the
@@ -35,6 +38,53 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- iOS sign-in with device-bound sessions (#5). There is a sign-in screen
+  (practice, email, password, server). After a password login the app creates
+  a P-256 key in the Secure Enclave (a software key on the simulator) and
+  enrolls it. The refresh token is kept in the Keychain
+  (`AfterFirstUnlockThisDeviceOnly`) and the access token in memory only.
+  `APIClient` attaches the Bearer token and refreshes once on a 401, with
+  single-flight refresh. Launch resumes the session using the device key.
+  Sign-out revokes the device on the server and wipes the token and key.
+  Settings shows the role from `/api/v1/me`.
+- iOS saved connections: each successful sign-in saves its server, practice
+  and email (never the password) in UserDefaults. When signed out, the app
+  opens on a **Servers** list:
+  - "+" opens a New server screen (address with Test connection, practice,
+    optional email).
+  - Tapping a server opens its own sign-in screen.
+  - Each row has an ⓘ button, plus a long-press menu and swipe actions, to
+    edit or delete it. The editor has a Delete server button, and each
+    sign-in screen has an Edit button. Deletes ask for confirmation.
+  - The Debug "Demo" entry can be edited or deleted too, and a deleted demo
+    entry does not come back at the next launch.
+  - An optional **Label** ("Barnacle") is shown in place of the practice
+    name. It is local only; the practice name must still match the server.
+  - Debug builds can define several demo servers as `Label|URL` pairs in
+    `WEHELP_DEV_SERVERS`, set in the gitignored `Local.xcconfig` (see
+    `Local.xcconfig.example`). Each uses the demo login. A "Restore demo
+    servers" button brings back any you deleted. Release builds include no
+    demo servers or demo credentials.
+- Server: `POST /api/v1/auth/enroll` and `/auth/logout`, plus migration
+  `V3__devices.sql` (a `devices` table and `refresh_tokens.device_id`).
+  - Device-bound refresh tokens need an ECDSA-P256 proof over
+    `wehelp-device-v1\n{purpose}\n{refresh_token}\n{unix_ts}` (±5 min).
+    Single-use rotation makes a captured proof useless.
+  - Patient accounts can only refresh device-bound tokens, which keeps
+    patients mobile-only per docs/ARCHITECTURE.md. Staff tokens are
+    unaffected.
+  - Enroll, refresh and logout are audited.
+- iOS: run on a physical device against a local backend. The server URL can
+  now be set in Settings (persisted in UserDefaults; it is not a secret),
+  with "Save and test connection" calling `/api/v1/ping` and a reset to the
+  build default. The build default comes from `ios/Config/*.xcconfig`:
+  Debug uses `http://localhost:8080` (simulator) unless a gitignored
+  `ios/Config/Local.xcconfig` overrides it with the Mac's LAN address (see
+  `Local.xcconfig.example`). Release has no default. This is the first step
+  toward clinic-manifest onboarding.
+- iOS: `NSAppTransportSecurity` → `NSAllowsLocalNetworking` so dev builds
+  can use plain HTTP to LAN hosts only (no `NSAllowsArbitraryLoads`), plus an
+  `NSLocalNetworkUsageDescription` for the local-network prompt.
 - Seed data + demo script (issue #14): `wehelpd seed` / `make seed` creates a
   demo tenant ("Demo Clinic"), a provider, two patients, a provider-patient
   link (one active, one pending), a short message thread, and an
