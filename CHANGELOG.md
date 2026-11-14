@@ -71,6 +71,18 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Back Office appliance setup for an always-on Mac mini (#12), with the
+  runbook in docs/APPLIANCE.md:
+  - `deploy/docker-compose.appliance.yml`: restart policies, Postgres on
+    127.0.0.1 only, and a required mode-600 `deploy/.env` holding a
+    persistent JWT secret;
+  - `deploy/appliance.sh` and `make appliance-*` targets: `up` creates the
+    secret if missing and waits for health; `stop-for-reboot` stops the
+    stack and Colima cleanly; `install-login` installs a launchd boot job;
+  - the boot job waits for Docker, runs `compose up -d`, then checks
+    `/healthz` and logs the result. This fixes the server container being
+    left in `created` after an abrupt reboot, which restart policies alone
+    don't handle.
 - iOS Messages tab (#17): inbox from `GET /api/v1/messages`, newest first,
   with kind badges, unread dots and cursor pagination. Opening a message
   marks it read. Compose sends kind `message` to the patient's active linked
