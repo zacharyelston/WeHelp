@@ -164,7 +164,11 @@ suspending it in the Registry, which drops it from the Relay within a minute.
    password in V1.
 
 Lost or replaced phone: staff revoke the device and pair the new phone the
-same way. Providers pair their devices the same way, with the provider role,
+same way. A person can have several devices (a phone plus an office iPad,
+say), each paired in the office and listed in the staff UI and in the app's
+Settings, where people can revoke their own ("Sign out other devices").
+Access tokens carry the device ID and every request checks it, so a revoked
+device is locked out immediately, not when its token expires (#10). Providers pair their devices the same way, with the provider role,
 in the provider app. Because every phone goes through the Relay, providers
 reach their schedule, messages and visits remotely with no VPN and nothing
 opened at the practice.

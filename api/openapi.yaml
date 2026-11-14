@@ -447,6 +447,27 @@ components:
             patient_name: { type: string }
 
 
+    DeviceView:
+      type: object
+      required: [id, name, created_at, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "Jordan's iPhone" }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, revoked] }
+        current: { type: boolean, description: True for the device making the request. }
+
+    DeviceList:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceView"
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -1153,6 +1174,93 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: This key is already enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/devices:
+    get:
+      tags: [devices]
+      summary: List your own devices
+      responses:
+        "200":
+          description: Devices, active first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        "401":
+          description: Not signed in, or this device was revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/devices/{deviceID}:
+    delete:
+      tags: [devices]
+      summary: Revoke one of your own devices
+      description: >
+        Revokes the device and all its refresh tokens; its access tokens stop
+        working at once. Revoking the current device signs it out. Revoking an
+        already revoked device succeeds.
+      parameters:
+        - { name: deviceID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Revoked.
+        "404":
+          description: Not one of your devices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/patients/{patientID}/devices:
+    get:
+      tags: [devices]
+      summary: List a patient's devices (staff, office LAN only)
+      parameters:
+        - { name: patientID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Devices, active first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient for this staff member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/patients/{patientID}/devices/{deviceID}:
+    delete:
+      tags: [devices]
+      summary: Revoke a patient's device (staff, office LAN only)
+      parameters:
+        - { name: patientID, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Revoked; the device is locked out at once.
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient for this staff member, or not that patient's device.
           content:
             application/json:
               schema:

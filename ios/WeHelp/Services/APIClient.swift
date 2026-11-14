@@ -70,6 +70,18 @@ struct APIClient: Sendable {
         return try await send("POST", "api/v1/auth/enroll", body: AnyEncodable(body))
     }
 
+    // MARK: Devices (#10)
+
+    func devices() async throws -> [Device] {
+        struct List: Decodable { let devices: [Device] }
+        let list: List = try await authorized("GET", "api/v1/devices")
+        return list.devices
+    }
+
+    func revokeDevice(_ id: String) async throws {
+        let _: Empty = try await authorized("DELETE", "api/v1/devices/\(id)")
+    }
+
     // MARK: Pairing (#37)
 
     struct PairResult: Decodable, Sendable {
@@ -173,7 +185,14 @@ struct APIClient: Sendable {
         do {
             return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         } catch APIError.unauthorized {
-            try await refresh()
+            do {
+                try await refresh()
+            } catch APIError.unauthorized {
+                // The session is gone for good (this device was revoked, #10,
+                // or the refresh token expired). Let AppState sign out.
+                NotificationCenter.default.post(name: .weHelpSessionEnded, object: nil)
+                throw APIError.unauthorized("This device was signed out.")
+            }
             return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         }
     }
@@ -219,6 +238,11 @@ struct APIClient: Sendable {
 }
 
 struct Empty: Decodable, Sendable {}
+
+extension Notification.Name {
+    /// Posted when the server refuses this device's session for good.
+    static let weHelpSessionEnded = Notification.Name("WeHelpSessionEnded")
+}
 
 /// Encodes a heterogeneous [String: Encodable] dictionary as a JSON object.
 struct AnyEncodable: Encodable, Sendable {
