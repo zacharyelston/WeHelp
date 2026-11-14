@@ -171,6 +171,7 @@ function renderDashboard() {
       <div>
         <span class="user">${esc(who)} · ${esc(role)}</span>
         ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Providers</button>' : ""}
+        <button class="btn btn-sm btn-outline" onclick="showMyProfile()" style="margin-left:0.5rem">My profile</button>
         <button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
@@ -1038,7 +1039,8 @@ function renderWebsite(container = document.getElementById("tab-content")) {
       ${field("app_url", "App Store link", "input", "https:// only.")}
       ${field("join", "Anything else new patients should know", "textarea", "The page already explains the download and the in-office QR pairing.")}
     </div>
-    ${listEditor("providers", "Provider bios", "Add a provider")}
+    ${profileBiosCard(siteData.profiles)}
+    ${listEditor("providers", "Other provider bios", "Add a provider")}
     ${listEditor("services", "Services", "Add a service")}
     ${listEditor("podcasts", "Library: podcasts", "Add a podcast")}
     <div class="card"><h2>Library downloads and images</h2>

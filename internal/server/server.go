@@ -93,6 +93,12 @@ func (s *Server) Router() chi.Router {
 			r.With(s.authenticate).Post("/providers/{userID}/invite", s.ReissueProviderInvite)
 			r.With(s.authenticate).Post("/providers/{userID}/disable", s.DisableProvider)
 			r.With(s.authenticate).Post("/providers/{userID}/enable", s.EnableProvider)
+			// Your own profile (#102), used for the website bios.
+			r.With(s.authenticate).Get("/profile", s.GetStaffProfile)
+			r.With(s.authenticate).Put("/profile", s.PutStaffProfile)
+			r.With(s.authenticate).Get("/profile/photo", s.GetStaffProfilePhoto)
+			r.With(s.authenticate).Put("/profile/photo", s.PutStaffProfilePhoto)
+			r.With(s.authenticate).Delete("/profile/photo", s.DeleteStaffProfilePhoto)
 		})
 
 		// Phones pair through the Relay (#37); no session yet.

@@ -270,6 +270,11 @@ authenticated as and serves them read-only at `/s/<office-id>/`. The
 Relay allows only a few static file types, refuses HTML with scripts and
 serves everything with a `default-src 'none'` CSP.
 
+Provider bios come mainly from staff profiles (#102). Each staff member
+edits their own name as shown, credentials, bio and photo under My profile,
+and opts in to the website. Publishing turns those profiles into bios,
+replacing any typed bio with the same name. Disabled accounts never appear.
+
 The site also shows the practice's **supply catalogue**, but takes no
 orders: an order is patient data. Patients order in the app through the
 pinned tunnel; staff fulfil orders on the office LAN; payment is at pickup
