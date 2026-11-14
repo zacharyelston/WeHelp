@@ -92,10 +92,13 @@ type Content struct {
 	Words practice.Words `json:"-"`
 	// Off lists pages the practice has switched off (#109): "store",
 	// "library". Set by the Back Office when it renders; never saved.
-	Off       map[string]bool `json:"-"`
-	Providers []Provider      `json:"providers"`
-	Services  []Service       `json:"services"`
-	Podcasts  []Podcast       `json:"podcasts"`
+	Off map[string]bool `json:"-"`
+	// Posts are the blog posts that are due (#121), newest first. Set by the
+	// Back Office when it renders; never saved with the content.
+	Posts     []Post     `json:"-"`
+	Providers []Provider `json:"providers"`
+	Services  []Service  `json:"services"`
+	Podcasts  []Podcast  `json:"podcasts"`
 }
 
 type Provider struct {
@@ -262,4 +265,38 @@ func Bundle(c Content, products []Product, files []File, now time.Time) ([]byte,
 		return nil, 0, fmt.Errorf("the site is too large (%d files, %d MB); remove some downloads", len(pages), buf.Len()>>20)
 	}
 	return buf.Bytes(), len(pages), nil
+}
+
+// Post is one blog post (#121): plain text, paragraphs separated by blank
+// lines, so nothing in it needs sanitising.
+type Post struct {
+	ID        string
+	Title     string
+	Body      string
+	ImageFile string // an uploaded image's filename, or ""
+	Author    string
+	Date      time.Time
+}
+
+// MaxPosts is how many posts the site carries, newest first.
+const MaxPosts = 100
+
+var slugWordRE = regexp.MustCompile(`[^a-z0-9]+`)
+
+// Slug is the post's page: post-<date>-<title words>-<id>.html, at the top
+// level of the site so its links work like every other page's.
+func (p Post) Slug() string {
+	words := strings.Trim(slugWordRE.ReplaceAllString(strings.ToLower(p.Title), "-"), "-")
+	if len(words) > 50 {
+		words = strings.Trim(words[:50], "-")
+	}
+	id := strings.ReplaceAll(p.ID, "-", "")
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	name := "post-" + p.Date.Format("2006-01-02")
+	if words != "" {
+		name += "-" + words
+	}
+	return name + "-" + id + ".html"
 }

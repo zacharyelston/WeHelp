@@ -128,6 +128,9 @@ Office and never pass through the public site.
 | Shopify, WooCommerce, Stripe Checkout | **skip for V1**: payment is out of scope ("pay at pickup or by invoice"), and an order is patient data that must stay in the Back Office |
 | Podcast RSS feeds and embedded players | **skip**: plain external links. Embedding a player means third-party scripts and trackers on the practice site |
 | iOS QuickLook (`quickLookPreview`) | **adopt**: shows library PDFs that the app fetched through its pinned tunnel |
+| Blog posts in Hugo/Jekyll (front matter with a date, drafts, future posts held back) | **adopt the model** for the practice blog (#121): title, plain-text body, optional image, a publish time, and a draft flag. Rendered by the same `html/template` pages. No Markdown or HTML in posts, so nothing needs sanitising |
+| WordPress or Ghost scheduled publishing | **reference**: "future" posts go live by themselves. Ours: a once-a-minute check in the Back Office republishes the static site when a scheduled post comes due |
+| RSS/Atom feed for the blog | **skip for now**: easy to add later as one more static file; nothing asks for it yet |
 
 ## V1 operations (V1-M6)
 

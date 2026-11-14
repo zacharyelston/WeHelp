@@ -893,6 +893,29 @@ components:
         body: { type: string }
         created_at: { type: string, format: date-time }
 
+    SitePost:
+      type: object
+      required: [id, title, body, image_file, author, draft, publish_at, status, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string, description: "Plain text; paragraphs separated by blank lines." }
+        image_file: { type: string, description: "An uploaded site image's filename, or empty." }
+        author: { type: string }
+        draft: { type: boolean }
+        publish_at: { type: string, format: date-time }
+        status: { type: string, enum: [draft, scheduled, live] }
+        updated_at: { type: string, format: date-time }
+    SitePostRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string, maxLength: 200 }
+        body: { type: string, maxLength: 20000 }
+        image_file: { type: string, maxLength: 100 }
+        draft: { type: boolean, default: false }
+        publish_at: { type: string, format: date-time, description: "When it goes live; default now." }
+
     SiteView:
       type: object
       required: [content, files, published_url]
@@ -3158,6 +3181,129 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Not the patient or an active member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/site/posts:
+    get:
+      tags: [site]
+      summary: Blog posts, newest first (staff, office LAN only, #121)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Every post with its status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [posts]
+                properties:
+                  posts:
+                    type: array
+                    items: { $ref: "#/components/schemas/SitePost" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [site]
+      summary: Write a blog post (staff, office LAN only, #121)
+      description: >
+        Goes on the website at publish_at (default now) unless it is a draft.
+        Once the site has been published, the Back Office republishes it by
+        itself within a minute of a post coming due. Audited as site_post.create.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitePostRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "400":
+          description: Missing title or text, too long, or a bad date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/site/posts/{postID}:
+    put:
+      tags: [site]
+      summary: Edit a blog post (staff, office LAN only, #121)
+      description: Audited as site_post.update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: postID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitePostRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "400":
+          description: Missing title or text, too long, or a bad date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such post, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [site]
+      summary: Delete a blog post (staff, office LAN only, #121)
+      description: Practice content, not a record. The site drops it at the next publish. Audited as site_post.delete.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: postID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "404":
+          description: No such post, or through the Relay.
           content:
             application/json:
               schema:

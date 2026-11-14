@@ -14,6 +14,20 @@
   <p><a href="services.html">All services</a></p>
 </section>
 {{end}}
+{{if .Latest}}
+<section>
+  <h2>Latest news</h2>
+  <div class="cards">
+  {{range .Latest}}
+    <article class="card post-card">
+      <p class="muted post-date">{{.Day}}</p>
+      <h3><a href="{{.File}}">{{.Title}}</a></h3>
+    </article>
+  {{end}}
+  </div>
+  <p><a href="blog.html">All posts</a></p>
+</section>
+{{end}}
 {{template "cta" .}}
 {{template "foot" .}}{{end}}
 
@@ -124,4 +138,31 @@
 {{else}}
 <p>Our catalogue is coming soon.</p>
 {{end}}
+{{template "foot" .}}{{end}}
+
+{{define "blog"}}{{template "head" .}}
+<h1>Blog</h1>
+<div class="post-list">
+{{range .Posts}}
+  <article class="card post-card">
+    {{if .ImageFile}}<img class="post-thumb" src="files/{{.ImageFile}}" alt="">{{end}}
+    <p class="muted post-date">{{.Day}}{{if .Author}} · {{.Author}}{{end}}</p>
+    <h2><a href="{{.File}}">{{.Title}}</a></h2>
+    {{range $i, $p := paras .Body}}{{if eq $i 0}}<p>{{$p}}</p>{{end}}{{end}}
+    <p><a href="{{.File}}">Read more</a></p>
+  </article>
+{{end}}
+</div>
+{{template "cta" .}}
+{{template "foot" .}}{{end}}
+
+{{define "post"}}{{template "head" .}}
+<article class="post">
+  <p class="muted post-date">{{.Post.Day}}{{if .Post.Author}} · {{.Post.Author}}{{end}}</p>
+  <h1>{{.Post.Title}}</h1>
+  {{if .Post.ImageFile}}<img class="post-image" src="files/{{.Post.ImageFile}}" alt="">{{end}}
+  {{range paras .Post.Body}}<p>{{.}}</p>{{end}}
+  <p><a href="blog.html">All posts</a></p>
+</article>
+{{template "cta" .}}
 {{template "foot" .}}{{end}}

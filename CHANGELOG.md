@@ -86,6 +86,21 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Practice blog (#121).
+  - The Website tab has a **Blog** card. Staff write timely or seasonal
+    posts: a title, the text, an optional uploaded image, a go-live time,
+    and a draft flag. They can also edit and delete posts.
+  - The website gets a Blog page (newest first), a page per post, and the
+    latest three posts on the home page. The Blog link appears only once
+    there are posts. Drafts and future posts stay off the site.
+  - Once the site has been published, the Back Office republishes it by
+    itself within a minute of a scheduled post coming due. That publish is
+    audited with no actor and marked `scheduled`.
+  - Posts are plain text, escaped by the templates, and practice content
+    only. Audited as `site_post.create`, `site_post.update` and
+    `site_post.delete`.
+  - Routes under `/api/v1/site/posts` (staff, LAN only). Migration
+    `V17__site_posts.sql`.
 - Care teams (#111, docs/PRACTICE_TYPES.md phase 4).
   - A patient chooses a group of providers who share one thread with them,
     for continuity of care.

@@ -172,6 +172,11 @@ func (s *Server) Router() chi.Router {
 			r.Post("/site/files", s.UploadSiteFile)
 			r.Delete("/site/files/{fileID}", s.DeleteSiteFile)
 			r.Post("/site/publish", s.PublishSite)
+			// The blog (#121).
+			r.Get("/site/posts", s.ListPosts)
+			r.Post("/site/posts", s.CreatePost)
+			r.Put("/site/posts/{postID}", s.UpdatePost)
+			r.Delete("/site/posts/{postID}", s.DeletePost)
 			r.Post("/store/products", s.CreateProduct)
 			r.Put("/store/products/{productID}", s.UpdateProduct)
 			r.Post("/store/products/demo", s.AddDemoProducts)

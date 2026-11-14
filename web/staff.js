@@ -547,3 +547,83 @@ async function proposeTeam(patientId, memberId) {
     showAlert(err.message);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Blog (#121): timely or seasonal posts on the practice website. A post goes
+// live at its date; once the site has been published, the Back Office
+// republishes it by itself within a minute of a post coming due.
+// ---------------------------------------------------------------------------
+let blogEditing = null; // the post being edited, or null for a new one
+
+const POST_STATUS = { live: ["active", "Live"], scheduled: ["scheduled", "Scheduled"], draft: ["pending", "Draft"] };
+
+async function loadBlogCard() {
+  const el = document.getElementById("blog-card");
+  if (!el) return;
+  let data;
+  try {
+    data = await api("GET", "/site/posts");
+  } catch (err) {
+    el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  const p = blogEditing || {};
+  const when = p.publish_at ? new Date(p.publish_at) : new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const local = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
+  const images = (siteData.files || []).filter((f) => f.kind === "image");
+  let html = `<div class="card"><h2>Blog</h2>
+    <p class="hint">Timely or seasonal posts: holiday hours, flu season, a new service, a tip of the day. A post goes live at its date. Once the site has been published, posts that come due go out by themselves within a minute. Never put patient information in a post.</p>
+    <form id="post-form">
+      <div class="form-group"><label>${blogEditing ? "Edit post" : "New post"}: title</label><input id="post-title" maxlength="200" required value="${attr(p.title || "")}"></div>
+      <div class="form-group"><label>Text</label><textarea id="post-body" rows="6" maxlength="20000" required>${esc(p.body || "")}</textarea>
+        <div class="hint">Separate paragraphs with a blank line. The first paragraph is the preview on the Blog page.</div></div>
+      <div class="form-row">
+        <div class="form-group"><label>Goes live</label><input type="datetime-local" id="post-at" value="${local}"></div>
+        <div class="form-group"><label>Image (optional)</label><select id="post-image"><option value="">None</option>${images.map((f) => `<option value="${attr(f.filename)}" ${f.filename === p.image_file ? "selected" : ""}>${esc(f.title)}</option>`).join("")}</select></div>
+      </div>
+      <label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem"><input type="checkbox" id="post-draft" style="width:auto" ${p.draft ? "checked" : ""}> Draft (not on the website)</label>
+      <button type="submit" class="btn">${blogEditing ? "Save post" : "Add post"}</button>
+      ${blogEditing ? `<button type="button" class="btn btn-outline" onclick="blogEditing=null;loadBlogCard()">Cancel</button>` : ""}
+    </form>`;
+  if (data.posts.length) {
+    html += "<table><thead><tr><th>Goes live</th><th>Title</th><th>Author</th><th>Status</th><th></th></tr></thead><tbody>";
+    for (const q of data.posts) {
+      const [badge, label] = POST_STATUS[q.status] || ["pending", q.status];
+      html += `<tr><td>${esc(new Date(q.publish_at).toLocaleString())}</td><td>${esc(q.title)}</td><td>${esc(q.author)}</td>
+        <td><span class="badge badge-${badge}">${label}</span></td>
+        <td><button class="btn btn-sm btn-outline" data-edit-post="${attr(q.id)}">Edit</button>
+          <button class="btn btn-sm btn-danger" data-delete-post="${attr(q.id)}">Delete</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  el.innerHTML = html + "</div>";
+  el.querySelectorAll("[data-edit-post]").forEach((b) => {
+    b.onclick = () => { blogEditing = data.posts.find((q) => q.id === b.dataset.editPost); loadBlogCard(); };
+  });
+  el.querySelectorAll("[data-delete-post]").forEach((b) => {
+    b.onclick = async () => {
+      if (!confirm("Delete this post? It leaves the website at the next publish.")) return;
+      try { await api("DELETE", `/site/posts/${b.dataset.deletePost}`); loadBlogCard(); } catch (err) { showAlert(err.message); }
+    };
+  });
+  document.getElementById("post-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const body = {
+      title: document.getElementById("post-title").value,
+      body: document.getElementById("post-body").value,
+      image_file: document.getElementById("post-image").value,
+      draft: document.getElementById("post-draft").checked,
+      publish_at: new Date(document.getElementById("post-at").value).toISOString(),
+    };
+    try {
+      if (blogEditing) await api("PUT", `/site/posts/${blogEditing.id}`, body);
+      else await api("POST", "/site/posts", body);
+      blogEditing = null;
+      showAlert("Post saved", "success");
+      loadBlogCard();
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+}
