@@ -8,6 +8,11 @@ struct TokenPair: Decodable, Sendable {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
     }
+
+    init(accessToken: String, refreshToken: String) {
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+    }
 }
 
 /// Holds the session: the access token in memory only, the refresh token in

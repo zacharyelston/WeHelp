@@ -71,6 +71,30 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- QR pairing; patients have no password (#37).
+  - Staff web UI: a new **Patients** tab to add patients (no password) and
+    **Pair phone**, which shows a QR code with the office's pairing identity
+    and a single-use invite (10 minutes, bound to one patient, only its hash
+    stored). It reports when the phone has paired.
+  - API: `POST/GET /api/v1/patients`, `POST /api/v1/pairing/invites`,
+    `GET /api/v1/pairing/invites/{id}`, and `POST /api/v1/pairing/redeem`.
+    Redeem takes a proof from the phone's new key, enrolls the device and
+    returns the device-bound session. Every step is audited. Staff routes are
+    refused through the Relay.
+  - Patient password login and patient self-registration are refused.
+    Migration V4 makes `users.password_hash` nullable, and the seed creates
+    patients with no password.
+  - iOS:
+    - signed-out phones open on **Pair with your practice**, with a VisionKit
+      QR scanner and a paste fallback;
+    - the app locks with Face ID, Touch ID or the passcode whenever it goes
+      to the background;
+    - the saved-practices and password screens are Debug-only, for staff
+      demos.
+  - First Back Office database tests (`internal/server/pairing_db_test.go`).
+    They apply all migrations and the seed to a fresh database and cover:
+    pairing, single use, expiry, the wrong key, unlinked patients, refusals
+    through the Relay, and no patient passwords.
 - The iOS app reaches its office only through the Relay (#36).
   - Every request is an HTTP `CONNECT` to the Relay (`ProxyConfiguration`).
     It pins the Relay's TLS key on the outer hop and the office's key on the

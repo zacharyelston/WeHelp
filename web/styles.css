@@ -141,3 +141,11 @@ tr:last-child td { border-bottom: none; }
 /* Utility */
 .empty { color: var(--muted); font-style: italic; padding: 1rem 0; }
 .loading { color: var(--muted); padding: 1rem 0; }
+
+/* Patients and QR pairing (#37) */
+.inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.inline-form input { flex: 1 1 12rem; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; }
+.hint { color: #666; font-size: 0.85rem; margin-top: 0.5rem; }
+.pairing { text-align: center; }
+.pairing .qr { width: 280px; height: 280px; image-rendering: pixelated; margin: 0.5rem auto; display: block; }
+.pairing .btn { margin: 0.25rem; }
