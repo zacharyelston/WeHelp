@@ -22,6 +22,9 @@ All notable changes to WeHelp are documented here. Format follows
   milestones V1-M0 to V1-M7 and lists what is kept, replaced and deferred
   from the PoC. The lit review covers SSH, `CONNECT`, TURN, TOTP and
   backups.
+- CI and `make test` run Go tests with the race detector (`-race`). `main`
+  is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
+  must be up to date before a PR merges (#30).
 - Migrations moved from embedded goose to **Flyway**: `db/migrations/
   V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
   compose `migrate` service runs before `server`; `make db-migrate` is the
