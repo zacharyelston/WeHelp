@@ -10,7 +10,8 @@ audit and pen test and runs in a naturopath practice. The target is
 The PoC proved the pieces on real hardware: the Go Back Office, Flyway,
 Secure Enclave device-bound sessions on a physical iPhone, and Barnacle as an
 always-on Back Office. But it is spread across eight open PRs in two repos,
-plus a hand-merged branch on Barnacle, with CI that has not run on any PR.
+plus a hand-merged branch on Barnacle. CI runs on every PR, but `main` is
+not protected, so nothing requires it to pass before a merge.
 
 | From the PoC | V1 decision |
 |---|---|
@@ -28,12 +29,13 @@ plus a hand-merged branch on Barnacle, with CI that has not run on any PR.
 Each milestone ends with its exit check passing on the Demo topology (dev
 laptop as Relay, Barnacle as Back Office).
 
-### V1-M0: Consolidate (one main, CI on)
+### V1-M0: Consolidate (one main, CI required)
 
 Issues: #30 CI, #31 consolidation, #12 appliance deploy, #13 AGENTS.md, #14 messages, #15 OpenAPI, #16 sign-in, #18 appointments.
 
 Land the PoC into `main` properly so there is one codebase:
-- Turn on CI for the fork, and make every PR run the full pipeline.
+- Protect `main` so CI (Go with the race detector, iOS, Docker) must pass
+  before a merge.
 - Review and merge, in order:
   1. #1 (device dev);
   2. messages;
