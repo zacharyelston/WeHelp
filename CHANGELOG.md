@@ -71,6 +71,25 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Staff sign-in and the LAN-only staff surface (#38).
+  - Staff web UI sign-in is password + TOTP. The first sign-in walks through
+    authenticator setup (QR code and key). Codes work once, and five failures
+    lock the account for 15 minutes.
+  - Sessions are server-side, in a `__Host-wehelp_staff` cookie (Secure,
+    HttpOnly, SameSite=Strict) with a CSRF token on every change. The web UI
+    no longer keeps a token in `localStorage`.
+  - New routes: `/api/v1/staff/{login,totp/setup,totp/confirm,me,logout}`.
+    Migration V5 adds the TOTP columns, lockout and `staff_sessions`.
+  - HTTPS for staff on `:8443`, with a certificate issued by the office's
+    local CA for `staff_hosts`. Outside dev, plain HTTP only serves
+    `/healthz` and `/readyz` and redirects everything else.
+    `appliance.sh export-ca` prints the CA for staff machines.
+  - Staff routes (patients, pairing invites, patient devices), password
+    login and registration, and the web UI all return 404 through the
+    Relay. The listener decides this, not a header.
+  - Bearer `/auth/login` also needs a TOTP code for staff.
+  - Self-registration is dev-only; staff accounts are created with
+    `wehelpd staff add` on the Back Office.
 - Device management (#10).
   - `GET /api/v1/devices` lists your own devices, marking the current one,
     and `DELETE /api/v1/devices/{id}` revokes one.

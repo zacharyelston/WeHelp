@@ -23,6 +23,13 @@ services:
     # `appliance.sh init-office`; see docs/OFFICE_KEYS.md.
     volumes:
       - officekeys:/var/lib/wehelp/office
+    # Staff web UI over HTTPS with the office CA (#38). Set
+    # WEHELP_STAFF_HOSTS in .env to the names and LAN addresses staff use,
+    # e.g. barnacle.local,192.168.1.55. Plain HTTP on 8080 then only answers
+    # health checks and redirects to HTTPS.
+    ports: !override
+      - "8080:8080"
+      - "8443:8443"
 
 volumes:
   officekeys:

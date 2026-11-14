@@ -23,6 +23,13 @@ security:
 
 components:
   securitySchemes:
+    staffCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-wehelp_staff
+      description: >
+        Staff web session (#38): Secure, HttpOnly, SameSite=Strict. Office LAN
+        only. Changes also need the session's CSRF token in X-CSRF-Token.
     bearerAuth:
       type: http
       scheme: bearer
@@ -147,6 +154,11 @@ components:
         password:
           type: string
           format: password
+        code:
+          type: string
+          description: >
+            TOTP code, required for every staff account (#38). Patients
+            can't sign in with a password; they pair a phone (#37).
 
     RefreshRequest:
       type: object
@@ -467,6 +479,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeviceView"
+
+    StaffLoginRequest:
+      type: object
+      required: [tenant, email, password]
+      properties:
+        tenant: { type: string, example: Demo Clinic }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        code: { type: string, description: "TOTP code; omit only on the first sign-in, before TOTP is set up." }
+
+    StaffMe:
+      type: object
+      required: [status, user_id, role, csrf_token]
+      properties:
+        status:
+          type: string
+          enum: [active, totp_setup]
+          description: totp_setup means the session can only set up TOTP.
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [provider, admin] }
+        display_name: { type: string }
+        practice: { type: string }
+        csrf_token: { type: string, description: Send as X-CSRF-Token on every change. }
+
+    TOTPSetup:
+      type: object
+      required: [secret, otpauth_url, qr_png]
+      properties:
+        secret: { type: string, description: "Base32, for manual entry." }
+        otpauth_url: { type: string }
+        qr_png: { type: string, format: byte }
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -1261,6 +1304,140 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: No such patient for this staff member, or not that patient's device.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/login:
+    post:
+      tags: [staff]
+      summary: Staff sign-in with password + TOTP (office LAN only)
+      description: >
+        Sets the session cookie. Without TOTP set up yet, returns status
+        totp_setup and a session that can only set it up. Five failures lock
+        the account for 15 minutes. Through the Relay this route is a 404.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffLoginRequest"
+      responses:
+        "200":
+          description: Signed in (or ready for TOTP setup).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMe"
+        "401":
+          description: Invalid credentials, code or locked account (one answer for all).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/totp/setup:
+    post:
+      tags: [staff]
+      summary: Create a TOTP secret (setup session only)
+      security: [{ staffCookie: [] }]
+      responses:
+        "200":
+          description: Scan the QR code with an authenticator app.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TOTPSetup"
+        "401":
+          description: No setup session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/totp/confirm:
+    post:
+      tags: [staff]
+      summary: Turn TOTP on with a code; replaces the setup session with a full one
+      security: [{ staffCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200":
+          description: TOTP on; signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMe"
+        "401":
+          description: Wrong code, or no setup session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Setup not started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/me:
+    get:
+      tags: [staff]
+      summary: The signed-in staff member and the CSRF token
+      security: [{ staffCookie: [] }]
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMe"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/logout:
+    post:
+      tags: [staff]
+      summary: End the staff session
+      security: [{ staffCookie: [] }]
+      responses:
+        "204":
+          description: Signed out; the cookie is cleared.
+        "403":
+          description: Missing or invalid CSRF token.
           content:
             application/json:
               schema:

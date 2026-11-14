@@ -188,6 +188,20 @@ Staff sign in to the staff UI with a password plus TOTP. Roles: `admin`
 messages, visits). Provider accounts are invited from the Registry roster;
 the Back Office holds the accounts and credentials.
 
+As built (#38):
+- Accounts are created on the Back Office host with `wehelpd staff add`.
+  API self-registration is development-only.
+- The first sign-in enrolls TOTP. After that every sign-in needs the
+  password and a code that hasn't been used before. Five failures lock the
+  account for 15 minutes.
+- Sessions are server-side, in a `__Host-` cookie (Secure, HttpOnly,
+  SameSite=Strict), with a 30-minute idle and 12-hour absolute limit. Every
+  change carries a CSRF token.
+- The staff UI is HTTPS on `:8443` with a certificate from the office's
+  local CA. Outside dev, plain HTTP only answers health checks and redirects.
+- Staff routes, password sign-in and the web UI itself return 404 when they
+  arrive on a Relay channel. The listener decides this, not a header.
+
 ## V1 features
 
 | Feature | Where it lives | Notes |

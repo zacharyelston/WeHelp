@@ -66,8 +66,8 @@ func staffOnLAN(w http.ResponseWriter, r *http.Request) (Identity, bool) {
 		writeErr(w, http.StatusForbidden, "staff only")
 		return id, false
 	}
-	if tunnel.ViaRelay(r.Context()) {
-		writeErr(w, http.StatusForbidden, "pairing is done in the office, on the office network")
+	if tunnel.ViaRelay(r.Context()) { // lanOnly normally stops these first
+		writeErr(w, http.StatusNotFound, "not found")
 		return id, false
 	}
 	return id, true
