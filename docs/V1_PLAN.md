@@ -249,3 +249,6 @@ cloud-hosted Back Offices, Android, group visits and recording. These are
 tracked in the **Post-V1** milestone, along with kiosk questionnaires from
 Interventionaire (#82, [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md))
 and a local AI agent on the Back Office (#83, [LOCAL_AGENT.md](LOCAL_AGENT.md)).
+Other kinds of practice (therapy, allied health, salons), message switches
+and patient-approved care teams are proposed in
+[PRACTICE_TYPES.md](PRACTICE_TYPES.md) (epic #112).

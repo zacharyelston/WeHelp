@@ -367,6 +367,11 @@ func (s *Server) buildSite(ctx context.Context, tenant uuid.UUID) ([]byte, int, 
 		if c, _, _, _, err = s.loadContent(ctx, tx, tenant); err != nil {
 			return err
 		}
+		pt, err := practiceType(ctx, tx, tenant) // the practice's words (#108)
+		if err != nil {
+			return err
+		}
+		c.Words = pt.Words
 		rows, err := tx.Query(ctx, `
 			select sku, name, description, category, unit, price_cents from products
 			where tenant_id = $1 and active order by category, sort, name`, tenant)

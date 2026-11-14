@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/zacharyelston/wehelp/internal/practice"
 )
 
 //go:embed templates/*.html templates/style.css
@@ -24,6 +26,13 @@ var pages = []struct{ File, Title, Template string }{
 
 var tmpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"price": func(cents int) string { return fmt.Sprintf("$%d.%02d", cents/100, cents%100) },
+	// cap capitalises the first letter, for the practice's words (#108).
+	"cap": func(s string) string {
+		if s == "" {
+			return s
+		}
+		return strings.ToUpper(s[:1]) + s[1:]
+	},
 	// paras splits text on blank lines; html/template escapes each one.
 	"paras": func(s string) []string {
 		var out []string
@@ -77,6 +86,9 @@ type pageData struct {
 func Render(c Content, products []Product, files []File, now time.Time) (map[string][]byte, error) {
 	if c.PracticeName == "" {
 		c.PracticeName = "Our practice"
+	}
+	if c.Words.Patient == "" {
+		c.Words = practice.Default.Words
 	}
 	out := map[string][]byte{}
 	css, err := templates.ReadFile("templates/style.css")

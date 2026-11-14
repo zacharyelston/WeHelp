@@ -742,6 +742,31 @@ components:
         credentials: { type: string }
         has_photo: { type: boolean }
 
+    PracticeType:
+      type: object
+      required: [id, label, clinical, words]
+      properties:
+        id: { type: string, enum: [naturopath, therapy, allied_health, salon] }
+        label: { type: string }
+        clinical: { type: boolean, description: "false hides check-ins and health monitors." }
+        words:
+          type: object
+          required: [patient, patients, provider, providers]
+          description: Lower case; for example client, clients, stylist, stylists.
+          properties:
+            patient: { type: string }
+            patients: { type: string }
+            provider: { type: string }
+            providers: { type: string }
+    PracticeView:
+      type: object
+      required: [type, types]
+      properties:
+        type: { $ref: "#/components/schemas/PracticeType" }
+        types:
+          type: array
+          items: { $ref: "#/components/schemas/PracticeType" }
+
     SiteView:
       type: object
       required: [content, files, published_url]
@@ -2422,6 +2447,68 @@ paths:
                 $ref: "#/components/schemas/StaffProfile"
         "403":
           description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice:
+    get:
+      tags: [practice]
+      summary: The practice type and its words (#108)
+      description: >
+        Any signed-in user, including the app through the Relay: it holds no
+        patient data. The words are what this practice calls the people it
+        serves and its staff; the API itself always says patient and provider.
+      responses:
+        "200":
+          description: The practice type, and the types to choose from.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [practice]
+      summary: Set the practice type (admins, office LAN only, #108)
+      description: Audited as practice.update. The website uses the new words at its next publish.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              additionalProperties: false
+              properties:
+                type: { type: string, enum: [naturopath, therapy, allied_health, salon] }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "400":
+          description: Unknown practice type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
           content:
             application/json:
               schema:

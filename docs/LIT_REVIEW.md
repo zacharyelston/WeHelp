@@ -168,6 +168,25 @@ output, so patient data never leaves the box. See
 | Open-weight models (Llama, Qwen, Mistral, Gemma families) | **evaluate in #83**: pick by quality at a size that fits the box, and by licence terms for a commercial clinical setting. Pin by file hash |
 | Hosted model APIs | **skip**: sending PHI to a third party is what this design exists to avoid |
 
+## Practice types, message switches and care teams (post-V1, PRACTICE_TYPES.md)
+
+Requirement: serve practices beyond naturopaths (therapists and
+psychologists, other allied health, and non-clinical services such as hair
+salons). Let a practice or a provider turn messaging off. Let a patient
+choose a group of providers who all see their messages, for continuity of
+care. Verdicts are provisional until the work issues are specified.
+
+| Candidate | Verdict |
+|---|---|
+| HIPAA treatment disclosures (45 CFR 164.506) | **reference**: providers may share PHI with each other for treatment without the patient’s authorization. Asking the patient before adding someone to their care team is therefore a product choice, stricter than the rule, and it suits therapy practices |
+| HIPAA psychotherapy notes (45 CFR 164.501, 164.508(a)(2)) | **reference**: a therapist’s separate session notes need specific authorization to disclose. Messages are not psychotherapy notes, but therapy practices expect messaging to be off or private by default |
+| 42 CFR Part 2 (substance use disorder records) | **reference**: stricter consent for SUD treatment records. A therapy preset must be able to keep every thread private to one provider. Legal review before marketing to SUD programs |
+| FHIR R4 `CareTeam` resource | **adopt the shape**: a patient-scoped list of participants with roles and a period. Our `care_team_members` maps onto it for FHIR later (#26) |
+| Shared-inbox “message pools” in patient portals (e.g. Epic MyChart) | **reference**: a team or front desk answers a practice inbox, and a clinician can be out of the pool. That is the practice inbox and the provider message switch here |
+| Therapy practice software with client portals (e.g. SimplePractice, TherapyNotes) | **reference** to study: client portals, secure messaging that can be turned off, and “not for emergencies” notices |
+| Salon booking apps (e.g. Square Appointments, Vagaro, Fresha) | **reference** to study: booking, reminders, a client list, retail and a staff picker. Salons are not HIPAA covered entities; they need the same app with plainer words and no clinical features |
+| Feature-flag services (LaunchDarkly and similar) | **skip**: a few practice and provider switches stored in the Back Office are enough; no new infrastructure |
+
 ## Questionnaires and kiosk content (post-V1, #82)
 
 | Candidate | Verdict |

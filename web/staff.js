@@ -76,7 +76,7 @@ async function showProviders(invite) {
     <form id="provider-form" class="inline-form">
       <input id="provider-name" placeholder="Name, for example Dr. Sam Lee" required>
       <input id="provider-email" type="email" placeholder="email (their sign-in name)" required>
-      <select id="provider-role"><option value="provider">Provider</option><option value="office">Front desk (whole schedule, no setup)</option></select>
+      <select id="provider-role"><option value="provider">${Word("provider")}</option><option value="office">Front desk (whole schedule, no setup)</option></select>
       <button type="submit" class="btn">Add and get set-up link</button>
     </form>
     <p class="hint">They choose their own password and set up an authenticator app from the link. You never see their password.</p></div>`;
@@ -104,7 +104,7 @@ async function showProviders(invite) {
       } else {
         actions.push(`<button class="btn btn-sm btn-danger" onclick="providerAction('${esc(p.id)}', 'disable')">Disable</button>`);
       }
-      html += `<tr><td>${esc(p.display_name)}</td><td>${p.role === "office" ? "Front desk" : "Provider"}</td><td>${esc(p.email)}</td>
+      html += `<tr><td>${esc(p.display_name)}</td><td>${p.role === "office" ? "Front desk" : Word("provider")}</td><td>${esc(p.email)}</td>
         <td><span class="badge badge-${badge}">${esc(label)}</span>${note}</td><td>${actions.join(" ")}</td></tr>`;
     }
     html += "</tbody></table>";
@@ -274,4 +274,47 @@ function pickTheme(btn) {
     b.classList.toggle("selected", b === btn);
     b.style.borderColor = b === btn ? "var(--primary)" : "#ddd";
   });
+}
+
+// ---------------------------------------------------------------------------
+// Settings (#108): the practice type, admins only. It sets the words the
+// staff web, website and app use, and whether the practice is clinical.
+// The feature switches of #109 will join this screen.
+// ---------------------------------------------------------------------------
+async function showSettings() {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+  const content = document.getElementById("tab-content");
+  let p;
+  try {
+    p = await api("GET", "/practice");
+  } catch (err) {
+    content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  const rows = p.types.map((t) => `
+    <label class="type-option" style="display:flex;gap:0.75rem;align-items:flex-start;padding:0.75rem;border:1px solid #ddd;border-radius:8px;margin-bottom:0.5rem;cursor:pointer">
+      <input type="radio" name="practice-type" value="${attr(t.id)}" ${t.id === p.type.id ? "checked" : ""} style="width:auto;margin-top:0.3rem">
+      <span><b>${esc(t.label)}</b><br>
+        <span class="hint">Says “${esc(t.words.patient)}” and “${esc(t.words.provider)}”.
+        ${t.clinical ? "Clinical: check-ins and health monitors available." : "Not clinical: check-ins and health monitors hidden."}</span></span>
+    </label>`).join("");
+  content.innerHTML = `
+    <div class="card"><h2>Practice type</h2>
+      <p class="hint">Sets the words the staff web, the website and the app use, and which features fit the practice. Security is the same for every type. The website changes at its next publish.</p>
+      <form id="practice-form">${rows}
+        <button type="submit" class="btn">Save</button>
+      </form>
+    </div>`;
+  document.getElementById("practice-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const chosen = document.querySelector('input[name="practice-type"]:checked');
+    if (!chosen) return;
+    try {
+      practiceInfo = await api("PUT", "/practice", { type: chosen.value });
+      render();
+      showAlert(`Saved: ${practiceInfo.type.label}`, "success");
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
 }

@@ -13,6 +13,20 @@ const API = "/api/v1";
 // ---------------------------------------------------------------------------
 let session = null; // { status, user_id, role, display_name, practice, csrf_token }
 let activeTab = "patients";
+let practiceInfo = null; // { type, types } from /practice: the practice's words (#108)
+
+const DEFAULT_WORDS = { patient: "patient", patients: "patients", provider: "provider", providers: "providers" };
+// word is the practice's word for patient(s) or provider(s); Word capitalises.
+function word(k) {
+  return (practiceInfo && practiceInfo.type && practiceInfo.type.words && practiceInfo.type.words[k]) || DEFAULT_WORDS[k];
+}
+function Word(k) {
+  const s = word(k);
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function clinical() {
+  return !practiceInfo || !practiceInfo.type || practiceInfo.type.clinical !== false;
+}
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -45,6 +59,7 @@ async function login(tenant, email, password, code) {
 }
 
 async function logout() {
+  practiceInfo = null;
   try {
     await api("POST", "/staff/logout");
   } catch (_) {
@@ -66,6 +81,13 @@ function render() {
   }
   if (session.status === "totp_setup") {
     renderTOTPSetup(app);
+    return;
+  }
+  if (!practiceInfo) {
+    api("GET", "/practice")
+      .then((p) => { practiceInfo = p; })
+      .catch(() => { practiceInfo = {}; })
+      .finally(render);
     return;
   }
   app.innerHTML = renderDashboard();
@@ -171,7 +193,7 @@ function renderDashboard() {
       <h1>WeHelp</h1>
       <div>
         <span class="user">${esc(who)} · ${esc(role === "office" ? "front desk" : role)}</span>
-        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Staff</button>' : ""}
+        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showSettings()" style="margin-left:0.5rem">Settings</button><button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Staff</button>' : ""}
         <button class="btn btn-sm btn-outline" onclick="showMyProfile()" style="margin-left:0.5rem">My profile</button>
         ${role === "office" ? "" : '<button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>'}
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
@@ -179,7 +201,7 @@ function renderDashboard() {
     </div>
     <div id="alert-area"></div>
     <div class="tabs">
-      <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">Patients</div>
+      <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">${Word("patients")}</div>
       <div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
@@ -365,7 +387,7 @@ async function loadAppointments(container) {
 
     html += '<div class="card"><h2>Schedule Appointment</h2>';
     if (patients.length === 0) {
-      html += '<p class="empty">No active patients to schedule.</p>';
+      html += `<p class="empty">No active ${word("patients")} to schedule.</p>`;
     } else {
       // Tomorrow at the next hour, 30 minutes long.
       const start = new Date(Date.now() + 24 * 3600 * 1000);
@@ -376,11 +398,11 @@ async function loadAppointments(container) {
       html += `<form id="appt-form">
         <div class="form-row">
           ${wide ? `<div class="form-group">
-            <label>Provider</label>
+            <label>${Word("provider")}</label>
             <select id="appt-provider">${providers.map((p) => `<option value="${p.id}">${p.label}</option>`).join("")}</select>
           </div>` : ""}
           <div class="form-group">
-            <label>Patient</label>
+            <label>${Word("patient")}</label>
             <select id="appt-patient">${patients.map((p) => `<option value="${p.id}">${p.label}</option>`).join("")}</select>
           </div>
         </div>
@@ -405,8 +427,8 @@ async function loadAppointments(container) {
     html += '<p class="empty">No appointments.</p>';
   } else {
     html += "<table><thead><tr><th>Start</th><th>End</th><th>Status</th>";
-    if (wide) html += "<th>Provider</th>";
-    html += "<th>Patient</th>";
+    if (wide) html += `<th>${Word("provider")}</th>`;
+    html += `<th>${Word("patient")}</th>`;
     if (isProvider) html += "<th>Actions</th>";
     html += "</tr></thead><tbody>";
     for (const a of appts) {
@@ -474,7 +496,7 @@ async function requestsCard(names, wide = false) {
   const reqs = (data.requests || []).filter((r) => wide || r.provider_id === session.user_id).reverse(); // oldest first
   let html = `<div class="card"><h2>Appointment Requests</h2>`;
   if (reqs.length === 0) return html + '<p class="empty">No requests waiting.</p></div>';
-  html += `<table><thead><tr>${wide ? "<th>For</th>" : ""}<th>Patient</th><th>Prefers</th><th>Reason</th><th>Book at</th><th>Actions</th></tr></thead><tbody>`;
+  html += `<table><thead><tr>${wide ? "<th>For</th>" : ""}<th>${Word("patient")}</th><th>Prefers</th><th>Reason</th><th>Book at</th><th>Actions</th></tr></thead><tbody>`;
   for (const r of reqs) {
     const first = r.preferred[0];
     const start = new Date(first.date + "T00:00:00");
@@ -550,10 +572,10 @@ async function loadLinks(container) {
 
   let html = "";
   if (isProvider) {
-    html += `<div class="card"><h2>Invite Patient</h2>
+    html += `<div class="card"><h2>Invite ${word("patient")}</h2>
       <form id="link-form">
         <div class="form-group">
-          <label>Patient Email</label>
+          <label>${Word("patient")} email</label>
           <input type="email" id="link-email" placeholder="patient@demo.wehelp" required>
         </div>
         <button type="submit" class="btn">Invite</button>
@@ -564,14 +586,15 @@ async function loadLinks(container) {
   if (links.length === 0) {
     html += '<p class="empty">No links.</p>';
   } else {
-    html += "<table><thead><tr><th>Provider</th><th>Patient</th><th>Status</th><th>Check-in reminders</th><th>Actions</th></tr></thead><tbody>";
+    // Check-in reminders are clinical: hidden for a salon (#108).
+    html += `<table><thead><tr><th>${Word("provider")}</th><th>${Word("patient")}</th><th>Status</th>${clinical() ? "<th>Check-in reminders</th>" : ""}<th>Actions</th></tr></thead><tbody>`;
     for (const l of links) {
       const provider = personName(names, l.provider_id);
       const patient = personName(names, l.patient_id);
       html += `<tr>
         <td>${provider}</td><td>${patient}</td>
         <td><span class="badge badge-${l.status}">${l.status}</span></td>
-        <td>${checkinCell(l)}</td>
+        ${clinical() ? `<td>${checkinCell(l)}</td>` : ""}
         <td>`;
       if (l.status === "pending" && session.role === "patient" && l.patient_id === session.user_id) {
         html += `<button class="btn btn-sm" onclick="acceptLink('${l.provider_id}')">Accept</button>`;
@@ -657,16 +680,16 @@ let pairingTimer = null;
 async function loadPatients(container) {
   stopPairing();
   const data = await api("GET", "/patients");
-  let html = `<div class="card"><h2>Add patient</h2>
+  let html = `<div class="card"><h2>Add ${word("patient")}</h2>
     <form id="patient-form" class="inline-form">
       <input id="patient-name" placeholder="Full name" required>
       <input id="patient-email" type="email" placeholder="email@example.com" required>
       <button type="submit" class="btn">Add</button>
     </form>
-    <p class="hint">Patients don't get a password. Pair their phone here, in the office.</p></div>`;
-  html += '<div id="pairing"></div><div class="card"><h2>Patients</h2>';
+    <p class="hint">${Word("patients")} don't get a password. Pair their phone here, in the office.</p></div>`;
+  html += `<div id="pairing"></div><div class="card"><h2>${Word("patients")}</h2>`;
   if (data.patients.length === 0) {
-    html += '<p class="empty">No patients yet.</p>';
+    html += `<p class="empty">No ${word("patients")} yet.</p>`;
   } else {
     html += "<table><thead><tr><th>Name</th><th>Email</th><th>Devices</th><th></th></tr></thead><tbody>";
     for (const p of data.patients) {
@@ -873,7 +896,7 @@ async function loadOrders(container) {
   if (orders.length === 0) {
     html += '<p class="empty">No orders here.</p>';
   } else {
-    html += "<table><thead><tr><th>Placed</th><th>Patient</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Placed</th><th>" + Word("patient") + "</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
     for (const o of orders) {
       const items = o.items.map((i) => `${i.quantity} × ${esc(i.name)}`).join("<br>");
       const notes = (o.note ? `<div class="hint">Patient: ${esc(o.note)}</div>` : "") +
