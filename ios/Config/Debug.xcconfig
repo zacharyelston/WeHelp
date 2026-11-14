@@ -1,0 +1,7 @@
+// Debug build settings. The default server URL suits the simulator, which
+// shares the Mac's network. For a physical device, copy
+// Local.xcconfig.example to Local.xcconfig (gitignored) and set your Mac's
+// LAN address there.
+WEHELP_DEFAULT_SERVER_URL = http:/$()/localhost:8080
+
+#include? "Local.xcconfig"

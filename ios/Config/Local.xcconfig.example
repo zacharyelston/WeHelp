@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (gitignored) to override Debug settings on this Mac.
+// Find your LAN address with: ipconfig getifaddr en0
+// The `$()` stops xcconfig from treating `//` as a comment.
+WEHELP_DEFAULT_SERVER_URL = http:/$()/192.168.1.50:8080

@@ -1,9 +1,13 @@
 name: WeHelp
 options:
-  bundleIdPrefix: com.wehelp
+  bundleIdPrefix: com.zacelston.wehelp
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
 
 targets:
   WeHelp:
@@ -22,13 +26,22 @@ targets:
         NSHealthShareUsageDescription: "WeHelp shares your health data with your care team."
         NSHealthUpdateUsageDescription: "WeHelp records check-ins and readings to your health data."
         NSBluetoothAlwaysUsageDescription: "WeHelp connects to your Bluetooth health monitors."
+        NSLocalNetworkUsageDescription: "WeHelp connects to your clinic's server on the local network."
+        # Allows plain-HTTP to local hosts only (LAN IPs, .local, unqualified
+        # names). Public hosts still require HTTPS; no NSAllowsArbitraryLoads.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        # Default server URL; per-build value comes from Config/*.xcconfig.
+        WeHelpDefaultServerURL: $(WEHELP_DEFAULT_SERVER_URL)
     entitlements:
       path: WeHelp/WeHelp.entitlements
       properties:
         com.apple.developer.healthkit: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.wehelp.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.zacelston.wehelp
+        DEVELOPMENT_TEAM: WZYFJ8TSWD
+        CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "6.0"
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
