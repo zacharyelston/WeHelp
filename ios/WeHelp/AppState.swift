@@ -19,6 +19,24 @@ final class AppState {
     private(set) var phase: Phase = .launching
     private(set) var me: Me?
     var role: Role? { me.flatMap { Role(rawValue: $0.role) } }
+    /// Provider and admin devices get the practice view (#69).
+    var isStaff: Bool { me?.role == "provider" || me?.role == "admin" }
+
+    /// Display names of the people the caller is linked with, from
+    /// /api/v1/links. In memory only; never written to disk.
+    private(set) var people: [UUID: String] = [:]
+
+    func name(of id: UUID) -> String? { people[id].flatMap { $0.isEmpty ? nil : $0 } }
+
+    func refreshPeople() async {
+        guard let links = try? await api.links() else { return }
+        var names: [UUID: String] = [:]
+        for l in links where l.status != "revoked" {
+            if let n = l.providerName { names[l.providerID] = n }
+            if let n = l.patientName { names[l.patientID] = n }
+        }
+        people = names
+    }
 
     let session = SessionStore()
     private(set) var api: APIClient
@@ -179,6 +197,7 @@ final class AppState {
     }
 
     private func wipeLocalSession() async {
+        people = [:]
         await session.clear()
         DeviceKey.delete()
         me = nil

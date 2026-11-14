@@ -29,9 +29,10 @@ struct Me: Decodable, Sendable {
     let userID: String
     let tenantID: String
     let role: String
+    let displayName: String?
 
     enum CodingKeys: String, CodingKey {
-        case userID = "user_id", tenantID = "tenant_id", role
+        case userID = "user_id", tenantID = "tenant_id", role, displayName = "display_name"
     }
 }
 

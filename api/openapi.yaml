@@ -236,6 +236,7 @@ components:
         role:
           type: string
           enum: [provider, patient, admin]
+        display_name: { type: string }
 
     LinkView:
       type: object
@@ -250,6 +251,8 @@ components:
         status:
           type: string
           enum: [pending, active, revoked]
+        provider_name: { type: string }
+        patient_name: { type: string }
 
     CreateLinkRequest:
       type: object
@@ -407,8 +410,12 @@ components:
 
     CreateInviteRequest:
       type: object
-      required: [patient_id]
+      description: >
+        The account to pair: user_id (any role) or, as before, patient_id.
+        Patients: a provider linked to them, or an admin. Staff accounts:
+        yourself, or anyone in the practice if you are an admin (#69).
       properties:
+        user_id: { type: string, format: uuid }
         patient_id: { type: string, format: uuid }
 
     InviteResponse:
@@ -417,7 +424,8 @@ components:
       properties:
         id: { type: string, format: uuid }
         patient_id: { type: string, format: uuid }
-        patient_name: { type: string }
+        patient_name: { type: string, description: The paired account's display name (any role). }
+        role: { type: string, enum: [patient, provider, admin] }
         expires_at: { type: string, format: date-time, description: Redeem deadline (10 minutes). }
         qr_payload:
           type: string
@@ -457,6 +465,7 @@ components:
           properties:
             practice: { type: string }
             patient_name: { type: string }
+            role: { type: string, enum: [patient, provider, admin], description: The device's session role. }
 
 
     DeviceView:

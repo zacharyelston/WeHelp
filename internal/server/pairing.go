@@ -83,12 +83,34 @@ type QRPayload struct {
 
 type createInviteRequest struct {
 	PatientID string `json:"patient_id"`
+	// UserID pairs any account: a patient, or a staff member's own phone or
+	// iPad (#69). Admins may pair any staff account in the practice.
+	UserID string `json:"user_id"`
+}
+
+// pairTarget checks that staff may pair a device for this account and
+// returns its display name and role. Patients: as staffPatient. Staff
+// accounts: yourself, or anyone in the practice if you are an admin.
+func pairTarget(ctx context.Context, tx pgx.Tx, staff Identity, target uuid.UUID) (name, role string, err error) {
+	if err = tx.QueryRow(ctx, `select display_name, role::text from users where id = $1 and tenant_id = $2`,
+		target, staff.TenantID).Scan(&name, &role); err != nil {
+		return "", "", err
+	}
+	if role == "patient" {
+		_, err = staffPatient(ctx, tx, staff, target)
+		return name, role, err
+	}
+	if target != staff.UserID && staff.Role != "admin" {
+		return "", "", pgx.ErrNoRows
+	}
+	return name, role, nil
 }
 
 type inviteResponse struct {
 	ID          string    `json:"id"`
 	PatientID   string    `json:"patient_id"`
-	PatientName string    `json:"patient_name"`
+	PatientName string    `json:"patient_name"` // the account's display name (any role)
+	Role        string    `json:"role"`         // patient, provider or admin
 	ExpiresAt   time.Time `json:"expires_at"`
 	QRPayload   string    `json:"qr_payload"`
 	QRPNG       string    `json:"qr_png"` // base64 PNG
@@ -109,9 +131,13 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	patientID, err := uuid.Parse(req.PatientID)
+	raw := req.UserID
+	if raw == "" {
+		raw = req.PatientID
+	}
+	patientID, err := uuid.Parse(raw) // the account being paired (any role)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "patient_id must be a UUID")
+		writeErr(w, http.StatusBadRequest, "user_id or patient_id must be a UUID")
 		return
 	}
 
@@ -123,18 +149,18 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
-	name, err := staffPatient(ctx, tx, id, patientID)
+	name, role, err := pairTarget(ctx, tx, id, patientID)
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "no such patient for you")
+		writeErr(w, http.StatusNotFound, "no such account for you")
 		return
 	}
 
-	raw := make([]byte, inviteBytes)
-	if _, err := rand.Read(raw); err != nil {
+	secret := make([]byte, inviteBytes)
+	if _, err := rand.Read(secret); err != nil {
 		writeErr(w, http.StatusInternalServerError, "random failed")
 		return
 	}
-	code := base64.RawURLEncoding.EncodeToString(raw)
+	code := base64.RawURLEncoding.EncodeToString(secret)
 	expires := time.Now().Add(inviteTTL).UTC().Truncate(time.Second)
 	var inviteID uuid.UUID
 	if err := tx.QueryRow(ctx, `
@@ -147,7 +173,7 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	if err := audit.Record(ctx, tx, audit.Event{
 		TenantID: id.TenantID, ActorID: &id.UserID,
 		Action: "pairing.invite", ResourceType: "pairing_invite", ResourceID: inviteID.String(),
-		Detail: mustJSON(map[string]string{"patient_id": patientID.String(), "expires_at": expires.Format(time.RFC3339)}),
+		Detail: mustJSON(map[string]string{"user_id": patientID.String(), "role": role, "expires_at": expires.Format(time.RFC3339)}),
 	}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
@@ -165,7 +191,7 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusCreated, inviteResponse{
-		ID: inviteID.String(), PatientID: patientID.String(), PatientName: name, ExpiresAt: expires,
+		ID: inviteID.String(), PatientID: patientID.String(), PatientName: name, Role: role, ExpiresAt: expires,
 		QRPayload: string(payload), QRPNG: base64.StdEncoding.EncodeToString(png),
 	})
 }
@@ -248,7 +274,7 @@ func (s *Server) GetInvite(w http.ResponseWriter, r *http.Request) {
 	v, err := scanInvite(tx.QueryRow(ctx, `select `+inviteCols+` from pairing_invites where id = $1 and tenant_id = $2`,
 		inviteID, staff.TenantID))
 	if err == nil {
-		_, err = staffPatient(ctx, tx, staff, v.PatientID)
+		_, _, err = pairTarget(ctx, tx, staff, v.PatientID)
 	}
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "invite not found")
@@ -271,7 +297,8 @@ type redeemRequest struct {
 
 type redeemResponse struct {
 	Practice    string `json:"practice"`
-	PatientName string `json:"patient_name"`
+	PatientName string `json:"patient_name"` // the paired account's display name
+	Role        string `json:"role"`
 	enrollResponse
 }
 
@@ -346,13 +373,15 @@ func (s *Server) RedeemInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
 	}
-	var practice, patientName string
-	if err := tx.QueryRow(ctx, `select t.name, u.display_name from users u join tenants t on t.id = u.tenant_id where u.id = $1`,
-		v.PatientID).Scan(&practice, &patientName); err != nil {
+	var practice, patientName, role string
+	if err := tx.QueryRow(ctx, `select t.name, u.display_name, u.role::text from users u join tenants t on t.id = u.tenant_id where u.id = $1`,
+		v.PatientID).Scan(&practice, &patientName, &role); err != nil {
 		writeErr(w, http.StatusInternalServerError, "pairing failed")
 		return
 	}
-	tokens, err := s.issueTokens(ctx, tx, v.PatientID, v.TenantID, "patient", &deviceID)
+	// The device gets the paired account's own role: patient, or provider
+	// or admin for staff devices (#69). Always device-bound.
+	tokens, err := s.issueTokens(ctx, tx, v.PatientID, v.TenantID, role, &deviceID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "token failed")
 		return
@@ -361,7 +390,7 @@ func (s *Server) RedeemInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "commit failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, redeemResponse{Practice: practice, PatientName: patientName,
+	writeJSON(w, http.StatusOK, redeemResponse{Practice: practice, PatientName: patientName, Role: role,
 		enrollResponse: enrollResponse{DeviceID: deviceID.String(), tokenResponse: tokens}})
 }
 

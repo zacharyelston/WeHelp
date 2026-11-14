@@ -92,6 +92,8 @@ struct CareLink: Decodable, Sendable, Hashable {
     let providerID: UUID
     let patientID: UUID
     let status: String
+    let providerName: String?
+    let patientName: String?
 
     var isActive: Bool { status == "active" }
 
@@ -99,6 +101,8 @@ struct CareLink: Decodable, Sendable, Hashable {
         case status
         case providerID = "provider_id"
         case patientID = "patient_id"
+        case providerName = "provider_name"
+        case patientName = "patient_name"
     }
 }
 

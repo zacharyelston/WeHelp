@@ -5,8 +5,12 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            TodayView()
-                .tabItem { Label("Today", systemImage: "heart.text.square") }
+            Group {
+                // One app, two views (#69): provider and admin devices open on
+                // the day's schedule; patients on their own Today.
+                if appState.isStaff { ProviderTodayView() } else { TodayView() }
+            }
+                .tabItem { Label("Today", systemImage: appState.isStaff ? "calendar.day.timeline.left" : "heart.text.square") }
             MessagesView()
                 .tabItem { Label("Messages", systemImage: "bubble.left.and.bubble.right") }
             AppointmentsView()
@@ -38,7 +42,10 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("Account") {
-                    LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
+                    if let name = appState.me?.displayName, !name.isEmpty {
+                        LabeledContent("Name", value: name)
+                    }
+                    LabeledContent("Role", value: appState.me?.role ?? "unknown")
                     LabeledContent("Office", value: appState.api.office.map { String($0.officeID.prefix(8)) + "…" } ?? "none")
                     LabeledContent("Relay", value: appState.api.office?.relay ?? "none")
                     NavigationLink("Devices") { DevicesView() }
