@@ -83,6 +83,11 @@ All notable changes to WeHelp are documented here. Format follows
   - `/links` now carries `provider_name` and `patient_name`, and `/me`
     carries `display_name`, so messages and visits show names instead of
     "Patient" or "Care team".
+  - A paired device that can't reach its practice at launch shows "Can't
+    reach <practice>" with **Try again** and keeps the pairing. It used to
+    drop to the pair screen. Settings' **Sign out** is now **Unpair this
+    device…**, with a confirmation, because without a password unpairing
+    means pairing again in the office.
 - Staff sign-in and the LAN-only staff surface (#38).
   - Staff web UI sign-in is password + TOTP. The first sign-in walks through
     authenticator setup (QR code and key). Codes work once, and five failures
