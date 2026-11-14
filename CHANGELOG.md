@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The readme opens with a hero diagram of the WeHelp ecosystem
+  (`presentation/img/ecosystem.svg`): the app and the Back Office tied
+  together by QR pairing, the Relay, the Registry and the practice website
+  and blog. The presentation has a Blog slide after the website (23 slides).
 - The presentation covers the new features: the front desk's day, the
   practice inbox, care teams, practice types, and switches with provider
   office hours, with an updated status slide (22 slides).
