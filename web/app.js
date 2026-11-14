@@ -1026,6 +1026,7 @@ function renderWebsite(container = document.getElementById("tab-content")) {
     <p>${published}</p>
     <button class="btn" onclick="saveSite()">Save</button>
     <button class="btn" onclick="publishSite()">Save and publish</button></div>
+    ${themePicker(siteData)}
     <div class="card"><h2>About the practice</h2>
       ${field("practice_name", "Practice name")}
       ${field("tagline", "Tagline")}

@@ -52,6 +52,8 @@ type siteView struct {
 	// Bios that come from staff profiles (#102); staff edit those under My
 	// profile, and they replace a typed bio with the same name.
 	Profiles []websiteProfile `json:"profiles"`
+	// The website themes to pick from (#104).
+	Themes []site.Theme `json:"themes"`
 }
 
 // loadContent returns the saved content, or starter content naming the
@@ -113,6 +115,7 @@ func (s *Server) GetSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var v siteView
+	v.Themes = site.Themes
 	err := s.readTx(r.Context(), func(tx pgx.Tx) error {
 		var err error
 		if v.Content, v.UpdatedAt, v.PublishedAt, v.PublishedURL, err = s.loadContent(r.Context(), tx, id.TenantID); err != nil {
@@ -166,7 +169,7 @@ func (s *Server) PutSite(w http.ResponseWriter, r *http.Request) {
 }
 
 func trimContent(c *site.Content) {
-	for _, p := range []*string{&c.PracticeName, &c.Tagline, &c.About, &c.Hours, &c.Address, &c.Phone, &c.Email, &c.AppURL, &c.Join, &c.LogoFile} {
+	for _, p := range []*string{&c.PracticeName, &c.Tagline, &c.About, &c.Hours, &c.Address, &c.Phone, &c.Email, &c.AppURL, &c.Join, &c.LogoFile, &c.Theme} {
 		*p = strings.TrimSpace(*p)
 	}
 	for i := range c.Providers {

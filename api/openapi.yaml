@@ -656,6 +656,10 @@ components:
         app_url: { type: string, description: "App Store link; https only." }
         join: { type: string, maxLength: 2000, description: "Extra words for the Get the app page." }
         logo_file: { type: string, description: "Filename of an uploaded image." }
+        theme:
+          type: string
+          enum: ["", sage, ocean, sunset, plum, clay, midnight]
+          description: "The website colour scheme (#104); empty means sage."
         providers:
           type: array
           maxItems: 30
@@ -745,6 +749,16 @@ components:
           type: array
           description: Bios that come from staff profiles (#102); they replace a typed bio with the same name.
           items: { $ref: "#/components/schemas/WebsiteProfile" }
+        themes:
+          type: array
+          description: The website themes to pick from (#104).
+          items:
+            type: object
+            required: [id, label, swatch]
+            properties:
+              id: { type: string }
+              label: { type: string }
+              swatch: { type: string, description: "The accent colour, for the picker." }
 
     Product:
       type: object
