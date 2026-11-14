@@ -182,6 +182,11 @@ Issues: #45 demo kit, #46 external audit and pen test, #47 field install.
 - **Field install** at the practice: the practice's own Mac mini, the
   production Relay, an install runbook, and a go-live check.
 
+- **Practice onboarding and training** ([onboarding/](onboarding/README.md)):
+  the onboarding runbook with its training week and go-live criteria, the
+  training videos (#84), the training seed (#80) and `wehelpd doctor` (#81).
+  Whether practices self-register is decided in #79.
+
 **Exit (V1 release):** the external audit and pen test pass, the practice is
 live on its own hardware, and demos run only on demo hardware with demo data.
 
@@ -241,4 +246,6 @@ Patient access to their health records (visit notes, check-ins #21,
 HealthKit #22), the in-office iPad kiosk (#8), a patient web portal, the
 ledger API (#23), message-body encryption (#25), FHIR (#26), SSO (#27),
 cloud-hosted Back Offices, Android, group visits and recording. These are
-tracked in the **Post-V1** milestone.
+tracked in the **Post-V1** milestone, along with kiosk questionnaires from
+Interventionaire (#82, [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md))
+and a local AI agent on the Back Office (#83, [LOCAL_AGENT.md](LOCAL_AGENT.md)).

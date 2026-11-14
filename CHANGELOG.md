@@ -129,6 +129,24 @@ All notable changes to WeHelp are documented here. Format follows
     They apply all migrations and the seed to a fresh database and cover:
     pairing, single use, expiry, the wrong key, unlinked patients, refusals
     through the Relay, and no patient passwords.
+- Practice onboarding plan and training material (`docs/onboarding/`):
+  - an onboarding runbook, practice side first: Registry setup, Back Office
+    install and Relay connection, the provider app, a day-by-day training
+    week on a separate demo kit, roles and RACI, checklists, go-live
+    criteria, hypercare and rollback;
+  - a video training outline: 13 modules with scripts and a shot list per
+    screen, each marked as existing today or waiting on its issue;
+  - Interventionaire (questionnaire and intervention tooling, being
+    renewed as an iOS app): what it does, which of its design ideas the
+    post-V1 kiosk copies, how content bundles plug into the Back Office,
+    and the demo script.
+- Design note `docs/LOCAL_AGENT.md`: a Mac Pro Back Office running a local
+  AI agent for daily routines and approved outreach, with inference and all
+  patient data on the box and every agent action audited. Lit-review
+  entries for local model runtimes and questionnaire formats.
+- Issues: self-registration decision (#79), training seed (#80),
+  `wehelpd doctor` (#81), kiosk questionnaires (#82), local agent (#83) and
+  training videos (#84).
 - The iOS app reaches its office only through the Relay (#36).
   - Every request is an HTTP `CONNECT` to the Relay (`ProxyConfiguration`).
     It pins the Relay's TLS key on the outer hop and the office's key on the
