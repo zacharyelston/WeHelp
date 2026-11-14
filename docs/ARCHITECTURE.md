@@ -33,7 +33,9 @@ are in [SECURITY.md](SECURITY.md); build order and scope are in
 | **Back Office** (`wehelpd`) | A Mac mini in the practice | All patient data, staff accounts, the audit chain | Inbound internet ports |
 | **Relay** (`wehelp-relay`) | A server we operate (V1 demos: the dev laptop) | A cached, signed office list from the Registry; published websites; push tokens | Patient data, office TLS keys, plaintext of any patient connection |
 | **Registry** (`wehelp-registry`) | WeHelp's corporate server (V1 demos: the dev laptop) | Practices, their providers and admin contacts, subscriptions, office public keys, Relay assignments | Patient data of any kind |
-| **Mobile** (iPhone app) | Patient's or provider's own iPhone or iPad | A Secure Enclave device key and the pinned office identity | Long-lived passwords |
+| **Patient app** (Mobile) | The patient's own iPhone | A Secure Enclave device key and the pinned office identity | Long-lived passwords; patient data at rest |
+| **Provider app** (Mobile, #69) | The provider's own iPhone or iPad, in or out of the office | The same, with the provider role | The same |
+| **Kiosk iPad** (post-V1, #8) | A shared, office-owned iPad on the office Wi-Fi | An office device key; talks to the Back Office directly, never through the Relay | Anything from one patient once the next begins |
 | **Dashboards** | Anywhere (see [OBSERVABILITY.md](OBSERVABILITY.md)) | Telemetry from the Back Office, Relay and Registry | Patient data |
 
 **The rule:** the parts that connect phones or run the business never hold or
@@ -137,7 +139,10 @@ protect them at rest.
    password in V1.
 
 Lost or replaced phone: staff revoke the device and pair the new phone the
-same way. Providers pair their devices the same way, with the provider role.
+same way. Providers pair their devices the same way, with the provider role,
+in the provider app. Because every phone goes through the Relay, providers
+reach their schedule, messages and visits remotely with no VPN and nothing
+opened at the practice.
 
 ### Practices and providers: the Registry
 

@@ -18,8 +18,10 @@ All notable changes to WeHelp are documented here. Format follows
     from the Registry.
   - The Registry holds no patient data and has an import-boundary test.
 
-  Services are now Back Office, Relay, Registry, Mobile, plus dashboards for
-  the first three. Security, plan, observability and lit review updated.
+  Services are now Back Office, Relay, Registry and two mobile clients
+  (patient app and provider app, #69), plus dashboards for the first three.
+  The in-office Kiosk iPad (#8) is a post-V1 client that talks to the Back
+  Office over the office LAN. Security, plan, observability and lit review updated.
 - Observability designed (docs/OBSERVABILITY.md):
   - a Grafana Alloy sidecar on every Back Office and Relay;
   - optional Grafana, Loki and Prometheus dashboards that can run anywhere,
