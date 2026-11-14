@@ -71,6 +71,16 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Spike S3 (#34), written up in docs/spikes/S3.md, with throwaway code in
+  `spikes/s3/`. The Relay-side sender pushed through the APNs sandbox with
+  the team's token key, limited to three fixed PHI-free categories (others
+  are refused), and the iOS app received all three.
+  - Finding: the key is scoped to `com.zacelston.wehelp` and sandbox only,
+    and Apple enforces both.
+  - Finding: `sideshow/apns2` pins a vulnerable 2022 `x/net`, so V1 should
+    hand-roll the client.
+  - Finding: the local Go 1.26.0 toolchain has standard-library
+    vulnerabilities; pin a patched toolchain (#43).
 - Back Office appliance setup for an always-on Mac mini (#12), with the
   runbook in docs/APPLIANCE.md:
   - `deploy/docker-compose.appliance.yml`: restart policies, Postgres on

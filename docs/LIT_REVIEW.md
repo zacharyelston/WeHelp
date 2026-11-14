@@ -45,7 +45,7 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 
 | Candidate | Verdict |
 |---|---|
-| sideshow/apns2 | **adopt** — canonical APNs HTTP/2 lib; slow-moving but the protocol is stable and thin. If it rots, maintained forks exist (kokteyldev/apns2) and a hand-rolled HTTP/2+JWT client is ~100 lines |
+| sideshow/apns2 | **reference; prefer hand-rolling** (spike S3, docs/spikes/S3.md). It works, but the last release is Oct 2024 and it pins a 2022 `golang.org/x/net` with known vulnerabilities, so using it means dependency overrides. A hand-rolled HTTP/2 POST with an ES256 JWT is ~100 lines with no extra dependencies |
 | Firebase/Expo push | skip — third-party PHI routing, no |
 
 ## FHIR (#16)
