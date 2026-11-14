@@ -250,3 +250,28 @@ function profileBiosCard(profiles) {
   }
   return html + "</div>";
 }
+
+// themePicker is the Website tab's colour scheme choice (#104). The hidden
+// input carries the choice into Save like any other field.
+function themePicker(data) {
+  const themes = data.themes || [];
+  const current = data.content.theme || (themes[0] && themes[0].id) || "";
+  const swatches = themes.map((t) => `
+    <button type="button" class="theme-swatch${t.id === current ? " selected" : ""}" data-theme-id="${attr(t.id)}" onclick="pickTheme(this)"
+      title="${attr(t.label)}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.75rem;margin:0 0.4rem 0.4rem 0;border-radius:999px;cursor:pointer;
+      border:2px solid ${t.id === current ? "var(--primary)" : "#ddd"};background:#fff">
+      <span style="width:1.2rem;height:1.2rem;border-radius:50%;background:${attr(t.swatch)};display:inline-block"></span>${esc(t.label)}
+    </button>`).join("");
+  return `<div class="card"><h2>Look</h2>
+    <p class="hint">The website's colours: header, banner, buttons and accents. Visitors in dark mode get a dark version. Save and publish to apply.</p>
+    <input type="hidden" data-field="theme" id="site-theme" value="${attr(current)}">
+    <div>${swatches}</div></div>`;
+}
+
+function pickTheme(btn) {
+  document.getElementById("site-theme").value = btn.dataset.themeId;
+  document.querySelectorAll(".theme-swatch").forEach((b) => {
+    b.classList.toggle("selected", b === btn);
+    b.style.borderColor = b === btn ? "var(--primary)" : "#ddd";
+  });
+}

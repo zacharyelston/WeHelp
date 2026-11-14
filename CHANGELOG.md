@@ -85,6 +85,14 @@ All notable changes to WeHelp are documented here. Format follows
     sign-in page lists it. `wehelpd staff add --role office` also works.
     Office accounts can't pair their own phone yet: the app has no
     front-desk view. Migration `V12__office_role.sql`.
+- Website themes (#104).
+  - The Website tab has a **Look** card with six colour schemes: sage
+    green, ocean blue, sunset coral, plum, warm clay and midnight (dark).
+  - Each theme colours the header, footer, a banner on the home page,
+    buttons, cards and photo frames. Visitors in dark mode get a dark
+    version with the theme's accent. The choice is saved with the site
+    content and applied at the next publish; the default is sage.
+  - Fixed: page content no longer sits flush against the header.
 - Staff profiles for the website bios (#102).
   - Every staff member has **My profile** in the staff web: name as shown,
     credentials, bio and a photo (PNG, JPEG or WebP, at most 2 MB, checked
