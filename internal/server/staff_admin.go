@@ -46,7 +46,7 @@ type providerAccount struct {
 	ID              string     `json:"id"`
 	DisplayName     string     `json:"display_name"`
 	Email           string     `json:"email"`
-	Role            string     `json:"role"` // provider or office (#106)
+	Role            string     `json:"role"`   // provider or office (#106)
 	Status          string     `json:"status"` // invited, invite_expired, totp_pending, active, disabled
 	CreatedAt       time.Time  `json:"created_at"`
 	DisabledAt      *time.Time `json:"disabled_at,omitempty"`
