@@ -20,3 +20,6 @@ build/
 
 # Agent worktrees (Claude Code)
 .claude/worktrees/
+
+# Generated spike Xcode projects (xcodegen)
+spikes/*/ios/*.xcodeproj/
