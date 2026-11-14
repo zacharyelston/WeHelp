@@ -85,6 +85,10 @@ names which side failed. iOS needs one scoped ATS exception for
 pinned self-signed certificate (spike S1). There is no plain-HTTP or
 direct-LAN path in Debug or Release builds (#36).
 
+Everything an app must do on this path (the QR format, pins, device-key
+proofs, sessions, error handling, what may stay on the phone) is written
+down for every client in [MOBILE_CLIENT.md](MOBILE_CLIENT.md).
+
 ### Registry → Relay: signed office list
 
 - The Registry publishes an **office list**: office ID, office SSH public

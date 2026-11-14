@@ -97,6 +97,14 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- `docs/MOBILE_CLIENT.md` (#140): the contract every WeHelp app follows,
+  written down for the Android app. It covers the pairing QR code and its
+  checks, the two pinned TLS hops and how a pin is computed, the device key
+  and its proof message, pairing, session and refresh rules with the new
+  error codes, several practices on one phone, error states, lock and what
+  may stay on the phone, push, polling, practice words and switches, and
+  data formats. `docs/SECURITY.md` said office pins were an SPKI SHA-256;
+  they are the SHA-256 of the uncompressed X9.63 key, as the code does.
 - Practice blog (#121).
   - The Website tab has a **Blog** card. Staff write timely or seasonal
     posts: a title, the text, an optional uploaded image, a go-live time,
