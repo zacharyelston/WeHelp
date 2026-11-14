@@ -1,6 +1,7 @@
 # Practice types, message switches and care teams (proposal)
 
-Status: proposal, post-V1. Nothing here is built. Prior art:
+Status: post-V1. Phase 1, practice types and their words, is built (#108).
+The rest is a proposal. Prior art:
 [LIT_REVIEW.md](LIT_REVIEW.md) → Practice types, message switches and care
 teams.
 

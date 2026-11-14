@@ -75,6 +75,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Practice types (#108, docs/PRACTICE_TYPES.md phase 1).
+  - An admin picks the practice type on a new **Settings** screen:
+    naturopathic, therapy and psychology, allied health, or salon and
+    personal services.
+  - The type sets the words: patient or client; provider, practitioner,
+    therapist or stylist. The staff web and the website use them (the
+    website at its next publish). The API and database still say patient
+    and provider.
+  - A salon is not clinical, so the staff web hides check-in reminders.
+    Security is the same for every type.
+  - New routes: `GET /api/v1/practice` for anyone signed in (the app will
+    read the words, and it holds no patient data), and `PUT` for admins on
+    the LAN, audited as `practice.update`. Migration
+    `V13__practice_settings.sql`.
+  - Not yet: the app using the words, and the Registry recording the type
+    (waits for the Registry console, #99).
 - Office role for the front desk (#106).
   - A third staff role, `office`, sees every patient and every provider's
     schedule and appointment requests. The front desk books, changes and
