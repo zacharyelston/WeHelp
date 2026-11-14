@@ -80,12 +80,13 @@ func (r *Relay) Sync(ctx context.Context) (SyncResult, error) {
 	case l.Version < cur:
 		return Unchanged, ErrOlderList
 	}
-	r.apply(l)
+	// Cache first, so a list in use is always on disk too.
 	if r.cfg.CachePath != "" {
 		if err := saveCache(r.cfg.CachePath, raw); err != nil {
 			slog.Warn("relay: could not cache office list", "err", err)
 		}
 	}
+	r.apply(l)
 	slog.Info("relay: office list updated", "version", l.Version, "from", cur)
 	return Updated, nil
 }

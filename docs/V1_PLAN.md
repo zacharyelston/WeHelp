@@ -114,7 +114,7 @@ Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-o
 - iOS messages inbox and compose (#17), and iOS appointments (a new issue).
 - Staff UI: schedule, threads, patients, pairing, devices. No patient web UI
   (#9).
-- Reminders as River jobs (#19). Push via the Relay with fixed categories
+- Reminders from a polling worker with idempotent keys (#19). Push via the Relay with fixed categories
   (#7, replacing #20).
 - **Registry console** (#61): practices, providers, admin
   contacts, Relay assignment, and Relay and office health. **Provider

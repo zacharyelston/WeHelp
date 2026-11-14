@@ -20,6 +20,8 @@ type linkView struct {
 	Status       string    `json:"status"`
 	ProviderName string    `json:"provider_name"` // display names, so apps can label people (#69)
 	PatientName  string    `json:"patient_name"`
+	// Check-in reminder cadence in days (#19); null = off.
+	CheckinEveryDays *int `json:"checkin_every_days"`
 }
 
 type createLinkRequest struct {
@@ -186,7 +188,7 @@ func (s *Server) RevokeLink(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListLinks(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	rows, err := s.pool.Query(r.Context(), `
-		select pp.provider_id, pp.patient_id, pp.status, pr.display_name, pa.display_name
+		select pp.provider_id, pp.patient_id, pp.status, pr.display_name, pa.display_name, pp.checkin_every_days
 		from provider_patients pp
 		join users pr on pr.id = pp.provider_id
 		join users pa on pa.id = pp.patient_id
@@ -201,7 +203,7 @@ func (s *Server) ListLinks(w http.ResponseWriter, r *http.Request) {
 	links := []linkView{}
 	for rows.Next() {
 		var l linkView
-		if err := rows.Scan(&l.ProviderID, &l.PatientID, &l.Status, &l.ProviderName, &l.PatientName); err != nil {
+		if err := rows.Scan(&l.ProviderID, &l.PatientID, &l.Status, &l.ProviderName, &l.PatientName, &l.CheckinEveryDays); err != nil {
 			writeErr(w, http.StatusInternalServerError, "scan failed")
 			return
 		}

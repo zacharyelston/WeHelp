@@ -16,7 +16,7 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 
 | Candidate | Verdict |
 |---|---|
-| **riverqueue/river** | **adopt** — Postgres-backed job queue, pgx driver, *transactional enqueue* (job inserts inside our existing tx, alongside `audit.Record`), scheduled + periodic + unique jobs, active (v0.44, 2026). Kills the "polling goroutine" plan for reminders — enqueue a scheduled job per reminder instead. MPL-2.0 |
+| **riverqueue/river** | **adopt** — Postgres-backed job queue, pgx driver, *transactional enqueue* (job inserts inside our existing tx, alongside `audit.Record`), scheduled + periodic + unique jobs, active (v0.44, 2026). Kills the "polling goroutine" plan for reminders — enqueue a scheduled job per reminder instead. MPL-2.0. **Not used for #19:** River brings its own schema migrations next to Flyway, and at ~500 patients a one-minute poll with an idempotency key (`reminders_sent`), written in the same transaction as the message and audit event, gives the same guarantees. Revisit if jobs outgrow reminders. |
 | emersion/go-webdav | **note only** — CalDAV if we ever sync clinic calendars |
 
 ## Auth → SSO (#18)

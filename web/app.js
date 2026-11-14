@@ -296,23 +296,50 @@ async function showThread() {
 // ---------------------------------------------------------------------------
 // Appointments tab
 // ---------------------------------------------------------------------------
+// People's names from /links, so staff see who, not IDs.
+function namesFrom(links) {
+  const names = {};
+  for (const l of links) {
+    if (l.provider_name) names[l.provider_id] = l.provider_name;
+    if (l.patient_name) names[l.patient_id] = l.patient_name;
+  }
+  return names;
+}
+
+function personName(names, id) {
+  if (id === session.user_id) return "You";
+  return esc(names[id] || id.slice(0, 8));
+}
+
+// datetime-local wants the browser's local time, not UTC.
+function localInput(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 async function loadAppointments(container) {
   const data = await api("GET", "/appointments");
   const appts = data.appointments || [];
   const isProvider = session.role === "provider";
+  const links = await api("GET", "/links");
+  const names = namesFrom(links);
 
   let html = "";
   if (isProvider) {
-    const links = await api("GET", "/links");
     const patients = links.filter((l) => l.status === "active" && l.provider_id === session.user_id)
-      .map((l) => ({ id: l.patient_id, label: l.patient_id.slice(0, 8) }));
+      .map((l) => ({ id: l.patient_id, label: personName(names, l.patient_id) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
 
     html += '<div class="card"><h2>Schedule Appointment</h2>';
     if (patients.length === 0) {
       html += '<p class="empty">No active patients to schedule.</p>';
     } else {
-      const now = new Date();
-      const defaultStart = new Date(now.getTime() + 24 * 3600 * 1000).toISOString().slice(0, 16);
+      // Tomorrow at the next hour, 30 minutes long.
+      const start = new Date(Date.now() + 24 * 3600 * 1000);
+      start.setMinutes(0, 0, 0);
+      start.setHours(start.getHours() + 1);
+      const defaultStart = localInput(start);
+      const defaultEnd = localInput(new Date(start.getTime() + 30 * 60 * 1000));
       html += `<form id="appt-form">
         <div class="form-row">
           <div class="form-group">
@@ -327,7 +354,7 @@ async function loadAppointments(container) {
           </div>
           <div class="form-group">
             <label>Ends At</label>
-            <input type="datetime-local" id="appt-end" value="${defaultStart}" required>
+            <input type="datetime-local" id="appt-end" value="${defaultEnd}" required>
           </div>
         </div>
         <button type="submit" class="btn">Schedule</button>
@@ -346,7 +373,7 @@ async function loadAppointments(container) {
     for (const a of appts) {
       const start = new Date(a.starts_at).toLocaleString();
       const end = new Date(a.ends_at).toLocaleString();
-      const patient = a.patient_id === session.user_id ? "You" : a.patient_id.slice(0, 8);
+      const patient = personName(names, a.patient_id);
       html += `<tr>
         <td>${start}</td><td>${end}</td>
         <td><span class="badge badge-${a.status}">${a.status}</span></td>
@@ -412,6 +439,7 @@ async function completeAppt(id) {
 // ---------------------------------------------------------------------------
 async function loadLinks(container) {
   const links = await api("GET", "/links");
+  const names = namesFrom(links);
   const isProvider = session.role === "provider";
 
   let html = "";
@@ -430,13 +458,14 @@ async function loadLinks(container) {
   if (links.length === 0) {
     html += '<p class="empty">No links.</p>';
   } else {
-    html += "<table><thead><tr><th>Provider</th><th>Patient</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Provider</th><th>Patient</th><th>Status</th><th>Check-in reminders</th><th>Actions</th></tr></thead><tbody>";
     for (const l of links) {
-      const provider = l.provider_id === session.user_id ? "You" : l.provider_id.slice(0, 8);
-      const patient = l.patient_id === session.user_id ? "You" : l.patient_id.slice(0, 8);
+      const provider = personName(names, l.provider_id);
+      const patient = personName(names, l.patient_id);
       html += `<tr>
         <td>${provider}</td><td>${patient}</td>
         <td><span class="badge badge-${l.status}">${l.status}</span></td>
+        <td>${checkinCell(l)}</td>
         <td>`;
       if (l.status === "pending" && session.role === "patient" && l.patient_id === session.user_id) {
         html += `<button class="btn btn-sm" onclick="acceptLink('${l.provider_id}')">Accept</button>`;
@@ -463,6 +492,30 @@ async function loadLinks(container) {
         showAlert(err.message);
       }
     };
+  }
+}
+
+// Check-in reminder cadence (#19): the provider picks how often the patient
+// is reminded to check in; the Back Office sends them as reminder messages.
+const CHECKIN_CHOICES = [["", "Off"], [1, "Daily"], [3, "Every 3 days"], [7, "Weekly"], [14, "Every 2 weeks"], [30, "Monthly"]];
+
+function checkinCell(l) {
+  const every = l.checkin_every_days ?? "";
+  if (l.status !== "active" || l.provider_id !== session.user_id) {
+    return every === "" ? "Off" : `Every ${every} days`;
+  }
+  const choices = CHECKIN_CHOICES.some(([v]) => v === every) ? CHECKIN_CHOICES : [...CHECKIN_CHOICES, [every, `Every ${every} days`]];
+  const opts = choices.map(([v, label]) => `<option value="${v}" ${v === every ? "selected" : ""}>${label}</option>`).join("");
+  return `<select onchange="setCheckin('${l.patient_id}', this.value)">${opts}</select>`;
+}
+
+async function setCheckin(patientId, value) {
+  try {
+    await api("PUT", `/links/${patientId}/checkin`, { every_days: value === "" ? null : Number(value) });
+    showAlert(value === "" ? "Check-in reminders off" : "Check-in reminders set", "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
   }
 }
 
