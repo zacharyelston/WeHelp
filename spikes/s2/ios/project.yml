@@ -1,0 +1,52 @@
+# Spike S2 (throwaway): 1:1 WebRTC video, relay-only ICE through pion/turn.
+# Generate with: cd spikes/s2/ios && xcodegen
+name: S2Spike
+options:
+  bundleIdPrefix: com.zacelston.wehelp
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 157.0.0
+
+targets:
+  S2Spike:
+    type: application
+    platform: iOS
+    sources:
+      - path: S2Spike
+        excludes:
+          - "Info.plist"
+    dependencies:
+      - package: WebRTC
+    info:
+      path: S2Spike/Info.plist
+      properties:
+        CFBundleDisplayName: "S2 Spike"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+          - UIInterfaceOrientationPortraitUpsideDown
+        NSCameraUsageDescription: "The spike sends your camera in a test video call."
+        NSMicrophoneUsageDescription: "The spike sends your microphone in a test video call."
+        NSLocalNetworkUsageDescription: "The spike reaches the test TURN and signaling server on your LAN."
+        # Spike only: plain HTTP signaling to a LAN IP.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zacelston.wehelp.spike2
+        DEVELOPMENT_TEAM: WZYFJ8TSWD
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO

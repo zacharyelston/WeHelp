@@ -103,8 +103,8 @@ ARCHITECTURE.md, "Connections".
 | Candidate | Verdict |
 |---|---|
 | WebRTC 1:1, DTLS-SRTP end to end | **adopt**: for two parties, peer-to-peer media through TURN is already end-to-end encrypted; no SFU needed |
-| pion/turn | **adopt** (confirm in spike S2): TURN server in the Relay binary, in Go |
-| WebRTC iOS framework (Google's build via a SwiftPM package) | **evaluate** in S2: the binary dependency size and update cadence must be acceptable |
+| pion/turn | **adopt** (confirmed in S2): relay-only 1:1 calls worked, and two calls cost about 6% of one core and 14 MB. Add a quota, a peer `PermissionHandler` and TURN over TLS on 443. See [spikes/S2.md](spikes/S2.md) |
+| WebRTC iOS framework (Google's build via a SwiftPM package) | **adopt** (S2): `stasel/WebRTC` 157.0.0, BSD-3, about 12 MB installed and 5.5 MB to download, roughly monthly releases. Pin it, mirror it, and update every quarter. See [spikes/S2.md](spikes/S2.md) |
 | LiveKit, SFU + SFrame | **reference**: only needed for group visits, which are post-V1 |
 
 ## V1 operations (V1-M6)
