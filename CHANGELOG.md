@@ -6,6 +6,12 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The readme opens with screenshots (staff web, iPhone app, practice website)
+  and links to the overview presentation, published from `presentation/` to
+  GitHub Pages (https://zacharyelston.github.io/WeHelp/) by
+  `.github/workflows/pages.yml`. The presentation is a static copy of the
+  WeHelp overview deck: arrow keys or swipe to move, and it prints as one
+  slide per page.
 - Proposal for other kinds of practice (docs/PRACTICE_TYPES.md, epic #112):
   presets with their own words for therapy, allied health and salons; switches
   so a practice or a provider can turn messaging off; a practice inbox; and
