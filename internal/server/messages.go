@@ -57,6 +57,13 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "kind must be message, memo, checkin, or reminder")
 		return
 	}
+	// Memos and reminders are staff kinds. Without this a patient could send
+	// a memo past the practice's message switch and the provider's message
+	// mode, which check only messages and check-ins (#137).
+	if id.Role == "patient" && req.Kind != "message" && req.Kind != "checkin" {
+		writeErr(w, http.StatusForbidden, "patients may send messages and check-ins only")
+		return
+	}
 	req.Body = strings.TrimSpace(req.Body)
 	if req.Body == "" {
 		writeErr(w, http.StatusBadRequest, "body required")

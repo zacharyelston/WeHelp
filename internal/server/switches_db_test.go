@@ -45,6 +45,20 @@ func TestPracticeSwitches(t *testing.T) {
 	if code := msg(phone, ada); code != http.StatusCreated {
 		t.Fatalf("message with messages on: %d", code)
 	}
+	// Memos and reminders are staff kinds, so a patient can't use them to
+	// get past the switches below (#137).
+	kind := func(c *client, to, k string) int {
+		code, _ := c.do("POST", "/messages", map[string]string{"recipient_id": to, "body": "hello", "kind": k})
+		return code
+	}
+	for _, k := range []string{"memo", "reminder"} {
+		if code := kind(phone, ada, k); code != http.StatusForbidden {
+			t.Errorf("patient %s: %d, want 403", k, code)
+		}
+	}
+	if code := kind(staff, jordan, "memo"); code != http.StatusCreated {
+		t.Errorf("provider memo: %d, want 201", code)
+	}
 	if code, _ := adaWeb.do("PUT", "/practice/features", map[string]any{"features": map[string]bool{"store": false}}); code != http.StatusForbidden {
 		t.Errorf("provider sets switches: %d, want 403", code)
 	}
@@ -58,6 +72,9 @@ func TestPracticeSwitches(t *testing.T) {
 	}
 	if code := msg(phone, ada); code != http.StatusConflict {
 		t.Errorf("patient message with messages off: %d, want 409", code)
+	}
+	if code := kind(phone, ada, "memo"); code != http.StatusForbidden {
+		t.Errorf("patient memo with messages off: %d, want 403", code)
 	}
 	if code := msg(staff, jordan); code != http.StatusConflict {
 		t.Errorf("provider message with messages off: %d, want 409", code)

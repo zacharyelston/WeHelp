@@ -126,6 +126,16 @@ components:
       properties:
         error:
           type: string
+          description: Human-readable; may change. Branch on `code`.
+        code:
+          type: string
+          description: >
+            Stable machine-readable code, present where the status alone
+            is ambiguous (#136). Apps must tolerate codes they don't know.
+            Refresh: `invalid_token` (unknown, used or expired; sign out),
+            `not_enrolled` (sign out), `device_revoked` (sign out),
+            `proof_failed` (sign out), `proof_timestamp` (the device clock
+            is off; keep the session and ask the user to fix the clock).
 
     TokenResponse:
       type: object
@@ -1118,6 +1128,15 @@ paths:
     post:
       tags: [auth]
       summary: Rotate refresh token and get a new token pair
+      description: |
+        Refresh tokens are single-use: each refresh retires the token and
+        returns a new one, so an app must run one refresh at a time.
+
+        If the reply is lost, the app may send the old device-bound token
+        again: while the token issued in its place is unused and live, the
+        Back Office retires that unused token and returns a new pair
+        (#136). Once the newer token has been used, the old one gets
+        `invalid_token`.
       security: []
       requestBody:
         required: true
@@ -1135,7 +1154,8 @@ paths:
         "401":
           description: >
             Invalid or expired refresh token, a failed device proof, a revoked
-            device, or a patient token that is not device-bound.
+            device, or a patient token that is not device-bound. `code` says
+            which; see the Error schema.
           content:
             application/json:
               schema:
@@ -1420,8 +1440,9 @@ paths:
       summary: Send a message
       description: |
         Requires an active provider-patient link (either direction) with
-        the recipient. Kind defaults to `message` if omitted. Metadata
-        must be a JSON object (or omitted/null for `{}`).
+        the recipient. Kind defaults to `message` if omitted. Patients may
+        send only `message` and `checkin`; `memo` and `reminder` are for
+        staff. Metadata must be a JSON object (or omitted/null for `{}`).
       requestBody:
         required: true
         content:
@@ -1448,7 +1469,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "403":
-          description: No active link with that user
+          description: No active link with that user, or a patient sending a staff kind (memo, reminder)
           content:
             application/json:
               schema:

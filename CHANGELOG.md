@@ -115,6 +115,14 @@ All notable changes to WeHelp are documented here. Format follows
   - Shared sign-in pieces (TOTP, tokens, QR, argon2id) moved to
     `internal/staffauth`, so the Registry doesn't import the Back Office's
     `auth` package.
+- `docs/MOBILE_CLIENT.md` (#140): the contract every WeHelp app follows,
+  written down for the Android app. It covers the pairing QR code and its
+  checks, the two pinned TLS hops and how a pin is computed, the device key
+  and its proof message, pairing, session and refresh rules with the new
+  error codes, several practices on one phone, error states, lock and what
+  may stay on the phone, push, polling, practice words and switches, and
+  data formats. `docs/SECURITY.md` said office pins were an SPKI SHA-256;
+  they are the SHA-256 of the uncompressed X9.63 key, as the code does.
 - Practice blog (#121).
   - The Website tab has a **Blog** card. Staff write timely or seasonal
     posts: a title, the text, an optional uploaded image, a go-live time,
@@ -708,6 +716,20 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- A failed session refresh no longer deletes a patient's pairing (#136).
+  Refresh tokens are single-use, so a lost reply (a Relay blip or a
+  timeout) left the phone holding a retired token, and the next launch's
+  401 made the iPhone app remove the practice and its device key. Now a
+  device-bound token whose replacement was never used may be presented
+  again; the Back Office retires the unused replacement and issues a new
+  pair (migration V18 adds `refresh_tokens.replaced_by`). Logout, device
+  revocation and staff deactivation still end it. Refresh errors carry a
+  `code` (`invalid_token`, `not_enrolled`, `device_revoked`, `proof_failed`,
+  `proof_timestamp`); on `proof_timestamp` the app keeps the account and
+  asks the patient to fix the phone's date and time.
+- Patients can't send memos or reminders (#137). Those are staff kinds, and
+  a patient's memo got past the practice's message switch and the
+  provider's message mode. Patients get 403 for them now.
 - Appliance boot after a reboot (#123). Lima's `vz.pid` can survive a
   reboot and name a process ID macOS has reused, and Colima then won't
   start. If Docker isn't up a minute after login, the boot job clears that
