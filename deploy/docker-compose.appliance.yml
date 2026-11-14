@@ -1,0 +1,20 @@
+# Always-on Back Office appliance (office Mac mini). Layered on the base file:
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.appliance.yml ...
+# Use `deploy/appliance.sh` (or the `make appliance-*` targets), which pass both.
+# See docs/APPLIANCE.md.
+services:
+  db:
+    restart: unless-stopped
+    # Postgres is reachable only from this host, never from the office LAN.
+    ports: !override
+      - "127.0.0.1:5432:5432"
+
+  server:
+    restart: unless-stopped
+    # Created by `appliance.sh init-env` with mode 600; holds a persistent
+    # WEHELP_JWT_SECRET so sessions survive restarts.
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      WEHELP_ENV: appliance

@@ -1,6 +1,7 @@
 BIN := bin/wehelpd
 
-.PHONY: build test vet run migrate db-migrate seed compose-up compose-down ios ios-build clean
+.PHONY: build test vet run migrate db-migrate seed compose-up compose-down ios ios-build clean \
+	appliance-up appliance-down appliance-status appliance-install-login appliance-stop-for-reboot
 
 build:
 	go build -o $(BIN) ./cmd/wehelp
@@ -29,6 +30,22 @@ compose-up:
 
 compose-down:
 	docker compose -f deploy/docker-compose.yml down
+
+# Always-on Back Office appliance (office Mac mini). See docs/APPLIANCE.md.
+appliance-up:
+	bash deploy/appliance.sh up
+
+appliance-down:
+	bash deploy/appliance.sh down
+
+appliance-status:
+	bash deploy/appliance.sh status
+
+appliance-install-login:
+	bash deploy/appliance.sh install-login
+
+appliance-stop-for-reboot:
+	bash deploy/appliance.sh stop-for-reboot
 
 ios:
 	cd ios && xcodegen generate
