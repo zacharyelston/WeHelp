@@ -128,6 +128,7 @@ func newHarnessWith(t *testing.T, apns *relay.APNs) *harness {
 		RelayID: h.relayID, HostKey: keys.HostKey, TLSCert: keys.TLSCert,
 		RegistryURL: h.registry.URL, RegistryKey: regKey.Public().(ed25519.PublicKey),
 		CachePath: h.cache, ListInterval: 50 * time.Millisecond, APNs: apns,
+		SitesDir: filepath.Join(t.TempDir(), "sites"), SitePublicURL: "https://relay.test:8444",
 	})
 	if err != nil {
 		t.Fatal(err)
