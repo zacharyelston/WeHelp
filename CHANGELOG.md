@@ -6,6 +6,22 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- V1 architecture defined (docs/ARCHITECTURE.md rewritten, plus
+  docs/SECURITY.md and docs/V1_PLAN.md). In V1:
+  - A local Back Office holds all patient data.
+  - The Back Office connects out to a Relay over SSH with an office key.
+  - Phones reach their office through the Relay with HTTP `CONNECT` and
+    TLS end to end to a Back Office key pinned by in-office QR pairing.
+  - Patients have no passwords; device keys are their credential.
+  - The staff UI is LAN-only with TOTP.
+  - Telehealth is 1:1 WebRTC with media through TURN on the Relay.
+  - Push and the practice website go through the Relay with no PHI.
+
+  The bar is HIPAA technical safeguards plus OWASP ASVS L2 and MASVS L2,
+  with an external audit and pen test before field use. V1_PLAN.md sets
+  milestones V1-M0 to V1-M7 and lists what is kept, replaced and deferred
+  from the PoC. The lit review covers SSH, `CONNECT`, TURN, TOTP and
+  backups.
 - CI and `make test` run Go tests with the race detector (`-race`). `main`
   is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
   must be up to date before a PR merges (#30).
