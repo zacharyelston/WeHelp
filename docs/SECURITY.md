@@ -164,6 +164,15 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - Backups are nightly, encrypted with `age` to a key held by the practice
   owner, and copied off the Mac mini. A restore is tested before go-live and
   quarterly after that.
+- As built (#41):
+  - `deploy/backup.sh` streams `pg_dump`, the office keys and `.env`
+    straight into `age`, so nothing readable reaches a disk. The Mac mini
+    holds only the public key.
+  - A manifest of SHA-256 checksums lets a restore refuse a tampered or
+    partial backup, and a wrong key is refused before anything changes.
+  - Failures show admins a staff-web banner. So does a last good backup over
+    36 hours old.
+  - Runbook and last test: [BACKUPS.md](BACKUPS.md).
 - On the phone:
   - the device key is in the Secure Enclave;
   - the refresh token is in the Keychain with

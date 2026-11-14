@@ -69,6 +69,8 @@ files.
       ```
       It asks for the password. Each person sets up their authenticator app
       at their first sign-in.
+   5. Set up nightly encrypted backups to the practice owner's key, copied
+      off the machine, and test a restore: [BACKUPS.md](BACKUPS.md).
 
 ## After a reboot
 

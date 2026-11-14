@@ -171,13 +171,13 @@ restore() {
   chmod 600 "$ENV_FILE"
 
   compose stop server >/dev/null 2>&1 || true
+  compose up --no-start --build # creates the stack's volumes, so Compose owns them
   compose up -d db
   wait_for_db
   compose exec -T db psql -q -U wehelp -d postgres -v ON_ERROR_STOP=1 \
     -c "drop database if exists wehelp with (force)" -c "create database wehelp owner wehelp"
   age -d -i "$identity" "$src/db.dump.age" | compose exec -T db pg_restore -U wehelp -d wehelp --no-owner --exit-on-error
   log "database restored"
-  docker volume create "${PROJECT}_officekeys" >/dev/null
   age -d -i "$identity" "$src/officekeys.tar.age" |
     docker run --rm -i -v "${PROJECT}_officekeys:/k" alpine:3 sh -c 'find /k -mindepth 1 -delete && tar -C /k -xf -'
   log "office keys restored"
