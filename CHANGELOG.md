@@ -86,6 +86,23 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Care teams (#111, docs/PRACTICE_TYPES.md phase 4).
+  - A patient chooses a group of providers who share one thread with them,
+    for continuity of care.
+  - A provider already caring for the patient proposes a colleague, who
+    joins only when the patient approves. The patient can also add a
+    provider directly.
+  - Members are providers, never the front desk or admins.
+  - A new member sees earlier messages only if the patient allows it. A
+    removed member sees nothing, past or future.
+  - Every member's read of the thread is audited (`care_team.read`), and
+    the patient sees who read it and when.
+  - Disabling a provider removes them from every team.
+  - A new **Care teams** switch: off by default for therapy, never on for
+    a practice that isn't clinical.
+  - Providers get a **Care teams** tab in the staff web. Patient approval
+    in the app waits for the test devices; the API is ready.
+  - Routes under `/api/v1/care-teams`. Migration `V16__care_teams.sql`.
 - Practice inbox (#110, docs/PRACTICE_TYPES.md phase 3).
   - Patients message "the practice", and the front desk and admins answer
     in a new staff web **Inbox** tab. Each reply is signed with the staff

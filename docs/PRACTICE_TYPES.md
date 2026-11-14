@@ -1,7 +1,8 @@
 # Practice types, message switches and care teams (proposal)
 
-Status: post-V1. Phases 1 to 3 are built: practice types and words (#108),
-switches (#109) and the practice inbox (#110). Care teams are a proposal. Prior art:
+Status: post-V1. All four phases are built on the server and staff web:
+practice types and words (#108), switches (#109), the practice inbox (#110)
+and care teams (#111). The app screens follow when the test devices are back. Prior art:
 [LIT_REVIEW.md](LIT_REVIEW.md) → Practice types, message switches and care
 teams.
 
@@ -86,6 +87,10 @@ link. Nobody else can read it. The front desk (`office`, #106) reads no
 threads.
 
 ### Care team
+
+Built in #111 with its own tables (`care_team_members`,
+`care_team_messages`), like the practice inbox. Patients approve members
+through the API; the app screen for it waits for the test devices.
 
 A **care team** is a group that belongs to one patient: the providers the
 patient has allowed to see their messages.

@@ -28,9 +28,9 @@ type Type struct {
 // translations and support simple.
 var Types = []Type{
 	{"naturopath", "Naturopathic practice", true, Words{"patient", "patients", "provider", "providers"}, nil},
-	{"therapy", "Therapy and psychology", true, Words{"client", "clients", "therapist", "therapists"}, []string{"store", "checkins"}},
+	{"therapy", "Therapy and psychology", true, Words{"client", "clients", "therapist", "therapists"}, []string{"store", "checkins", "careteam"}},
 	{"allied_health", "Allied health (physio, chiro, dietitian)", true, Words{"patient", "patients", "practitioner", "practitioners"}, nil},
-	{"salon", "Salon and personal services", false, Words{"client", "clients", "stylist", "stylists"}, []string{"checkins", "video", "library"}},
+	{"salon", "Salon and personal services", false, Words{"client", "clients", "stylist", "stylists"}, []string{"checkins", "video", "library", "careteam"}},
 }
 
 // Feature is a practice switch (#109).
@@ -49,6 +49,7 @@ var Features = []Feature{
 	{"store", "Supply store"},
 	{"library", "Library"},
 	{"website", "Website"},
+	{"careteam", "Care teams"},
 }
 
 // IsFeature reports whether id names a switch.
@@ -88,6 +89,7 @@ func Effective(t Type, overrides map[string]bool) map[string]bool {
 	}
 	if !t.Clinical {
 		on["checkins"] = false
+		on["careteam"] = false // care teams are clinical (#111)
 	}
 	return on
 }

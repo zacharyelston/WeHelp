@@ -56,4 +56,10 @@ func TestEffective(t *testing.T) {
 	if on := Effective(salon, map[string]bool{"checkins": true}); on["checkins"] {
 		t.Error("a salon turned check-ins on")
 	}
+	if on := Effective(salon, map[string]bool{"careteam": true}); on["careteam"] {
+		t.Error("a salon turned care teams on")
+	}
+	if on := Effective(therapy, nil); on["careteam"] {
+		t.Error("therapy starts with care teams on")
+	}
 }
