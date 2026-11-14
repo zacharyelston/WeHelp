@@ -71,6 +71,9 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- iPad: the app turns to landscape and upside down (iPhone stays
+  portrait), for staff iPads docked with a Bluetooth keyboard. Cmd-Return
+  sends a message.
 - Push notifications through the Relay (#7).
   - The Relay sends Apple pushes with a hand-rolled HTTP/2 + ES256 client;
     the APNs key never leaves the Relay. Only three categories exist

@@ -21,8 +21,15 @@ targets:
       path: WeHelp/Info.plist
       properties:
         UILaunchScreen: {}
+        # iPhone stays portrait. iPads turn every way: staff use them
+        # docked in landscape with a Bluetooth keyboard.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         NSHealthShareUsageDescription: "WeHelp shares your health data with your care team."
         NSHealthUpdateUsageDescription: "WeHelp records check-ins and readings to your health data."
         NSCameraUsageDescription: "WeHelp uses the camera to scan your practice's pairing code."
