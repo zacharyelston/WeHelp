@@ -234,7 +234,8 @@ the ledger API, FHIR, SSO, and cloud-hosted Back Offices.
 
 APNs keys belong to the app publisher, so the Relay sends pushes. The Back
 Office asks the Relay to notify a device token with one of a fixed set of
-categories ("New message", "Appointment reminder", "Visit starting"). The
+categories ("New message", "Appointment reminder", "Visit starting",
+"Appointment request update", "New appointment request"). The
 Relay rejects anything else. The app fetches the details through its pinned
 connection.
 

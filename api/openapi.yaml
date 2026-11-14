@@ -42,6 +42,14 @@ components:
   # Reusable parameters
   # -------------------------------------------------------------------------
   parameters:
+    RequestID:
+      name: requestID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: An appointment request (#68).
     Limit:
       name: limit
       in: query
@@ -353,6 +361,55 @@ components:
         created_at:
           type: string
           format: date-time
+
+    PreferredTime:
+      type: object
+      required: [date, period]
+      properties:
+        date:
+          type: string
+          format: date
+          description: Office time.
+        period:
+          type: string
+          enum: [morning, afternoon, evening, any]
+
+    AppointmentRequest:
+      type: object
+      required: [id, patient_id, provider_id, preferred, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        provider_id:
+          type: string
+          format: uuid
+        preferred:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreferredTime"
+        reason: { type: string }
+        status:
+          type: string
+          enum: [pending, confirmed, declined, cancelled]
+        appointment_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: The booked visit, once confirmed.
+        note:
+          type: string
+          description: The provider's note, on decline.
+        created_at:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
 
     CreateAppointmentRequest:
       type: object
@@ -1177,6 +1234,212 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Reschedule would overlap an existing appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Appointment requests (#68)
+  /api/v1/appointment-requests:
+    post:
+      tags: [appointments]
+      summary: Ask a linked provider for an appointment (patient only)
+      description: |
+        1-3 preferred days (office time, today to 180 days out) with a time
+        of day each. At most 3 requests may wait per provider. The
+        provider's devices get the generic `appointment_request` push.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider_id, preferred]
+              properties:
+                provider_id:
+                  type: string
+                  format: uuid
+                preferred:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  items:
+                    $ref: "#/components/schemas/PreferredTime"
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        "201":
+          description: Request sent (pending)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentRequest"
+        "400":
+          description: Invalid preferred times or reason
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a patient, or no active link with that provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already 3 requests waiting for this provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      tags: [appointments]
+      summary: List the caller's requests (a patient's own, or those to a provider)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, declined, cancelled]
+      responses:
+        "200":
+          description: Newest first, at most 100
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AppointmentRequest"
+
+  /api/v1/appointment-requests/{requestID}/cancel:
+    post:
+      tags: [appointments]
+      summary: Withdraw a pending request (the patient who made it)
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentRequest"
+        "403":
+          description: Not a patient
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such request of the caller's
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No longer pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/appointment-requests/{requestID}/confirm:
+    post:
+      tags: [appointments]
+      summary: Confirm a request by booking the visit (the provider asked)
+      description: |
+        Books a scheduled appointment at the given time (the usual overlap
+        rules apply), leaves a message in the patient's thread and sends
+        them the generic `appointment_update` push.
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [starts_at, ends_at]
+              properties:
+                starts_at:
+                  type: string
+                  format: date-time
+                ends_at:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Confirmed; appointment_id is the booked visit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentRequest"
+        "400":
+          description: Time in the past, or ends before it starts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a provider, or the link is no longer active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such request addressed to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No longer pending, or the time overlaps another visit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/appointment-requests/{requestID}/decline:
+    post:
+      tags: [appointments]
+      summary: Decline a request, with an optional note to the patient
+      parameters:
+        - $ref: "#/components/parameters/RequestID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 500
+      responses:
+        "200":
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppointmentRequest"
+        "403":
+          description: Not a provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such request addressed to the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: No longer pending
           content:
             application/json:
               schema:

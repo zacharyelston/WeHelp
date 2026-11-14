@@ -14,8 +14,9 @@ import (
 // the Relay supplies the generic text. These match internal/relay.
 const pushRequestType = "wehelp-push"
 
-// PushRequest is one push. Category is new_message, appointment_reminder or
-// visit_starting.
+// PushRequest is one push. Category is one of relay.Categories: new_message,
+// appointment_reminder, visit_starting, appointment_update or
+// appointment_request.
 type PushRequest struct {
 	Token       string `json:"token"`
 	Environment string `json:"environment"`

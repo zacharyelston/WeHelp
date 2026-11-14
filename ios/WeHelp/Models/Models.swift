@@ -166,3 +166,68 @@ struct Appointment: Identifiable, Decodable, Sendable, Hashable {
 struct AppointmentList: Decodable, Sendable {
     let appointments: [Appointment]
 }
+
+/// A preferred day and time of day for an appointment request (#68).
+struct PreferredTime: Codable, Sendable, Hashable {
+    /// YYYY-MM-DD in the practice's time.
+    var date: String
+    var period: Period
+
+    enum Period: String, Codable, Sendable, CaseIterable, Identifiable {
+        case morning, afternoon, evening, any
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .morning: "Morning"
+            case .afternoon: "Afternoon"
+            case .evening: "Evening"
+            case .any: "Any time"
+            }
+        }
+    }
+
+    /// "Tue, Nov 17 · Morning"
+    var label: String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.dateFormat = "yyyy-MM-dd"
+        guard let d = f.date(from: date) else { return "\(date) · \(period.label)" }
+        return "\(d.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) · \(period.label)"
+    }
+}
+
+/// An appointment request from `GET /api/v1/appointment-requests` (#68).
+struct AppointmentRequest: Identifiable, Decodable, Sendable, Hashable {
+    let id: UUID
+    let patientID: UUID
+    let providerID: UUID
+    let preferred: [PreferredTime]
+    let reason: String
+    let status: Status
+    let appointmentID: UUID?
+    let note: String
+    let createdAt: Date
+    let decidedAt: Date?
+
+    enum Status: String, Decodable, Sendable {
+        case pending, confirmed, declined, cancelled, unknown
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Status(rawValue: raw) ?? .unknown
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, preferred, reason, status, note
+        case patientID = "patient_id"
+        case providerID = "provider_id"
+        case appointmentID = "appointment_id"
+        case createdAt = "created_at"
+        case decidedAt = "decided_at"
+    }
+}
+
+struct AppointmentRequestList: Decodable, Sendable {
+    let requests: [AppointmentRequest]
+}
