@@ -113,3 +113,35 @@ func TestCleanFilename(t *testing.T) {
 		}
 	}
 }
+
+// TestThemes: every theme renders as data-theme with its CSS; an unknown
+// theme is refused, and an empty one renders the default (#104).
+func TestThemes(t *testing.T) {
+	css, _ := templates.ReadFile("templates/style.css")
+	for i, th := range Themes {
+		c := DemoContent("Clinic")
+		c.Theme = th.ID
+		if err := c.Validate(); err != nil {
+			t.Errorf("%s: %v", th.ID, err)
+		}
+		out, err := Render(c, nil, nil, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(out["index.html"]), `data-theme="`+th.ID+`"`) {
+			t.Errorf("%s: not on <html>", th.ID)
+		}
+		if i > 0 && !strings.Contains(string(css), `[data-theme="`+th.ID+`"]`) {
+			t.Errorf("%s: no CSS", th.ID)
+		}
+	}
+	c := DemoContent("Clinic")
+	out, _ := Render(c, nil, nil, time.Now())
+	if !strings.Contains(string(out["index.html"]), `data-theme="`+Themes[0].ID+`"`) {
+		t.Error("empty theme does not render the default")
+	}
+	c.Theme = `x" onload="alert(1)`
+	if c.Validate() == nil {
+		t.Error("unknown theme accepted")
+	}
+}

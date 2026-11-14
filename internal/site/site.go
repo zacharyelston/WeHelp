@@ -44,6 +44,34 @@ var AllowedTypes = map[string]string{
 	".ico":  "image/x-icon",
 }
 
+// Theme is a colour scheme for the website (#104). The CSS for each is in
+// templates/style.css, keyed by data-theme on <html>.
+type Theme struct {
+	ID     string `json:"id"`
+	Label  string `json:"label"`
+	Swatch string `json:"swatch"` // the accent, for the picker
+}
+
+// Themes are the choices, default first.
+var Themes = []Theme{
+	{"sage", "Sage green", "#2f6f4f"},
+	{"ocean", "Ocean blue", "#1c6ea4"},
+	{"sunset", "Sunset coral", "#c4552d"},
+	{"plum", "Plum", "#7b3f8c"},
+	{"clay", "Warm clay", "#8a5a3c"},
+	{"midnight", "Midnight (dark)", "#2d4a7a"},
+}
+
+// ThemeID returns the theme to render: c.Theme if known, else the default.
+func (c Content) ThemeID() string {
+	for _, t := range Themes {
+		if t.ID == c.Theme {
+			return t.ID
+		}
+	}
+	return Themes[0].ID
+}
+
 // Content is what staff edit on the Website page.
 type Content struct {
 	PracticeName string     `json:"practice_name"`
@@ -56,6 +84,7 @@ type Content struct {
 	AppURL       string     `json:"app_url"` // App Store link
 	Join         string     `json:"join"`    // extra words for "Get the app and join"
 	LogoFile     string     `json:"logo_file"`
+	Theme        string     `json:"theme"` // one of Themes; empty = the first
 	Providers    []Provider `json:"providers"`
 	Services     []Service  `json:"services"`
 	Podcasts     []Podcast  `json:"podcasts"`
@@ -152,6 +181,9 @@ func (c *Content) Validate() error {
 		if err := field(f.name, f.v, f.max); err != nil {
 			return err
 		}
+	}
+	if c.Theme != "" && c.ThemeID() != c.Theme {
+		return fmt.Errorf("unknown theme %q", c.Theme)
 	}
 	if err := link("app link", c.AppURL); err != nil {
 		return err
