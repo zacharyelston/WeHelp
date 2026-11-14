@@ -116,6 +116,12 @@ type registerRequest struct {
 // Register creates a tenant (if new) and user. Self-serve registration is
 // restricted to provider and patient roles; admins are seeded out of band.
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
+	// Self-registration is for development only (#38). On a real Back
+	// Office, staff accounts are created on the host: wehelpd staff add.
+	if s.cfg.Env != "dev" {
+		writeErr(w, http.StatusForbidden, "registration is closed; staff accounts are created on the Back Office with: wehelpd staff add")
+		return
+	}
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")

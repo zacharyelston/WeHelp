@@ -148,6 +148,17 @@ func TestStaffRoutesHiddenFromRelay(t *testing.T) {
 	}
 }
 
+func TestRegistrationClosedOutsideDev(t *testing.T) {
+	s, _ := testBackOffice(t)
+	s.cfg.Env = "appliance"
+	c := &client{t: t, h: s.Router()}
+	code, _ := c.do("POST", "/auth/register", map[string]string{"tenant": seed.DemoTenant, "email": "x@demo.wehelp",
+		"password": "long-enough-password", "role": "provider"})
+	if code != http.StatusForbidden {
+		t.Errorf("register on an appliance: %d", code)
+	}
+}
+
 func TestHealthOrRedirect(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
 	h := healthOrRedirect(next, "8443")

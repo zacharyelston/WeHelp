@@ -76,7 +76,7 @@ func testBackOffice(t *testing.T) (*Server, *pgxpool.Pool) {
 	if _, err := seed.Run(ctx, pool, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	s := New(config.Config{AccessTTL: 15 * time.Minute, RefreshTTL: time.Hour, JWTSecret: "test-secret-test-secret-test-secret"}, pool)
+	s := New(config.Config{Env: "dev", AccessTTL: 15 * time.Minute, RefreshTTL: time.Hour, JWTSecret: "test-secret-test-secret-test-secret"}, pool)
 	return s, pool
 }
 
