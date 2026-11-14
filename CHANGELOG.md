@@ -38,6 +38,19 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Messages API (#14): send, paginated inbox (`?unread`, `?limit`,
+  opaque `?cursor`), and mark-read. Sending requires an active
+  provider-patient link; creates and read-receipts are audit-chained in the
+  same transaction.
+- Appointments API (#18): POST/GET/PATCH /api/v1/appointments.
+  Provider-only create requires an active link with the patient and rejects
+  overlapping scheduled appointments (409); concurrent bookings for one
+  provider are serialised with a transaction-scoped advisory lock. List is
+  scoped to the caller (provider or patient) with optional `?from`/`?to`
+  bounds on `starts_at`. PATCH supports reschedule (re-checks overlap) and
+  status transitions only from `scheduled` to `cancelled`, `completed` or
+  `no_show` (409 otherwise). All mutations are audited, including the status
+  change.
 - Staff web UI: a vanilla-JS SPA (`web/`) embedded in the Go binary via
   `embed.FS` and served at `/` by the chi router. No framework, no build
   step, no Node.js. Messaging, appointments (create, list, cancel,
