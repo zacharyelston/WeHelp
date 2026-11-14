@@ -702,6 +702,34 @@ components:
         size: { type: integer }
         created_at: { type: string, format: date-time }
 
+    StaffProfile:
+      type: object
+      required: [display_name, credentials, bio, show_on_website, has_photo, role]
+      properties:
+        display_name: { type: string }
+        credentials: { type: string }
+        bio: { type: string }
+        show_on_website: { type: boolean }
+        has_photo: { type: boolean }
+        role: { type: string, enum: [provider, admin] }
+        updated_at: { type: string, format: date-time }
+    StaffProfileUpdate:
+      type: object
+      required: [display_name]
+      additionalProperties: false
+      properties:
+        display_name: { type: string, maxLength: 120 }
+        credentials: { type: string, maxLength: 120 }
+        bio: { type: string, maxLength: 3000 }
+        show_on_website: { type: boolean }
+    WebsiteProfile:
+      type: object
+      required: [name, credentials, has_photo]
+      properties:
+        name: { type: string }
+        credentials: { type: string }
+        has_photo: { type: boolean }
+
     SiteView:
       type: object
       required: [content, files, published_url]
@@ -713,6 +741,10 @@ components:
         updated_at: { type: string, format: date-time, nullable: true }
         published_at: { type: string, format: date-time, nullable: true }
         published_url: { type: string }
+        profiles:
+          type: array
+          description: Bios that come from staff profiles (#102); they replace a typed bio with the same name.
+          items: { $ref: "#/components/schemas/WebsiteProfile" }
 
     Product:
       type: object
@@ -2223,6 +2255,150 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Not disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile:
+    get:
+      tags: [staff]
+      summary: Your own profile, used for the website bio (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The signed-in staff member's profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Save your own profile (#102)
+      description: >
+        Name as shown (also the account's display name), credentials, bio and
+        whether the practice website shows you. The next website publish uses
+        it. Audited as staff.profile_update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffProfileUpdate"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "400":
+          description: Missing name, a field too long, or an unknown field.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile/photo:
+    get:
+      tags: [staff]
+      summary: Your own photo, for the preview (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404":
+          description: No photo, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Replace your own photo (#102)
+      description: >
+        The body is the image: PNG, JPEG or WebP, at most 2 MB, checked by
+        its content. Audited as staff.profile_update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "400":
+          description: Not a PNG, JPEG or WebP image, or over 2 MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [staff]
+      summary: Remove your own photo (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
           content:
             application/json:
               schema:

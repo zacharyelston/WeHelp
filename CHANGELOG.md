@@ -71,6 +71,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Staff profiles for the website bios (#102).
+  - Every staff member has **My profile** in the staff web: name as shown,
+    credentials, bio and a photo (PNG, JPEG or WebP, at most 2 MB, checked
+    by content). They choose whether the practice website shows them.
+  - Publishing the website turns those profiles into provider bios with
+    their photos. A bio typed in the Website tab with the same name is
+    replaced; other typed bios stay. The Website tab lists which bios come
+    from profiles. Disabled accounts never appear.
+  - New routes `/api/v1/staff/profile` and `/api/v1/staff/profile/photo`
+    cover your own profile only. They are LAN only and audited as
+    `staff.profile_update`. Migration `V11__staff_profiles.sql` adds them.
 - Admins register providers from the staff web (#100).
   - A **Providers** button (admins only) lists the practice's provider
     accounts. An admin adds one by name and email and gets a set-up link.

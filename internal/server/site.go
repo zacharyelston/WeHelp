@@ -49,6 +49,9 @@ type siteView struct {
 	UpdatedAt    *time.Time     `json:"updated_at"`
 	PublishedAt  *time.Time     `json:"published_at"`
 	PublishedURL string         `json:"published_url"`
+	// Bios that come from staff profiles (#102); staff edit those under My
+	// profile, and they replace a typed bio with the same name.
+	Profiles []websiteProfile `json:"profiles"`
 }
 
 // loadContent returns the saved content, or starter content naming the
@@ -115,7 +118,14 @@ func (s *Server) GetSite(w http.ResponseWriter, r *http.Request) {
 		if v.Content, v.UpdatedAt, v.PublishedAt, v.PublishedURL, err = s.loadContent(r.Context(), tx, id.TenantID); err != nil {
 			return err
 		}
-		v.Files, err = s.listSiteFiles(r.Context(), tx, id.TenantID, "")
+		if v.Files, err = s.listSiteFiles(r.Context(), tx, id.TenantID, ""); err != nil {
+			return err
+		}
+		bios, _, err := profileBios(r.Context(), tx, id.TenantID)
+		v.Profiles = []websiteProfile{}
+		for _, b := range bios {
+			v.Profiles = append(v.Profiles, websiteProfile{Name: b.Name, Credentials: b.Credentials, HasPhoto: b.PhotoFile != ""})
+		}
 		return err
 	})
 	if err != nil {
@@ -376,6 +386,13 @@ func (s *Server) buildSite(ctx context.Context, tenant uuid.UUID) ([]byte, int, 
 			err := row.Scan(&f.Kind, &f.Title, &f.Filename, &f.ContentType, &f.Data)
 			return f, err
 		})
+		if err != nil {
+			return err
+		}
+		// Staff profiles shown on the website (#102).
+		bios, photos, err := profileBios(ctx, tx, tenant)
+		c.Providers = mergeBios(bios, c.Providers)
+		files = append(files, photos...)
 		return err
 	})
 	if err != nil {

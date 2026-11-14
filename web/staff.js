@@ -146,3 +146,105 @@ async function copySetupLink() {
     el.select();
   }
 }
+
+// ---------------------------------------------------------------------------
+// My profile (#102): your name as shown, credentials, bio and photo. With
+// "Show on the practice website" on, the next website publish uses them for
+// your bio. Only you can edit your profile.
+// ---------------------------------------------------------------------------
+async function showMyProfile() {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+  const content = document.getElementById("tab-content");
+  let p;
+  try {
+    p = await api("GET", "/staff/profile");
+  } catch (err) {
+    content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  const photo = p.has_photo
+    ? `<img src="${API}/staff/profile/photo?t=${Date.now()}" alt="Your photo" style="width:160px;height:160px;object-fit:cover;border-radius:8px;display:block;margin-bottom:0.5rem">`
+    : '<p class="empty">No photo yet.</p>';
+  content.innerHTML = `
+    <div class="card"><h2>My profile</h2>
+      <p class="hint">This is how patients see you on the practice website. Your changes appear there the next time the site is published from the Website tab.</p>
+      <form id="profile-form">
+        <div class="form-group"><label>Name as shown</label><input id="pf-name" maxlength="120" required value="${attr(p.display_name)}"></div>
+        <div class="form-group"><label>Credentials</label><input id="pf-cred" maxlength="120" placeholder="for example MD, Family Medicine" value="${attr(p.credentials)}"></div>
+        <div class="form-group"><label>Bio</label><textarea id="pf-bio" rows="8" maxlength="3000">${esc(p.bio)}</textarea>
+          <div class="hint">Separate paragraphs with a blank line. At most 3000 characters.</div></div>
+        <div class="form-group"><label><input type="checkbox" id="pf-show" ${p.show_on_website ? "checked" : ""} style="width:auto"> Show me on the practice website</label></div>
+        <button type="submit" class="btn">Save profile</button>
+      </form>
+    </div>
+    <div class="card"><h2>Photo</h2>
+      ${photo}
+      <form id="photo-form" class="inline-form">
+        <input id="pf-photo" type="file" accept="image/png,image/jpeg,image/webp" required>
+        <button type="submit" class="btn">Upload photo</button>
+        ${p.has_photo ? '<button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove photo</button>' : ""}
+      </form>
+      <p class="hint">A square head-and-shoulders photo works best. PNG, JPEG or WebP, at most 2 MB.</p>
+    </div>`;
+  document.getElementById("profile-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const saved = await api("PUT", "/staff/profile", {
+        display_name: document.getElementById("pf-name").value,
+        credentials: document.getElementById("pf-cred").value,
+        bio: document.getElementById("pf-bio").value,
+        show_on_website: document.getElementById("pf-show").checked,
+      });
+      session.display_name = saved.display_name;
+      showAlert("Profile saved", "success");
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+  document.getElementById("photo-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const file = document.getElementById("pf-photo").files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showAlert("The photo must be at most 2 MB.");
+      return;
+    }
+    try {
+      const res = await fetch(API + "/staff/profile/photo", {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "content-type": file.type || "application/octet-stream", "x-csrf-token": session.csrf_token },
+        body: file,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      showAlert("Photo uploaded", "success");
+      showMyProfile();
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+}
+
+async function removeProfilePhoto() {
+  if (!confirm("Remove your photo?")) return;
+  try {
+    await api("DELETE", "/staff/profile/photo");
+    showMyProfile();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// profileBiosCard lists, on the Website tab, the bios that come from staff
+// profiles. Each person edits their own under My profile.
+function profileBiosCard(profiles) {
+  let html = `<div class="card"><h2>Provider bios from profiles</h2>
+    <p class="hint">Staff who turn on "Show me on the practice website" under <b>My profile</b> appear here with their own bio and photo. A bio below with the same name is replaced by the profile.</p>`;
+  if (!profiles || profiles.length === 0) {
+    html += '<p class="empty">No one has turned this on yet.</p>';
+  } else {
+    html += "<ul>" + profiles.map((p) => `<li>${esc(p.name)}${p.credentials ? ", " + esc(p.credentials) : ""}${p.has_photo ? "" : ' <span class="hint">(no photo)</span>'}</li>`).join("") + "</ul>";
+  }
+  return html + "</div>";
+}
