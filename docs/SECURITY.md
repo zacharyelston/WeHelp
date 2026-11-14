@@ -229,6 +229,19 @@ attacker, and jailbroken devices with root on the patient's own phone.
   tokens.
 - Relay logs carry office ID and byte counts, kept for 7 days, with no device
   IPs.
+- As built (#42):
+  - The Back Office logs IDs, categories and counts. Requests log method,
+    path, status and time; paths hold only UUIDs.
+  - `TestNoPHIInLogs` runs seeding, pairing, messages, appointments,
+    requests, the practice inbox, orders, a video visit, and refused and
+    failed requests. It fails if any name, email, message or note text, SDP,
+    token or code reaches the log output. It caught the seed command
+    logging staff and patient emails.
+  - The Relay writes daily files under `{relay_dir}/logs` (mode 600) and
+    deletes those older than `relay_log_days` (7). With `relay_log_dir: -`
+    it writes to stderr, for a journal that keeps 7 days.
+  - Its HTTP error logs, which would name client addresses, are discarded.
+    `TestRelayLogsNoDeviceAddress` checks that no phone's address appears.
 - The audit stream (each `audit_events` row with its chain hashes, IDs only)
   can be exported off the box for retention. It goes only to a BAA-covered
   destination over TLS. Operational telemetry is a separate stream that

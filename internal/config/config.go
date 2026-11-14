@@ -63,6 +63,9 @@ type Config struct {
 	RelaySitePublicURL string `mapstructure:"relay_site_public_url"` // e.g. https://relay.example:8444, told to offices
 	RelaySiteCert      string `mapstructure:"relay_site_cert"`       // PEM cert for the site listener; empty = the Relay TLS cert
 	RelaySiteKey       string `mapstructure:"relay_site_key"`        // its key, mode 600
+	// Relay logs (#42): daily files kept relay_log_days; "-" = stderr (journald keeps them).
+	RelayLogDir  string `mapstructure:"relay_log_dir"` // default relay_dir/logs
+	RelayLogDays int    `mapstructure:"relay_log_days"`
 	// Video-visit TURN (#6). Off until relay_turn_public_ip is set.
 	RelayTURNAddr      string `mapstructure:"relay_turn_addr"`        // UDP and TCP
 	RelayTURNPublicIP  string `mapstructure:"relay_turn_public_ip"`   // the address phones reach; empty = TURN off
@@ -148,6 +151,8 @@ func Load(cfgFile string) error {
 	viper.SetDefault("relay_site_public_url", "")
 	viper.SetDefault("relay_site_cert", "")
 	viper.SetDefault("relay_site_key", "")
+	viper.SetDefault("relay_log_dir", "")
+	viper.SetDefault("relay_log_days", 7)
 	viper.SetDefault("relay_turn_addr", ":3478")
 	viper.SetDefault("relay_turn_public_ip", "")
 	viper.SetDefault("relay_turn_ports", "49160-49999")

@@ -205,7 +205,7 @@ func ensureUser(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, email, passw
 	}); err != nil {
 		return nil, fmt.Errorf("seed: audit user %s: %w", email, err)
 	}
-	slog.Info("seed: created user", "email", email, "role", role)
+	slog.Info("seed: created user", "user", id, "role", role) // IDs only in logs (#42)
 	return &Account{ID: id, Email: email, Role: role, Created: true}, nil
 }
 

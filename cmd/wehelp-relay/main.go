@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
@@ -20,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zacharyelston/wehelp/internal/config"
 	"github.com/zacharyelston/wehelp/internal/keyfile"
+	"github.com/zacharyelston/wehelp/internal/logfile"
 	"github.com/zacharyelston/wehelp/internal/officelist"
 	"github.com/zacharyelston/wehelp/internal/relay"
 	"golang.org/x/crypto/acme/autocert"
@@ -90,6 +92,9 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := relayLogs(cfg); err != nil {
+				return err
+			}
 			var apns *relay.APNs
 			if cfg.RelayAPNsKey != "" {
 				if apns, err = relay.LoadAPNs(cfg.RelayAPNsKey, cfg.RelayAPNsKeyID, cfg.RelayAPNsTeam, cfg.RelayAPNsTopic); err != nil {
@@ -141,6 +146,31 @@ func serveCmd() *cobra.Command {
 			return r.Serve(ctx, sshLn, connectLn)
 		},
 	}
+}
+
+// relayLogs sends the Relay's logs to daily files kept relay_log_days (7)
+// under relay_log_dir (default relay_dir/logs), or to stderr with "-" for a
+// host whose journal keeps them. They carry office IDs and byte counts,
+// never device addresses (#42).
+func relayLogs(cfg config.Config) error {
+	if cfg.RelayLogDir == "-" {
+		return nil
+	}
+	dir := cfg.RelayLogDir
+	if dir == "" {
+		dir = filepath.Join(cfg.RelayDir, "logs")
+	}
+	days := cfg.RelayLogDays
+	if days < 1 {
+		days = 7
+	}
+	f, err := logfile.Open(dir, "relay", days)
+	if err != nil {
+		return fmt.Errorf("relay logs: %w", err)
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+	fmt.Fprintf(os.Stderr, "logs: %s, kept %d days\n", dir, days)
+	return nil
 }
 
 // startTURN turns on video-visit TURN (#6) once relay_turn_public_ip is set.
