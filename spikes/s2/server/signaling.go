@@ -241,7 +241,9 @@ func (s *signaling) report(w http.ResponseWriter, r *http.Request) {
 		"localRelayProtocol", "dtlsState", "dtlsCipher", "srtpCipher", "tlsVersion",
 		"bytesSent", "bytesReceived", "framesSent", "framesDecoded", "fps", "width", "height",
 		"availableOutgoingBitrate", "rttMs", "packetsLost", "jitter", "qualityLimitationReason",
-		"sendKbps", "recvKbps", "sendWidth", "sendHeight", "sendFps", "codec", "encoder", "decoder"} {
+		"sendKbps", "recvKbps", "sendWidth", "sendHeight", "sendFps", "codec", "encoder", "decoder",
+		"audioCodec", "audioPacketsLost", "audioJitter", "audioConcealedSamples", "audioTotalSamples", "audioLevel",
+		"thermal", "battery", "batteryState", "device"} {
 		if v, ok := rep[k]; ok {
 			args = append(args, k, v)
 		}

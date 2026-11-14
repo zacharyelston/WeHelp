@@ -54,6 +54,7 @@ final class Call: NSObject, RTCPeerConnectionDelegate, Identifiable {
     func start() async {
         guard !running else { return }
         running = true
+        UIApplication.shared.isIdleTimerDisabled = true // a 30-minute call must not auto-lock (#6)
         status = "joining"
         do {
             let j = try await signaling.join()
@@ -74,7 +75,10 @@ final class Call: NSObject, RTCPeerConnectionDelegate, Identifiable {
         (capturer as? RTCCameraVideoCapturer)?.stopCapture()
         pc?.close()
         pc = nil
-        Task { @MainActor in status = "ended" }
+        Task { @MainActor in
+            status = "ended"
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 
     private func setupPeerConnection(_ j: JoinResponse) {
@@ -258,6 +262,26 @@ final class Call: NSObject, RTCPeerConnectionDelegate, Identifiable {
             out["recvKbps"] = Int((recv - lastBytes.recv) * 8 / 1000 / dt)
         }
         lastBytes = (sent, recv, now)
+        // Audio (#6 device test): loss, jitter, concealment and level.
+        for s in stats.values where (s.values["kind"] as? String) == "audio" {
+            if s.type == "inbound-rtp" {
+                out["audioPacketsLost"] = v(s, "packetsLost")
+                out["audioJitter"] = v(s, "jitter")
+                out["audioConcealedSamples"] = v(s, "concealedSamples")
+                out["audioTotalSamples"] = v(s, "totalSamplesReceived")
+                out["audioLevel"] = v(s, "audioLevel")
+            }
+        }
+        for s in stats.values where s.type == "codec" {
+            if let mt = v(s, "mimeType") as? String, mt.hasPrefix("audio/") { out["audioCodec"] = mt }
+        }
+        // Device load (#6): thermal state and battery.
+        let dev = UIDevice.current
+        dev.isBatteryMonitoringEnabled = true
+        out["thermal"] = ["nominal", "fair", "serious", "critical"][min(ProcessInfo.processInfo.thermalState.rawValue, 3)]
+        out["battery"] = Int(dev.batteryLevel * 100)
+        out["batteryState"] = ["unknown", "unplugged", "charging", "full"][min(dev.batteryState.rawValue, 3)]
+        out["device"] = dev.model
         // JSON-safe: stringify anything that is not a number or string.
         return out.mapValues { ($0 is NSNumber || $0 is String) ? $0 : "\($0)" }
     }
