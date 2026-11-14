@@ -126,8 +126,16 @@ attacker, and jailbroken devices with root on the patient's own phone.
 ### Push and website
 
 - Push payloads come from a fixed category list, with no names, times or text.
-- The website is static, rendered only from the Practice profile, and has no
-  forms, scripts from third parties or cookies.
+- The website is static, rendered only from the practice's website content,
+  uploads and catalogue (never a patient table), and has no forms, scripts
+  or cookies. The Relay enforces this too: a short list of file types, no
+  HTML with `<script`, size caps, and a `default-src 'none'` CSP on every
+  response (#97).
+- An office can publish only its own site: the Relay files a bundle under
+  the office ID its SSH connection authenticated as.
+- Supply orders are patient data. They are placed only in the app through
+  the pinned tunnel, never on the website, and staff see them only on the
+  office LAN. Every change is audited (#97).
 
 ## Data protection at rest
 

@@ -34,6 +34,7 @@ var Categories = map[string]struct{ Title, Body string }{
 	"visit_starting":       {"WeHelp", "Your video visit is starting."},
 	"appointment_update":   {"WeHelp", "Your appointment request has an update."}, // #68, to the patient
 	"appointment_request":  {"WeHelp", "A patient has requested an appointment."}, // #68, to the provider
+	"order_update":         {"WeHelp", "Your supply order has an update."},        // #97, to the patient
 }
 
 // APNs hosts.

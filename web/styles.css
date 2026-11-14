@@ -112,6 +112,9 @@ tr:last-child td { border-bottom: none; }
 .badge-cancelled { background: #f8d7da; color: var(--danger); }
 .badge-completed { background: #d1e7dd; color: var(--success); }
 .badge-no_show { background: #fff3cd; color: #997404; }
+.badge-placed { background: #fff3cd; color: #997404; }
+.badge-ready { background: #cfe2ff; color: var(--primary); }
+.badge-fulfilled { background: #d1e7dd; color: var(--success); }
 
 /* Messages */
 .message-list { max-height: 400px; overflow-y: auto; }
@@ -164,3 +167,8 @@ tr:last-child td { border-bottom: none; }
 .bubble .time, .bubble .kind { font-size: 0.7rem; opacity: 0.75; }
 .reply { display: flex; gap: 0.5rem; margin-top: 0.75rem; align-items: flex-end; }
 .reply textarea { flex: 1; min-height: 2.5rem; }
+
+/* Website editor (#97) */
+.tabs { flex-wrap: wrap; }
+.list-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; margin-bottom: 0.75rem; }
+.inline-form select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; }

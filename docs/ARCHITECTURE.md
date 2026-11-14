@@ -215,7 +215,8 @@ As built (#38):
 | Messages | Back Office | Patient ↔ practice threads; no attachments in V1 |
 | Reminders | Back Office → Relay push | A one-minute polling worker; `reminders_sent` keys make each reminder send once; push payloads carry no PHI |
 | Telehealth video | App ↔ app, media via Relay TURN | 1:1 visits; see below |
-| Practice website | Relay (static files) | Published by the Back Office; no logins, forms or PHI |
+| Practice website | Relay (static files) | Published by the Back Office; no logins, forms or PHI. Library of podcast links and PDFs |
+| Supply store | Back Office (orders), site (catalogue only) | Patients order in the app; staff fulfil on the LAN; no payments (#97) |
 | Staff web UI | Back Office, LAN only | Schedule, messages, patients, pairing, devices |
 
 **Not in V1:** patient access to their own health records (visit notes,
@@ -240,7 +241,8 @@ the ledger API, FHIR, SSO, and cloud-hosted Back Offices.
 APNs keys belong to the app publisher, so the Relay sends pushes. The Back
 Office asks the Relay to notify a device token with one of a fixed set of
 categories ("New message", "Appointment reminder", "Visit starting",
-"Appointment request update", "New appointment request"). The
+"Appointment request update", "New appointment request", "Supply order
+update"). The
 Relay rejects anything else. The app fetches the details through its pinned
 connection.
 
@@ -256,13 +258,26 @@ As built (#7):
   invalid.
 - APNs is hand-rolled (HTTP/2 + ES256 JWT), per spike S3.
 
-### Practice website
+### Practice website, library and supply store
 
-Staff fill in a Practice profile (name, providers, hours, address, phone,
-logo). The Back Office renders a few built-in templates (`html/template`) and
-publishes the static files to the Relay over SSH. The Relay serves them by
-hostname with `apple-app-site-association`, so "Book or manage
-appointments" links open the app.
+Staff fill in the Website tab: about us, hours and contact, provider bios,
+services, how to get the app and join (download, then in-office QR
+pairing), podcast links, and uploaded PDFs and images. The Back Office
+renders six static pages with built-in templates (`html/template`) and
+streams them as one tar over a `wehelp-site` channel on its SSH connection
+to the Relay, which files them under the office ID that connection
+authenticated as and serves them read-only at `/s/<office-id>/`. The
+Relay allows only a few static file types, refuses HTML with scripts and
+serves everything with a `default-src 'none'` CSP.
+
+The site also shows the practice's **supply catalogue**, but takes no
+orders: an order is patient data. Patients order in the app through the
+pinned tunnel; staff fulfil orders on the office LAN; payment is at pickup
+or by invoice (#97).
+
+Still to do (#5): serving each site by hostname with
+`apple-app-site-association`, so "Book or manage appointments" links open
+the app.
 
 ## Back Office internals
 

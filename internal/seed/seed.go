@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/auth"
+	"github.com/zacharyelston/wehelp/internal/site"
 )
 
 // Demo credentials. Passwords meet the 12-character minimum enforced by the
@@ -123,6 +124,11 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 	appointed, err := ensureAppointment(ctx, tx, tenantID, provider.ID, patient1.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	// The demo supply catalogue (#97). Products are not patient data.
+	if _, err := site.AddDemoCatalogue(ctx, tx, tenantID); err != nil {
+		return nil, fmt.Errorf("seed: products: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

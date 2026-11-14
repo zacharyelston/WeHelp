@@ -1,0 +1,54 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{.Title}} · {{.PracticeName}}</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="index.html">{{if .LogoFile}}<img src="files/{{.LogoFile}}" alt="">{{end}}<span>{{.PracticeName}}</span></a>
+    <nav>
+      {{- range .Nav}}
+      <a href="{{.File}}"{{if eq .File $.Page}} aria-current="page"{{end}}>{{.Title}}</a>
+      {{- end}}
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+{{end}}
+
+{{define "foot"}}
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div>
+      <strong>{{.PracticeName}}</strong>
+      {{range lines .Address}}<div>{{.}}</div>{{end}}
+    </div>
+    <div>
+      {{if .Phone}}<div>Phone: {{.Phone}}</div>{{end}}
+      {{if .Email}}<div>Email: <a href="mailto:{{.Email}}">{{.Email}}</a></div>{{end}}
+    </div>
+    <div>
+      {{if .Hours}}<strong>Hours</strong>{{range lines .Hours}}<div>{{.}}</div>{{end}}{{end}}
+    </div>
+  </div>
+  <div class="wrap fine">This site has no sign-in, forms or tracking. Your health information stays with the practice and in the WeHelp app. Updated {{.Updated}}.</div>
+</footer>
+</body>
+</html>
+{{end}}
+
+{{define "cta"}}
+<section class="cta">
+  <div>
+    <h2>Book, message and order in the WeHelp app</h2>
+    <p>Patients use the free WeHelp app to request appointments, message the practice, join video visits and order supplies.</p>
+  </div>
+  <a class="button" href="join.html">Get the app and join</a>
+</section>
+{{end}}

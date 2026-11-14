@@ -38,19 +38,21 @@ var spliceGrace = 30 * time.Second
 
 // Config configures a Relay.
 type Config struct {
-	RelayID      string            // this Relay's ID in the Registry; only its offices are accepted
-	HostKey      ssh.Signer        // SSH host key, pinned by offices
-	TLSCert      tls.Certificate   // CONNECT listener certificate, pinned by phones
-	RegistryURL  string            // base URL; the list is GET {RegistryURL}/v1/office-list
-	RegistryKey  ed25519.PublicKey // pinned Registry signing key
-	CachePath    string            // last good signed list
-	ListInterval time.Duration     // default 1 minute
-	HTTPClient   *http.Client      // default: 20 s timeout
-	MaxChannels  int               // concurrent phone connections per office; default 64
-	Keepalive    time.Duration     // SSH keepalive to offices; default 30 s
-	APNs         *APNs             // push sender (#7); nil = push disabled
-	PushPerMin   int               // pushes per office per minute; default 120
-	Now          func() time.Time  // for tests
+	RelayID       string            // this Relay's ID in the Registry; only its offices are accepted
+	HostKey       ssh.Signer        // SSH host key, pinned by offices
+	TLSCert       tls.Certificate   // CONNECT listener certificate, pinned by phones
+	RegistryURL   string            // base URL; the list is GET {RegistryURL}/v1/office-list
+	RegistryKey   ed25519.PublicKey // pinned Registry signing key
+	CachePath     string            // last good signed list
+	ListInterval  time.Duration     // default 1 minute
+	HTTPClient    *http.Client      // default: 20 s timeout
+	MaxChannels   int               // concurrent phone connections per office; default 64
+	Keepalive     time.Duration     // SSH keepalive to offices; default 30 s
+	APNs          *APNs             // push sender (#7); nil = push disabled
+	PushPerMin    int               // pushes per office per minute; default 120
+	SitesDir      string            // published websites (#97); empty = no sites
+	SitePublicURL string            // e.g. https://relay.example:8444; reported to offices on publish
+	Now           func() time.Time  // for tests
 }
 
 type officeConn struct {
@@ -62,12 +64,14 @@ type officeConn struct {
 type Relay struct {
 	cfg Config
 
-	mu      sync.Mutex
-	allowed map[string]string // marshalled office SSH key → office ID
-	version int64
-	offices map[string]*officeConn // office ID → live connection
-	active  map[string]int         // office ID → open phone channels
-	pushes  map[string][]time.Time // office ID → recent pushes (rate limit)
+	mu        sync.Mutex
+	allowed   map[string]string // marshalled office SSH key → office ID
+	version   int64
+	offices   map[string]*officeConn // office ID → live connection
+	active    map[string]int         // office ID → open phone channels
+	pushes    map[string][]time.Time // office ID → recent pushes (rate limit)
+	published map[string]time.Time   // office ID → last site publish (#97)
+	siteMu    sync.RWMutex           // swaps of a site directory vs. reads
 }
 
 // New returns a Relay, loading the cached list if there is one.
@@ -91,7 +95,7 @@ func New(cfg Config) (*Relay, error) {
 		cfg.PushPerMin = 120
 	}
 	r := &Relay{cfg: cfg, allowed: map[string]string{}, offices: map[string]*officeConn{}, active: map[string]int{},
-		pushes: map[string][]time.Time{}}
+		pushes: map[string][]time.Time{}, published: map[string]time.Time{}}
 	if cfg.CachePath != "" {
 		if l, err := loadCache(cfg.CachePath, cfg.RegistryKey); err != nil {
 			slog.Warn("relay: ignoring office list cache", "err", err)
@@ -207,9 +211,13 @@ func (r *Relay) serveOffice(nc net.Conn, cfg *ssh.ServerConfig) {
 	slog.Info("relay: office connected", "office", id)
 
 	go r.officeRequests(id, reqs)
-	go func() { // offices never open channels to the Relay
+	go func() { // offices open only website publishes (#97)
 		for nch := range chans {
-			_ = nch.Reject(ssh.Prohibited, "the relay accepts no channels")
+			if nch.ChannelType() == SiteChannelType {
+				go r.handleSiteChannel(id, nch)
+				continue
+			}
+			_ = nch.Reject(ssh.Prohibited, "the relay accepts no other channels")
 		}
 	}()
 	stop := make(chan struct{})

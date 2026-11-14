@@ -87,6 +87,37 @@ All notable changes to WeHelp are documented here. Format follows
     `V10__staff_invites.sql` adds them.
   - This is the Back Office half of #62: Registry roster entries will feed
     the same invite. `wehelpd staff add` still works on the host.
+
+- Practice website with a library and a supply store (#97, most of #5).
+  - Staff build the site on a new staff web **Website** tab: about us,
+    hours and contact, provider bios, services, "Get the app and join" (the
+    download and the in-office QR pairing steps), podcast links, and
+    uploaded PDFs and images (10 MB each; contents must match the type).
+  - **Save and publish** renders six static pages with `html/template` and
+    streams them as a tar over a new `wehelp-site` SSH channel on the
+    office's Relay connection. The Relay files the site under the office ID
+    that connection authenticated as, and serves it read-only at
+    `https://<relay>:8444/s/<office-id>/` (`relay_site_addr`,
+    `relay_site_public_url`, optional `relay_site_cert`/`relay_site_key`).
+  - The Relay accepts only `.html .css .txt .pdf .png .jpg .jpeg .webp
+    .ico`, at most 200 files, 10 MB each and 25 MB in all, refuses HTML
+    with `<script`, and serves every file with a `default-src 'none'` CSP
+    and `nosniff`. A suspended office's site goes away with its listing.
+  - The **Store** tab keeps the catalogue (the seed and a button load ten
+    demo vitamin, supplement and herbal products). The public site shows
+    it and says "Order in the WeHelp app"; payment is at pickup or by
+    invoice.
+  - Patients order in the app's new **Store** tab (quantities, a note, My
+    orders, cancel while placed), through the pinned tunnel only. Staff work
+    orders on the staff web **Orders** tab (ready, fulfilled, cancelled),
+    on the office LAN only. Every change is audited, and staff changes
+    send the new fixed push category `order_update` ("Your supply order has
+    an update.").
+  - The app's **Library** (Store tab and Today) lists podcast links and
+    opens downloads in Quick Look, fetched through the pinned tunnel.
+  - Migration V9 adds `site_profiles`, `site_files`, `products`, `orders`
+    and `order_items`. Still open on #5: `apple-app-site-association` and
+    Universal Links.
 - Appointment requests (#68, #39).
   - Patients tap **Request** on the Schedule tab and pick a provider, 1–3
     preferred days with a time of day, and an optional reason. Up to 3 can

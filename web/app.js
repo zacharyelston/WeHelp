@@ -180,6 +180,9 @@ function renderDashboard() {
       <div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
+      <div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
+      <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>
+      <div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>
     </div>
     <div id="tab-content"></div>`;
 }
@@ -210,6 +213,9 @@ async function loadTab() {
     else if (activeTab === "messages") await loadMessages(content);
     else if (activeTab === "appointments") await loadAppointments(content);
     else if (activeTab === "links") await loadLinks(content);
+    else if (activeTab === "orders") await loadOrders(content);
+    else if (activeTab === "store") await loadStore(content);
+    else if (activeTab === "website") await loadWebsite(content);
   } catch (err) {
     content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }
@@ -792,6 +798,318 @@ async function revokeMyDevice(deviceId) {
     await api("DELETE", `/devices/${deviceId}`);
     showAlert("Device revoked", "success");
     showMyDevices();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Supply orders, store catalogue and practice website (#97)
+// ---------------------------------------------------------------------------
+// Patients order in the app; staff work the orders here. Orders never reach
+// the Relay or the public website. The website is practice content only.
+
+// attr escapes for an attribute value (esc leaves quotes alone).
+function attr(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function money(cents) {
+  return "$" + (cents / 100).toFixed(2);
+}
+
+const ORDER_NEXT = {
+  placed: [["ready", "Mark ready"], ["fulfilled", "Fulfilled"], ["cancelled", "Cancel"]],
+  ready: [["fulfilled", "Fulfilled"], ["cancelled", "Cancel"]],
+};
+let orderFilter = "open";
+
+async function loadOrders(container) {
+  const data = await api("GET", "/orders");
+  const open = (o) => o.status === "placed" || o.status === "ready";
+  const orders = data.orders.filter((o) => (orderFilter === "open" ? open(o) : !open(o)));
+  let html = `<div class="card"><h2>Supply orders</h2>
+    <p class="hint">Patients order in the WeHelp app. Payment is at pickup or by invoice. Changing an order notifies the patient's phone.</p>
+    <div class="inline-form" style="margin:0.75rem 0">
+      <button class="btn btn-sm ${orderFilter === "open" ? "" : "btn-outline"}" onclick="orderFilter='open';loadTab()">In progress</button>
+      <button class="btn btn-sm ${orderFilter === "closed" ? "" : "btn-outline"}" onclick="orderFilter='closed';loadTab()">Fulfilled and cancelled</button>
+    </div>`;
+  if (orders.length === 0) {
+    html += '<p class="empty">No orders here.</p>';
+  } else {
+    html += "<table><thead><tr><th>Placed</th><th>Patient</th><th>Items</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    for (const o of orders) {
+      const items = o.items.map((i) => `${i.quantity} × ${esc(i.name)}`).join("<br>");
+      const notes = (o.note ? `<div class="hint">Patient: ${esc(o.note)}</div>` : "") +
+        (o.staff_note ? `<div class="hint">Practice: ${esc(o.staff_note)}</div>` : "");
+      const actions = (ORDER_NEXT[o.status] || [])
+        .map(([st, label]) => `<button class="btn btn-sm ${st === "cancelled" ? "btn-outline" : ""}" onclick="setOrderStatus('${esc(o.id)}', '${st}')">${label}</button>`)
+        .join(" ");
+      html += `<tr><td>${new Date(o.created_at).toLocaleString()}</td><td>${esc(o.patient_name || "")}</td>
+        <td>${items}${notes}</td><td>${money(o.total_cents)}</td>
+        <td><span class="badge badge-${esc(o.status)}">${esc(o.status)}</span></td><td>${actions}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  container.innerHTML = html + "</div>";
+}
+
+async function setOrderStatus(id, status) {
+  let note = "";
+  if (status === "ready") note = prompt("Note for the patient (optional)", "Ready at the front desk") || "";
+  if (status === "cancelled") {
+    note = prompt("Why is it cancelled? The patient sees this.", "") ;
+    if (note === null) return;
+  }
+  try {
+    await api("POST", `/orders/${id}/status`, { status, note });
+    showAlert(`Order ${status}`, "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+let storeProducts = [];
+
+async function loadStore(container) {
+  const data = await api("GET", "/store/products");
+  storeProducts = data.products;
+  let html = `<div class="card"><h2>Add product</h2>
+    <form id="product-form">
+      <div class="form-row">
+        <div class="form-group"><label>Name</label><input id="p-name" required maxlength="120"></div>
+        <div class="form-group"><label>SKU</label><input id="p-sku" required maxlength="40"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Category</label><input id="p-category" maxlength="60" placeholder="Herbal supplies"></div>
+        <div class="form-group"><label>Size</label><input id="p-unit" maxlength="60" placeholder="60 capsules"></div>
+        <div class="form-group"><label>Price ($)</label><input id="p-price" type="number" min="0" step="0.01" required></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="p-desc" maxlength="1000"></textarea></div>
+      <button type="submit" class="btn">Add</button>
+    </form></div>
+    <div class="card"><h2>Catalogue</h2>
+    <p class="hint">Shown in the app and on the website. Hidden products can't be ordered. Publish the website after changes.</p>`;
+  if (storeProducts.length === 0) {
+    html += `<p class="empty">No products yet.</p><button class="btn" onclick="loadDemoProducts()">Add the 10 demo products</button>`;
+  } else {
+    html += "<table><thead><tr><th>Product</th><th>Category</th><th>Size</th><th>Price</th><th>Shown</th><th></th></tr></thead><tbody>";
+    for (const p of storeProducts) {
+      html += `<tr><td><strong>${esc(p.name)}</strong><div class="hint">${esc(p.sku)}</div></td><td>${esc(p.category)}</td>
+        <td>${esc(p.unit)}</td><td>${money(p.price_cents)}</td><td>${p.active ? "Yes" : "No"}</td>
+        <td><button class="btn btn-sm btn-outline" onclick="editPrice('${esc(p.id)}')">Price</button>
+        <button class="btn btn-sm btn-outline" onclick="toggleProduct('${esc(p.id)}')">${p.active ? "Hide" : "Show"}</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  container.innerHTML = html + "</div>";
+  document.getElementById("product-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/store/products", {
+        name: document.getElementById("p-name").value,
+        sku: document.getElementById("p-sku").value,
+        category: document.getElementById("p-category").value,
+        unit: document.getElementById("p-unit").value,
+        description: document.getElementById("p-desc").value,
+        price_cents: Math.round(parseFloat(document.getElementById("p-price").value) * 100),
+        sort: storeProducts.length,
+      });
+      showAlert("Product added", "success");
+      loadTab();
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+}
+
+async function saveProduct(p) {
+  try {
+    await api("PUT", `/store/products/${p.id}`, p);
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+function editPrice(id) {
+  const p = storeProducts.find((x) => x.id === id);
+  const v = prompt(`New price for ${p.name} ($)`, (p.price_cents / 100).toFixed(2));
+  if (v === null) return;
+  const cents = Math.round(parseFloat(v) * 100);
+  if (!(cents >= 0)) return showAlert("Enter a price like 24.00");
+  saveProduct({ ...p, price_cents: cents });
+}
+
+function toggleProduct(id) {
+  const p = storeProducts.find((x) => x.id === id);
+  saveProduct({ ...p, active: !p.active });
+}
+
+async function loadDemoProducts() {
+  try {
+    const r = await api("POST", "/store/products/demo");
+    showAlert(`Added ${r.added} demo products`, "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// Website editor. Lists (bios, services, podcasts) are edited in place and
+// saved together.
+let siteData = null;
+
+const LIST_FIELDS = {
+  providers: [["name", "Name"], ["credentials", "Credentials"], ["photo_file", "Photo (uploaded image file name)"], ["bio", "Bio", "textarea"]],
+  services: [["name", "Service"], ["description", "Description", "textarea"]],
+  podcasts: [["title", "Title"], ["url", "Link (https://…)"], ["description", "Description", "textarea"]],
+};
+
+function listEditor(key, title, addLabel) {
+  const items = siteData.content[key] || [];
+  let html = `<div class="card"><h2>${title}</h2>`;
+  items.forEach((item, i) => {
+    html += '<div class="list-item">';
+    for (const [f, label, kind] of LIST_FIELDS[key]) {
+      const v = attr(item[f] || "");
+      html += `<div class="form-group"><label>${label}</label>` +
+        (kind === "textarea"
+          ? `<textarea data-list="${key}" data-i="${i}" data-f="${f}">${v}</textarea>`
+          : `<input data-list="${key}" data-i="${i}" data-f="${f}" value="${v}">`) + "</div>";
+    }
+    html += `<button type="button" class="btn btn-sm btn-outline" onclick="removeItem('${key}', ${i})">Remove</button></div>`;
+  });
+  return html + `<button type="button" class="btn btn-sm" onclick="addItem('${key}')">${addLabel}</button></div>`;
+}
+
+function collectSite() {
+  const c = siteData.content;
+  for (const el of document.querySelectorAll("[data-field]")) c[el.dataset.field] = el.value;
+  for (const el of document.querySelectorAll("[data-list]")) c[el.dataset.list][+el.dataset.i][el.dataset.f] = el.value;
+  return c;
+}
+
+function addItem(key) {
+  collectSite();
+  (siteData.content[key] = siteData.content[key] || []).push({});
+  renderWebsite();
+}
+
+function removeItem(key, i) {
+  collectSite();
+  siteData.content[key].splice(i, 1);
+  renderWebsite();
+}
+
+async function loadWebsite(container) {
+  siteData = await api("GET", "/site");
+  renderWebsite(container);
+}
+
+function renderWebsite(container = document.getElementById("tab-content")) {
+  const c = siteData.content;
+  const field = (f, label, kind = "input", hint = "") => {
+    const v = attr(c[f] || "");
+    return `<div class="form-group"><label>${label}</label>` +
+      (kind === "textarea" ? `<textarea data-field="${f}" rows="4">${v}</textarea>` : `<input data-field="${f}" value="${v}">`) +
+      (hint ? `<div class="hint">${hint}</div>` : "") + "</div>";
+  };
+  const published = siteData.published_at
+    ? `Last published ${new Date(siteData.published_at).toLocaleString()}: <a href="${attr(siteData.published_url)}" target="_blank" rel="noopener">${esc(siteData.published_url)}</a>`
+    : "Not published yet.";
+  let html = `<div class="card"><h2>Practice website</h2>
+    <p class="hint">A public site served by the Relay: about us, bios, services, how to get the app and join, the library and the supply catalogue. It has no sign-in and no forms, and never shows patient information. Save, then Publish.</p>
+    <p>${published}</p>
+    <button class="btn" onclick="saveSite()">Save</button>
+    <button class="btn" onclick="publishSite()">Save and publish</button></div>
+    <div class="card"><h2>About the practice</h2>
+      ${field("practice_name", "Practice name")}
+      ${field("tagline", "Tagline")}
+      ${field("about", "About us", "textarea", "Separate paragraphs with a blank line.")}
+      <div class="form-row">${field("phone", "Phone")}${field("email", "Email")}</div>
+      ${field("address", "Address", "textarea")}
+      ${field("hours", "Hours", "textarea", "One line per row, e.g. Monday to Thursday: 8 am to 6 pm")}
+      ${field("logo_file", "Logo (uploaded image file name)")}
+    </div>
+    <div class="card"><h2>Get the app and join</h2>
+      ${field("app_url", "App Store link", "input", "https:// only.")}
+      ${field("join", "Anything else new patients should know", "textarea", "The page already explains the download and the in-office QR pairing.")}
+    </div>
+    ${listEditor("providers", "Provider bios", "Add a provider")}
+    ${listEditor("services", "Services", "Add a service")}
+    ${listEditor("podcasts", "Library: podcasts", "Add a podcast")}
+    <div class="card"><h2>Library downloads and images</h2>
+      <form id="upload-form" class="inline-form">
+        <select id="up-kind"><option value="library">Library download (PDF or text)</option><option value="image">Image (photo or logo)</option></select>
+        <input id="up-title" placeholder="Title">
+        <input id="up-file" type="file" accept=".pdf,.txt,.png,.jpg,.jpeg,.webp,.ico" required>
+        <button type="submit" class="btn">Upload</button>
+      </form>
+      <p class="hint">At most 10 MB each. Images are used by file name for the logo and provider photos.</p>`;
+  if (siteData.files.length) {
+    html += "<table><thead><tr><th>Title</th><th>File name</th><th>Kind</th><th>Size</th><th></th></tr></thead><tbody>";
+    for (const f of siteData.files) {
+      html += `<tr><td>${esc(f.title)}</td><td>${esc(f.filename)}</td><td>${esc(f.kind)}</td><td>${Math.ceil(f.size / 1024)} KB</td>
+        <td><button class="btn btn-sm btn-outline" onclick="deleteSiteFile('${esc(f.id)}')">Delete</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  container.innerHTML = html + "</div>";
+  document.getElementById("upload-form").onsubmit = uploadSiteFile;
+}
+
+async function saveSite(quiet) {
+  try {
+    const r = await api("PUT", "/site", collectSite());
+    siteData.content = r.content;
+    if (!quiet) showAlert("Saved", "success");
+    return true;
+  } catch (err) {
+    showAlert(err.message);
+    return false;
+  }
+}
+
+async function publishSite() {
+  if (!(await saveSite(true))) return;
+  try {
+    const r = await api("POST", "/site/publish");
+    showAlert(`Published ${r.files} files`, "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function uploadSiteFile(e) {
+  e.preventDefault();
+  collectSite();
+  const form = new FormData();
+  form.append("kind", document.getElementById("up-kind").value);
+  form.append("title", document.getElementById("up-title").value);
+  form.append("file", document.getElementById("up-file").files[0]);
+  const res = await fetch(API + "/site/files", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "x-csrf-token": session.csrf_token },
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return showAlert(data.error || res.statusText);
+  siteData.files.push(data);
+  showAlert(`Uploaded ${data.filename}`, "success");
+  renderWebsite();
+}
+
+async function deleteSiteFile(id) {
+  if (!confirm("Delete this file? Publish again to take it off the site.")) return;
+  try {
+    collectSite();
+    await api("DELETE", `/site/files/${id}`);
+    siteData.files = siteData.files.filter((f) => f.id !== id);
+    renderWebsite();
   } catch (err) {
     showAlert(err.message);
   }

@@ -45,7 +45,8 @@ var serveCmd = &cobra.Command{
 				srv.SetPairing(p) // QR pairing (#37)
 			}
 			pusher := &tunnel.Pusher{}
-			srv.SetPusher(pusher) // push through the Relay (#7)
+			srv.SetPusher(pusher)        // push through the Relay (#7)
+			srv.SetSitePublisher(pusher) // website publishing (#97)
 			startTunnel(ctx, cfg, id, srv.Router(), pusher)
 			if err := startStaffTLS(ctx, cfg, id, srv); err != nil {
 				return err
