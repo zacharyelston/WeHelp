@@ -66,6 +66,10 @@ func isStaffOnLAN(r *http.Request, id Identity) bool {
 // Route: GET /api/v1/store/products
 func (s *Server) ListProducts(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
+	// Staff keep the catalogue while the store is off (#109); patients don't see it.
+	if !isStaffOnLAN(r, id) && featureOff(w, r.Context(), s.pool, id.TenantID, "store") {
+		return
+	}
 	q := `select ` + productColumns + ` from products where tenant_id = $1`
 	if !isStaffOnLAN(r, id) {
 		q += ` and active`
@@ -283,6 +287,9 @@ func (s *Server) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	if id.Role != "patient" {
 		writeErr(w, http.StatusForbidden, "only patients place orders")
+		return
+	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "store") {
 		return
 	}
 	var b createOrderBody

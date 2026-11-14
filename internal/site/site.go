@@ -76,23 +76,26 @@ func (c Content) ThemeID() string {
 
 // Content is what staff edit on the Website page.
 type Content struct {
-	PracticeName string     `json:"practice_name"`
-	Tagline      string     `json:"tagline"`
-	About        string     `json:"about"`
-	Hours        string     `json:"hours"`
-	Address      string     `json:"address"`
-	Phone        string     `json:"phone"`
-	Email        string     `json:"email"`
-	AppURL       string     `json:"app_url"` // App Store link
-	Join         string     `json:"join"`    // extra words for "Get the app and join"
-	LogoFile     string     `json:"logo_file"`
-	Theme        string     `json:"theme"` // one of Themes; empty = the first
+	PracticeName string `json:"practice_name"`
+	Tagline      string `json:"tagline"`
+	About        string `json:"about"`
+	Hours        string `json:"hours"`
+	Address      string `json:"address"`
+	Phone        string `json:"phone"`
+	Email        string `json:"email"`
+	AppURL       string `json:"app_url"` // App Store link
+	Join         string `json:"join"`    // extra words for "Get the app and join"
+	LogoFile     string `json:"logo_file"`
+	Theme        string `json:"theme"` // one of Themes; empty = the first
 	// Words come from the practice type (#108), set by the Back Office when it
 	// renders; never saved with the content.
 	Words practice.Words `json:"-"`
-	Providers    []Provider `json:"providers"`
-	Services     []Service  `json:"services"`
-	Podcasts     []Podcast  `json:"podcasts"`
+	// Off lists pages the practice has switched off (#109): "store",
+	// "library". Set by the Back Office when it renders; never saved.
+	Off       map[string]bool `json:"-"`
+	Providers []Provider      `json:"providers"`
+	Services  []Service       `json:"services"`
+	Podcasts  []Podcast       `json:"podcasts"`
 }
 
 type Provider struct {

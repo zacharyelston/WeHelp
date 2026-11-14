@@ -81,6 +81,29 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Practice and provider switches (#109, docs/PRACTICE_TYPES.md phase 2).
+  - Settings has a **Features** card. An admin turns off messages,
+    appointment requests, reminders, check-ins, video, the store, the
+    library or the website.
+  - Each practice type has defaults: therapy starts without the store and
+    check-ins; a salon without check-ins, video and the library.
+  - A switched-off feature disappears from the staff web, and the server
+    refuses it with 409, so older app versions can't use it either. Staff
+    keep the catalogue while the store is off. The reminder worker skips
+    reminders and check-ins that are off. The website drops its Store and
+    Library pages when those are off. Nothing is deleted.
+  - Providers choose how they take messages, under **My profile** →
+    Messages:
+    - on, as before;
+    - office hours: messages arrive any time, but outside the hours the
+      patient gets an automatic reply (at most once every 12 hours) and
+      the provider gets no notification;
+    - off: patients get a 409 asking them to call the practice. Staff can
+      always write to patients.
+  - New routes: `PUT /api/v1/practice/features` (admins, audited as
+    `practice.features`) and `GET`/`PUT /api/v1/staff/profile/messages`
+    (audited as `staff.message_settings`). Automatic replies are audited
+    as `message.auto_reply`. Migration `V14__switches.sql`.
 - Practice types (#108, docs/PRACTICE_TYPES.md phase 1).
   - An admin picks the practice type on a new **Settings** screen:
     naturopathic, therapy and psychology, allied health, or salon and
