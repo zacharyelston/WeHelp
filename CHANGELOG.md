@@ -689,6 +689,9 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Patients can't send memos or reminders (#137). Those are staff kinds, and
+  a patient's memo got past the practice's message switch and the
+  provider's message mode. Patients get 403 for them now.
 - Appliance boot after a reboot (#123). Lima's `vz.pid` can survive a
   reboot and name a process ID macOS has reused, and Colima then won't
   start. If Docker isn't up a minute after login, the boot job clears that
