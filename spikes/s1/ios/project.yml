@@ -1,0 +1,38 @@
+# Spike S1 (#32) iOS client. Throwaway. Generate with `xcodegen generate`.
+# Deliberately NO NSAppTransportSecurity exceptions: the spike checks that
+# pinned, self-signed TLS through a CONNECT proxy works under default ATS.
+name: S1Spike
+options:
+  bundleIdPrefix: com.zacelston.wehelp
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  S1Spike:
+    type: application
+    platform: iOS
+    sources:
+      - path: S1Spike
+        excludes:
+          - "Info.plist"
+    info:
+      path: S1Spike/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSLocalNetworkUsageDescription: "Spike S1 reaches a relay on the local network."
+        # Finding of this spike: default ATS rejects a self-signed office cert
+        # even when the delegate pins and anchors it ("ATS failed system trust").
+        # The narrowest exception: only the reserved .invalid office names,
+        # which resolve nowhere and are reachable only through the relay.
+        # TLS 1.3 stays required; the delegate still pins every connection.
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            wehelp.invalid:
+              NSIncludesSubdomains: true
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSExceptionMinimumTLSVersion: TLSv1.3
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zacelston.wehelp.spike1
+        DEVELOPMENT_TEAM: WZYFJ8TSWD
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
