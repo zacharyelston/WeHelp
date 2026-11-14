@@ -106,9 +106,39 @@ func TestAuditChain(t *testing.T) {
 	_ = pool.QueryRow(ctx, `select hash from audit_events where tenant_id = $1`, t3).Scan(&h1)
 	tamper(`insert into audit_events (tenant_id, action, resource_type, resource_id, detail, prev_hash, hash, hash_version)
 		values ($1, 'old.b', 'x', '', '{"b":1,"a":2}', $2, $3, 1)`, t3, h1, legacyHash(h1, t3, "old.b", "x", "", `{"b":1,"a":2}`))
+	// The old head lock let two events written at once share a parent: old.b2
+	// also links to old.a. Accepted for version 1, and counted.
+	tamper(`insert into audit_events (tenant_id, action, resource_type, resource_id, detail, prev_hash, hash, hash_version)
+		values ($1, 'old.b2', 'x', '', '{}', $2, $3, 1)`, t3, h1, legacyHash(h1, t3, "old.b2", "x", "", "{}"))
 	record(t, pool, audit.Event{TenantID: t3, Action: "new.c", ResourceType: "x", Detail: json.RawMessage(`{"k": "v"}`)})
-	if res, err := audit.Verify(ctx, pool, t3); err != nil || res.BrokenAt != 0 || res.Events != 3 || res.LinkOnly != 1 {
-		t.Errorf("legacy then v2: %+v %v", res, err)
+	if res, err := audit.Verify(ctx, pool, t3); err != nil || res.BrokenAt != 0 || res.Events != 4 || res.LinkOnly != 1 || res.Forked != 1 {
+		t.Errorf("legacy (with a fork) then v2: %+v %v", res, err)
+	}
+
+	// A version-1 link to a hash that isn't in the chain (a deleted event)
+	// still breaks it.
+	var t5 uuid.UUID
+	_ = pool.QueryRow(ctx, `insert into tenants (name) values ('Deleted test') returning id`).Scan(&t5)
+	tamper(`insert into audit_events (tenant_id, action, resource_type, resource_id, detail, prev_hash, hash, hash_version)
+		values ($1, 'old.a', 'x', '', '{}', '\x'::bytea, $2, 1)`, t5, legacyHash(nil, t5, "old.a", "x", "", "{}"))
+	missing := legacyHash([]byte("gone"), t5, "old.gone", "x", "", "{}")
+	tamper(`insert into audit_events (tenant_id, action, resource_type, resource_id, detail, prev_hash, hash, hash_version)
+		values ($1, 'old.c', 'x', '', '{}', $2, $3, 1)`, t5, missing, legacyHash(missing, t5, "old.c", "x", "", "{}"))
+	if res, _ := audit.Verify(ctx, pool, t5); res.BrokenAt == 0 || res.Events != 2 {
+		t.Errorf("legacy link to a missing event: %+v", res)
+	}
+
+	// Version-2 events may not fork.
+	var t6 uuid.UUID
+	_ = pool.QueryRow(ctx, `insert into tenants (name) values ('V2 fork test') returning id`).Scan(&t6)
+	record(t, pool, audit.Event{TenantID: t6, Action: "a", ResourceType: "x"})
+	record(t, pool, audit.Event{TenantID: t6, Action: "b", ResourceType: "x"})
+	var genesisHash []byte
+	_ = pool.QueryRow(ctx, `select hash from audit_events where tenant_id = $1 and action = 'a'`, t6).Scan(&genesisHash)
+	record(t, pool, audit.Event{TenantID: t6, Action: "c", ResourceType: "x"})
+	tamper(`update audit_events set prev_hash = $2 where tenant_id = $1 and action = 'c'`, t6, genesisHash)
+	if res, _ := audit.Verify(ctx, pool, t6); res.BrokenAt == 0 {
+		t.Error("a version-2 fork passed")
 	}
 	var head []byte
 	_ = pool.QueryRow(ctx, `select hash from audit_events where tenant_id = $1 order by seq desc limit 1`, t3).Scan(&head)

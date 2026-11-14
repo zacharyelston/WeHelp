@@ -68,8 +68,9 @@ var auditCmd = func() *cobra.Command {
 				case res.BrokenAt != 0:
 					broken = true
 					fmt.Fprintf(out, "BROKEN  %s (%s): first bad event seq %d, after %d events\n", p.name, p.id, res.BrokenAt, res.Events-1)
-				case res.LinkOnly > 0:
-					fmt.Fprintf(out, "ok      %s (%s): %d events; %d from before #28 checked by link only\n", p.name, p.id, res.Events, res.LinkOnly)
+				case res.LinkOnly > 0 || res.Forked > 0:
+					fmt.Fprintf(out, "ok      %s (%s): %d events; from before #28, %d checked by link only and %d written at once (forked)\n",
+						p.name, p.id, res.Events, res.LinkOnly, res.Forked)
 				default:
 					fmt.Fprintf(out, "ok      %s (%s): %d events\n", p.name, p.id, res.Events)
 				}

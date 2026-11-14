@@ -20,6 +20,7 @@ type auditVerifyView struct {
 	Verified int64 `json:"verified"`            // events checked
 	BrokenAt int64 `json:"broken_at,omitempty"` // seq of the first bad event
 	LinkOnly int64 `json:"link_only"`           // pre-#28 events checked by link only
+	Forked   int64 `json:"forked"`              // pre-#28 events written at once, linked to the same parent
 }
 
 // VerifyAuditChain recomputes the caller's practice's chain. Admins only,
@@ -35,7 +36,7 @@ func (s *Server) VerifyAuditChain(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "verify failed")
 		return
 	}
-	v := auditVerifyView{OK: res.BrokenAt == 0, Verified: res.Events, BrokenAt: res.BrokenAt, LinkOnly: res.LinkOnly}
+	v := auditVerifyView{OK: res.BrokenAt == 0, Verified: res.Events, BrokenAt: res.BrokenAt, LinkOnly: res.LinkOnly, Forked: res.Forked}
 	if err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		return audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &id.UserID, Action: "audit.verify",
 			ResourceType: "audit_chain", ResourceID: id.TenantID.String(), Detail: mustJSON(v)})
@@ -69,7 +70,7 @@ func (s *Server) verifyAllChains(ctx context.Context) (broken int) {
 			broken++
 			slog.Error("audit chain broken", "tenant", t, "seq", res.BrokenAt, "events", res.Events)
 		default:
-			slog.Info("audit chain intact", "tenant", t, "events", res.Events, "link_only", res.LinkOnly)
+			slog.Info("audit chain intact", "tenant", t, "events", res.Events, "link_only", res.LinkOnly, "forked", res.Forked)
 		}
 	}
 	return broken
