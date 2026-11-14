@@ -133,6 +133,11 @@ type Result struct {
 	// LinkOnly counts version-1 events whose content can't be recomputed
 	// (their detail was rewritten by jsonb); only their links were checked.
 	LinkOnly int64
+	// Forked counts version-1 events that link to an earlier event than the
+	// one before them. Before #28 the chain head lock let two events written
+	// at once link to the same parent. A link to a hash that isn't in the
+	// chain at all still breaks it, so deletions are still found.
+	Forked int64
 }
 
 // Verify recomputes the hash chain for a tenant. Version-1 events (before
@@ -150,6 +155,7 @@ func Verify(ctx context.Context, q Querier, tenantID uuid.UUID) (Result, error) 
 
 	prev := []byte{}
 	seenV2 := false
+	earlier := map[string]bool{"": true} // version-1 hashes so far, and genesis
 	for rows.Next() {
 		var (
 			seq                       int64
@@ -162,14 +168,11 @@ func Verify(ctx context.Context, q Querier, tenantID uuid.UUID) (Result, error) 
 			return res, err
 		}
 		res.Events++
-		if string(prevHash) != string(prev) {
-			res.BrokenAt = seq
-			return res, nil
-		}
 		switch version {
 		case 2:
 			seenV2 = true
-			if string(hashV2(prev, tenantID, actorID, action, rtype, rid, dtext)) != string(h) {
+			if string(prevHash) != string(prev) ||
+				string(hashV2(prev, tenantID, actorID, action, rtype, rid, dtext)) != string(h) {
 				res.BrokenAt = seq
 				return res, nil
 			}
@@ -178,9 +181,17 @@ func Verify(ctx context.Context, q Querier, tenantID uuid.UUID) (Result, error) 
 				res.BrokenAt = seq
 				return res, nil
 			}
-			if string(hashV1(prev, tenantID, actorID, action, rtype, rid, []byte(dtext))) != string(h) {
+			if string(prevHash) != string(prev) {
+				if !earlier[string(prevHash)] {
+					res.BrokenAt = seq
+					return res, nil
+				}
+				res.Forked++
+			}
+			if string(hashV1(prevHash, tenantID, actorID, action, rtype, rid, []byte(dtext))) != string(h) {
 				res.LinkOnly++
 			}
+			earlier[string(h)] = true
 		default:
 			res.BrokenAt = seq
 			return res, nil

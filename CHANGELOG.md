@@ -97,6 +97,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Audit chain checks (#24).
+  - **Command line:** `wehelpd audit verify [--tenant name-or-id]` checks
+    every practice's chain and exits 1 on a break.
+  - **Staff web:** `GET /api/v1/staff/audit/verify` lets an admin check
+    their own practice on the LAN, and is recorded as `audit.verify`.
+  - **Daily check:** the Back Office checks every chain daily and logs any
+    break.
+  - **Older forks:** before #28, two events written at the same moment
+    could link to the same parent. `Verify` accepts and counts these forks
+    among version-1 events, and still catches deletions. On Barnacle, 395
+    events verified: 261 by link only and 3 forked.
 - Video visits in the iOS app (#6, step 4).
   - **Starting:** appointments inside the join window show **Start video
     visit** to the provider, and **Join video visit** to the patient once it
