@@ -89,6 +89,10 @@ All notable changes to WeHelp are documented here. Format follows
   - A minute's poll replaces the River jobs the plan named: same
     guarantees at this scale, with no second migration system next to
     Flyway.
+- Staff web: the Appointments and Links tabs show people's names instead
+  of ID prefixes. The booking form now defaults to tomorrow at the next
+  hour in local time (it showed UTC), and to 30 minutes long (its end
+  time used to equal its start).
 - Push notifications through the Relay (#7).
   - The Relay sends Apple pushes with a hand-rolled HTTP/2 + ES256 client;
     the APNs key never leaves the Relay. Only three categories exist
