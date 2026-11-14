@@ -71,6 +71,25 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Push notifications through the Relay (#7).
+  - The Relay sends Apple pushes with a hand-rolled HTTP/2 + ES256 client;
+    the APNs key never leaves the Relay. Only three categories exist
+    (`new_message`, `appointment_reminder`, `visit_starting`), and the
+    Relay supplies their fixed, generic text. Each office is limited to
+    120 pushes a minute, and logs show the office, category and result,
+    never the token.
+  - The Back Office asks over its SSH tunnel (`wehelp-push`, through
+    `tunnel.Pusher`). A new message pushes to every active device of the
+    recipient. Tokens Apple rejects are cleared, and so are tokens of
+    revoked devices.
+  - `PUT` and `DELETE /api/v1/devices/current/push` (device sessions only)
+    register a device's token; migration V6 stores it. The Relay keeps no
+    tokens.
+  - iOS asks for notification permission after unlock and registers its
+    APNs token with every paired practice. Alerts show while the app is
+    open too.
+  - Relay config: `relay_apns_key`, `relay_apns_key_id`,
+    `relay_apns_team`, `relay_apns_topic`.
 - Message threads with names (#67).
   - `GET /api/v1/messages?with=<user>` returns the whole conversation with
     one linked user, in both directions, newest first and paginated. It's

@@ -61,6 +61,9 @@ bin/wehelp-relay serve
 | `registry_url` | `http://localhost:8090` | Use HTTPS outside development |
 | `relay_ssh_addr`, `relay_connect_addr` | `:2222`, `:8443` | |
 | `relay_list_interval` | `1m` | |
+| `relay_apns_key` | (empty = push off) | The app publisher's APNs `.p8` key, mode 600, held only on the Relay (#7) |
+| `relay_apns_key_id`, `relay_apns_team` | | Key ID and team ID from the Apple developer account |
+| `relay_apns_topic` | `com.zacelston.wehelp` | The app's bundle ID |
 
 The Back Office opens its tunnel by itself from `wehelpd serve` once it is
 installed (#35). The settings are `relay_tunnel` (default on) and
