@@ -101,6 +101,9 @@ func (s *Server) CreateAppointmentRequest(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusForbidden, "only patients request appointments")
 		return
 	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "requests") {
+		return
+	}
 	var req createRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")
@@ -181,11 +184,15 @@ func (s *Server) CreateAppointmentRequest(w http.ResponseWriter, r *http.Request
 // Route: GET /api/v1/appointment-requests
 func (s *Server) ListAppointmentRequests(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	q := `select ` + requestColumns + ` from appointment_requests
-		where tenant_id = $1 and (patient_id = $2 or provider_id = $2)`
-	args := []any{id.TenantID, id.UserID}
+	// The front desk and admins see every request in the practice (#106).
+	q := `select ` + requestColumns + ` from appointment_requests where tenant_id = $1`
+	args := []any{id.TenantID}
+	if !practiceWide(id.Role) {
+		q += ` and (patient_id = $2 or provider_id = $2)`
+		args = append(args, id.UserID)
+	}
 	if st := r.URL.Query().Get("status"); st != "" {
-		q += ` and status = $3`
+		q += fmt.Sprintf(` and status = $%d`, len(args)+1)
 		args = append(args, st)
 	}
 	q += ` order by created_at desc limit 100`
@@ -215,7 +222,7 @@ func pendingRequest(ctx context.Context, tx pgx.Tx, w http.ResponseWriter, r *ht
 	}
 	v, err := scanRequest(tx.QueryRow(ctx, `select `+requestColumns+` from appointment_requests
 		where id = $1 and tenant_id = $2 for update`, reqID, id.TenantID))
-	mine := err == nil && ((role == "patient" && v.PatientID == id.UserID) || (role == "provider" && v.ProviderID == id.UserID))
+	mine := err == nil && ((role == "patient" && v.PatientID == id.UserID) || (role == "provider" && (v.ProviderID == id.UserID || practiceWide(id.Role))))
 	switch {
 	case errors.Is(err, pgx.ErrNoRows) || (err == nil && !mine):
 		writeErr(w, http.StatusNotFound, "request not found")
@@ -254,8 +261,8 @@ type confirmRequestBody struct {
 // Route: POST /api/v1/appointment-requests/{requestID}/confirm
 func (s *Server) ConfirmAppointmentRequest(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	if id.Role != "provider" {
-		writeErr(w, http.StatusForbidden, "only providers confirm requests")
+	if id.Role != "provider" && !practiceWide(id.Role) {
+		writeErr(w, http.StatusForbidden, "only staff confirm requests")
 		return
 	}
 	var body confirmRequestBody
@@ -274,17 +281,17 @@ func (s *Server) ConfirmAppointmentRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	s.decide(w, r, id, "provider", func(ctx context.Context, tx pgx.Tx, v *appointmentRequestView) (string, int, error) {
-		linked, err := HasActiveLink(ctx, tx, id.TenantID, id.UserID, v.PatientID)
+		linked, err := HasActiveLink(ctx, tx, id.TenantID, v.ProviderID, v.PatientID)
 		if err != nil {
 			return "", 0, err
 		}
 		if !linked {
 			return "", http.StatusForbidden, errors.New("no active link with that patient")
 		}
-		if err := lockProviderSchedule(ctx, tx, id.UserID); err != nil {
+		if err := lockProviderSchedule(ctx, tx, v.ProviderID); err != nil {
 			return "", 0, err
 		}
-		overlap, err := checkOverlap(ctx, tx, id.TenantID, id.UserID, start, end, uuid.Nil)
+		overlap, err := checkOverlap(ctx, tx, id.TenantID, v.ProviderID, start, end, uuid.Nil)
 		if err != nil {
 			return "", 0, err
 		}
@@ -295,7 +302,7 @@ func (s *Server) ConfirmAppointmentRequest(w http.ResponseWriter, r *http.Reques
 		if err := tx.QueryRow(ctx, `
 			insert into appointments (tenant_id, provider_id, patient_id, starts_at, ends_at)
 			values ($1, $2, $3, $4, $5) returning id`,
-			id.TenantID, id.UserID, v.PatientID, start, end).Scan(&apptID); err != nil {
+			id.TenantID, v.ProviderID, v.PatientID, start, end).Scan(&apptID); err != nil {
 			return "", 0, err
 		}
 		detail, _ := json.Marshal(map[string]string{"patient_id": v.PatientID.String(), "starts_at": start.Format(time.RFC3339), "request": v.ID.String()})
@@ -321,8 +328,8 @@ type declineRequestBody struct {
 // Route: POST /api/v1/appointment-requests/{requestID}/decline
 func (s *Server) DeclineAppointmentRequest(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	if id.Role != "provider" {
-		writeErr(w, http.StatusForbidden, "only providers decline requests")
+	if id.Role != "provider" && !practiceWide(id.Role) {
+		writeErr(w, http.StatusForbidden, "only staff decline requests")
 		return
 	}
 	var body declineRequestBody

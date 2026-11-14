@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760" role="img" aria-labelledby="t d">
+<title id="t">The WeHelp ecosystem</title>
+<desc id="d">Inside the practice, the Back Office is a mini PC appliance that holds all patient data, and the front desk is a laptop whose browser reaches the Back Office over the office Wi-Fi. The patient's WeHelp app pairs with the office by scanning a QR code shown on the front desk screen. After that the app talks end to end to the Back Office through WeHelp's Relay, which forwards encrypted traffic it cannot read; the Back Office dials out to the Relay over SSH. The Registry lists which practices exist, and the Relay serves each practice's public website and blog.</desc>
+<defs>
+<marker id="ab" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7CC3F0"/></marker>
+<marker id="aw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#F4A07C"/></marker>
+<marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8FA9BC"/></marker>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0E2233"/><stop offset="1" stop-color="#14344B"/></linearGradient>
+</defs>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;fill:#E8F1F7}
+.eyebrow{font-size:20px;font-weight:700;letter-spacing:3px;fill:#7CC3F0}
+.h1{font-size:44px;font-weight:700}
+.h3{font-size:28px;font-weight:700}
+.body{font-size:19px;fill:#B9CDDC}
+.lbl{font-size:17px;fill:#B9CDDC}
+.warm{fill:#F4A07C}
+.chip{font-size:17px;font-weight:600;fill:#10283A}
+.box{fill:#173E58;stroke:#2C5F80;stroke-width:2}
+.hot{fill:#1B4866;stroke:#F4A07C;stroke-width:3}
+</style>
+<rect width="1600" height="760" rx="28" fill="url(#bg)"/>
+
+<text class="eyebrow" x="60" y="72">THE WEHELP ECOSYSTEM</text>
+<text class="h1" x="60" y="124">Patient data lives only in the practice</text>
+
+<!-- The practice: everything on this side of the Relay -->
+<rect x="1150" y="146" width="420" height="590" rx="24" fill="#10283A" fill-opacity="0.55" stroke="#F4A07C" stroke-width="2" stroke-dasharray="10 8"/>
+<text class="eyebrow" x="1180" y="180" style="fill:#F4A07C">THE PRACTICE</text>
+
+<!-- Back Office: mini PC appliance -->
+<rect class="hot" x="1180" y="198" width="360" height="262" rx="18"/>
+<g transform="translate(1204 226)"><rect x="0" y="0" width="60" height="38" rx="9" fill="none" stroke="#F4A07C" stroke-width="3"/><path d="M8 46 H52" stroke="#F4A07C" stroke-width="3" stroke-linecap="round"/><circle cx="48" cy="28" r="3.5" fill="#7CC3F0"/></g>
+<text class="h3" x="1282" y="242">Back Office</text>
+<text class="lbl warm" x="1282" y="268">Mini PC appliance</text>
+<rect x="1204" y="296" width="150" height="38" rx="19" fill="#7CC3F0"/><text class="chip" x="1279" y="321" text-anchor="middle">Providers</text>
+<rect x="1366" y="296" width="150" height="38" rx="19" fill="#7CC3F0"/><text class="chip" x="1441" y="321" text-anchor="middle">Care teams</text>
+<rect x="1204" y="352" width="312" height="86" rx="12" fill="#10283A" stroke="#F4A07C" stroke-width="2"/>
+<text class="h3" x="1360" y="390" text-anchor="middle" style="font-size:22px">All patient data</text>
+<text class="lbl" x="1360" y="418" text-anchor="middle">Stays on this box</text>
+
+<!-- Front desk: laptop on the office Wi-Fi -->
+<rect class="box" x="1180" y="548" width="360" height="160" rx="18"/>
+<g transform="translate(1204 580)" fill="none" stroke="#7CC3F0" stroke-width="3"><rect x="6" y="0" width="52" height="34" rx="4"/><path d="M0 42 H64 L58 34 H6 Z" stroke-linejoin="round"/></g>
+<text class="h3" x="1290" y="602">Front desk</text>
+<text class="lbl" x="1290" y="632">Laptop, staff web</text>
+<text class="lbl" x="1290" y="658">in the browser</text>
+
+<!-- Office Wi-Fi link -->
+<path d="M1300 464 V544" stroke="#7CC3F0" stroke-width="4" fill="none" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<text class="lbl" x="1316" y="500">office Wi‑Fi</text>
+<text class="lbl" x="1316" y="522">HTTPS, LAN only</text>
+
+<!-- Website and blog -->
+<rect class="box" x="60" y="170" width="340" height="104" rx="18"/>
+<g transform="translate(84 196)" fill="none" stroke="#7CC3F0" stroke-width="3"><rect x="0" y="0" width="52" height="40" rx="5"/><path d="M0 11 H52"/><path d="M10 22 H42 M10 30 H32"/></g>
+<text class="h3" x="156" y="216">Website + blog</text>
+<text class="lbl" x="156" y="246">Public pages, no patient data</text>
+
+<!-- Registry -->
+<rect class="box" x="620" y="170" width="340" height="104" rx="18"/>
+<g transform="translate(644 194)" fill="none" stroke="#7CC3F0" stroke-width="3"><rect x="0" y="0" width="44" height="52" rx="5"/><path d="M10 14 H34 M10 26 H34 M10 38 H26"/></g>
+<text class="h3" x="706" y="216">Registry</text>
+<text class="lbl" x="706" y="246">Which practices exist</text>
+
+<!-- Patient app -->
+<rect class="box" x="60" y="320" width="340" height="190" rx="18"/>
+<g transform="translate(88 350)"><rect x="0" y="0" width="64" height="120" rx="12" fill="none" stroke="#7CC3F0" stroke-width="3"/><rect x="22" y="8" width="20" height="5" rx="2.5" fill="#7CC3F0"/><rect x="10" y="26" width="44" height="10" rx="3" fill="#2C5F80"/><rect x="10" y="44" width="44" height="10" rx="3" fill="#2C5F80"/><rect x="10" y="62" width="30" height="10" rx="3" fill="#2C5F80"/></g>
+<text class="h3" x="176" y="372">WeHelp app</text>
+<text class="body" x="176" y="404">iPhone and iPad</text>
+<text class="body" x="176" y="432">Visits, messages,</text>
+<text class="body" x="176" y="458">orders, readings</text>
+
+<!-- Relay -->
+<rect class="box" x="620" y="320" width="340" height="190" rx="18"/>
+<g transform="translate(646 352)" fill="none" stroke="#7CC3F0" stroke-width="3"><rect x="0" y="22" width="40" height="32" rx="5"/><path d="M8 22 V12 a12 12 0 0 1 24 0 V22"/></g>
+<text class="h3" x="706" y="378">Relay</text>
+<text class="body" x="646" y="438">Run by WeHelp. Forwards</text>
+<text class="body" x="646" y="466">encrypted traffic it can’t read.</text>
+
+<!-- QR pairing -->
+<rect class="hot" x="520" y="580" width="480" height="140" rx="18"/>
+<g transform="translate(550 602)">
+<rect width="96" height="96" rx="6" fill="#F7FBFD"/>
+<g fill="#10283A"><rect x="8" y="8" width="24" height="24"/><rect x="64" y="8" width="24" height="24"/><rect x="8" y="64" width="24" height="24"/></g>
+<g fill="#F7FBFD"><rect x="12" y="12" width="16" height="16"/><rect x="68" y="12" width="16" height="16"/><rect x="12" y="68" width="16" height="16"/></g>
+<g fill="#10283A"><rect x="16" y="16" width="8" height="8"/><rect x="72" y="16" width="8" height="8"/><rect x="16" y="72" width="8" height="8"/><rect x="40" y="8" width="6" height="6"/><rect x="50" y="14" width="6" height="6"/><rect x="40" y="24" width="6" height="6"/><rect x="40" y="40" width="6" height="6"/><rect x="50" y="40" width="6" height="6"/><rect x="62" y="44" width="6" height="6"/><rect x="74" y="40" width="6" height="6"/><rect x="84" y="50" width="6" height="6"/><rect x="8" y="42" width="6" height="6"/><rect x="20" y="48" width="6" height="6"/><rect x="30" y="40" width="6" height="6"/><rect x="44" y="52" width="6" height="6"/><rect x="56" y="58" width="6" height="6"/><rect x="40" y="64" width="6" height="6"/><rect x="50" y="74" width="6" height="6"/><rect x="40" y="84" width="6" height="6"/><rect x="64" y="64" width="6" height="6"/><rect x="74" y="70" width="6" height="6"/><rect x="84" y="62" width="6" height="6"/><rect x="66" y="80" width="6" height="6"/><rect x="80" y="84" width="6" height="6"/></g>
+</g>
+<text class="h3" x="672" y="640">QR pairing</text>
+<text class="body" x="672" y="672">One scan at the front desk</text>
+<text class="body" x="672" y="698">ties this phone to this office.</text>
+
+<!-- Connectors -->
+<path d="M404 400 H616" stroke="#7CC3F0" stroke-width="4" fill="none" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<path d="M964 400 H1176" stroke="#7CC3F0" stroke-width="4" fill="none" marker-start="url(#ab)" marker-end="url(#ab)"/>
+<text class="lbl" x="510" y="385" text-anchor="middle">pinned TLS</text>
+<text class="lbl" x="1056" y="385" text-anchor="middle">outbound SSH</text>
+<path d="M790 278 V316" stroke="#8FA9BC" stroke-width="3" stroke-dasharray="7 6" fill="none" marker-end="url(#ag)"/>
+<path d="M620 338 L404 262" stroke="#8FA9BC" stroke-width="3" stroke-dasharray="7 6" fill="none" marker-end="url(#ag)"/>
+<text class="lbl" x="514" y="284" text-anchor="middle" transform="rotate(19.4 514 284)">serves the site</text>
+<path d="M230 514 V650 H516" stroke="#F4A07C" stroke-width="4" fill="none" marker-end="url(#aw)"/>
+<path d="M1176 650 H1004" stroke="#F4A07C" stroke-width="4" fill="none" marker-end="url(#aw)"/>
+<text class="lbl warm" x="250" y="560">the phone’s device key</text>
+<text class="lbl warm" x="1076" y="618" text-anchor="middle">shown on</text>
+<text class="lbl warm" x="1076" y="690" text-anchor="middle">the laptop</text>
+</svg>

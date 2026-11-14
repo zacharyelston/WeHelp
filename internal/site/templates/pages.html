@@ -1,0 +1,168 @@
+{{define "index"}}{{template "head" .}}
+<section class="hero">
+  <h1>{{.PracticeName}}</h1>
+  {{if .Tagline}}<p class="lede">{{.Tagline}}</p>{{end}}
+</section>
+<section>
+  <h2>About us</h2>
+  {{range paras .About}}<p>{{.}}</p>{{else}}<p>Welcome to our practice.</p>{{end}}
+</section>
+{{if .Services}}
+<section>
+  <h2>What we offer</h2>
+  <ul class="pill-list">{{range .Services}}<li>{{.Name}}</li>{{end}}</ul>
+  <p><a href="services.html">All services</a></p>
+</section>
+{{end}}
+{{if .Latest}}
+<section>
+  <h2>Latest news</h2>
+  <div class="cards">
+  {{range .Latest}}
+    <article class="card post-card">
+      <p class="muted post-date">{{.Day}}</p>
+      <h3><a href="{{.File}}">{{.Title}}</a></h3>
+    </article>
+  {{end}}
+  </div>
+  <p><a href="blog.html">All posts</a></p>
+</section>
+{{end}}
+{{template "cta" .}}
+{{template "foot" .}}{{end}}
+
+{{define "team"}}{{template "head" .}}
+<h1>Our team</h1>
+<div class="cards">
+{{range .Providers}}
+  <article class="card person">
+    {{if .PhotoFile}}<img class="photo" src="files/{{.PhotoFile}}" alt="Photo of {{.Name}}">{{end}}
+    <h2>{{.Name}}</h2>
+    {{if .Credentials}}<p class="muted">{{.Credentials}}</p>{{end}}
+    {{range paras .Bio}}<p>{{.}}</p>{{end}}
+  </article>
+{{else}}
+  <p>Our team's biographies are coming soon.</p>
+{{end}}
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "services"}}{{template "head" .}}
+<h1>Services</h1>
+<div class="cards">
+{{range .Services}}
+  <article class="card">
+    <h2>{{.Name}}</h2>
+    {{range paras .Description}}<p>{{.}}</p>{{end}}
+  </article>
+{{else}}
+  <p>Call us to hear what we offer.</p>
+{{end}}
+</div>
+{{template "cta" .}}
+{{template "foot" .}}{{end}}
+
+{{define "join"}}{{template "head" .}}
+<h1>Get the app and join</h1>
+<p class="lede">New and current {{.Words.Patients}} use the free WeHelp app for appointments, messages, video visits and supply orders.</p>
+<ol class="steps">
+  <li>
+    <h2>Download WeHelp</h2>
+    <p>WeHelp is free on the App Store for iPhone.</p>
+    {{if .AppURL}}<p><a class="button" href="{{.AppURL}}" rel="noopener">Download on the App Store</a></p>{{end}}
+  </li>
+  <li>
+    <h2>Visit the office</h2>
+    <p>Bring your phone to your next visit{{if .Phone}}, or call {{.Phone}} to arrange one{{end}}. Our staff add you as a {{.Words.Patient}}.</p>
+  </li>
+  <li>
+    <h2>Scan your pairing code</h2>
+    <p>Open WeHelp and tap <em>Pair with your practice</em>. Scan the QR code our staff show you. It works once and only for ten minutes.</p>
+  </li>
+  <li>
+    <h2>You're set</h2>
+    <p>There's no password to remember: Face ID or your phone's passcode opens the app. If you change phones, we pair the new one in the office.</p>
+  </li>
+</ol>
+{{range paras .Join}}<p>{{.}}</p>{{end}}
+<p class="muted">For your privacy you can't sign up on this website: joining happens in person, so only you can reach your records.</p>
+{{template "foot" .}}{{end}}
+
+{{define "library"}}{{template "head" .}}
+<h1>Library</h1>
+<p class="lede">Listening and reading from our practitioners.</p>
+{{if .Podcasts}}
+<section>
+  <h2>Podcasts</h2>
+  <ul class="link-list">
+  {{range .Podcasts}}
+    <li><a href="{{.URL}}" rel="noopener noreferrer">{{.Title}}</a>{{if .Description}}<div class="muted">{{.Description}}</div>{{end}}</li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
+{{if .Downloads}}
+<section>
+  <h2>Downloads</h2>
+  <ul class="link-list">
+  {{range .Downloads}}
+    <li><a href="{{.Href}}" download>{{.Title}}</a> <span class="muted">{{.Kind}}, {{filesize .Size}}</span></li>
+  {{end}}
+  </ul>
+</section>
+{{end}}
+{{if not (or .Podcasts .Downloads)}}<p>Nothing here yet. Check back soon.</p>{{end}}
+{{template "foot" .}}{{end}}
+
+{{define "store"}}{{template "head" .}}
+<h1>Supply store</h1>
+<p class="lede">Supplements and herbal supplies chosen by our practitioners.</p>
+<div class="notice">
+  <strong>Order in the WeHelp app.</strong> Open WeHelp, tap <em>Store</em>, choose quantities and place your order. We'll let you know when it's ready. Pay at pickup or by invoice.
+  <a href="join.html">Not using WeHelp yet?</a>
+</div>
+{{range .Categories}}
+<section>
+  <h2>{{.Name}}</h2>
+  <div class="cards">
+  {{range .Products}}
+    <article class="card product">
+      <h3>{{.Name}}</h3>
+      {{if .Unit}}<p class="muted">{{.Unit}}</p>{{end}}
+      {{if .Description}}<p>{{.Description}}</p>{{end}}
+      <p class="price">{{price .PriceCents}}</p>
+    </article>
+  {{end}}
+  </div>
+</section>
+{{else}}
+<p>Our catalogue is coming soon.</p>
+{{end}}
+{{template "foot" .}}{{end}}
+
+{{define "blog"}}{{template "head" .}}
+<h1>Blog</h1>
+<div class="post-list">
+{{range .Posts}}
+  <article class="card post-card">
+    {{if .ImageFile}}<img class="post-thumb" src="files/{{.ImageFile}}" alt="">{{end}}
+    <p class="muted post-date">{{.Day}}{{if .Author}} · {{.Author}}{{end}}</p>
+    <h2><a href="{{.File}}">{{.Title}}</a></h2>
+    {{range $i, $p := paras .Body}}{{if eq $i 0}}<p>{{$p}}</p>{{end}}{{end}}
+    <p><a href="{{.File}}">Read more</a></p>
+  </article>
+{{end}}
+</div>
+{{template "cta" .}}
+{{template "foot" .}}{{end}}
+
+{{define "post"}}{{template "head" .}}
+<article class="post">
+  <p class="muted post-date">{{.Post.Day}}{{if .Post.Author}} · {{.Post.Author}}{{end}}</p>
+  <h1>{{.Post.Title}}</h1>
+  {{if .Post.ImageFile}}<img class="post-image" src="files/{{.Post.ImageFile}}" alt="">{{end}}
+  {{range paras .Post.Body}}<p>{{.}}</p>{{end}}
+  <p><a href="blog.html">All posts</a></p>
+</article>
+{{template "cta" .}}
+{{template "foot" .}}{{end}}

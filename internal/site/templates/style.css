@@ -1,0 +1,118 @@
+/* Practice site (#97). No web fonts, no scripts: system fonts only.
+   Themes (#104): <html data-theme="…"> picks a colour scheme. Each sets the
+   page colours, a coloured header and a hero band; in dark mode the page
+   turns dark and keeps the theme's header, hero and a lighter accent. */
+:root {
+  --bg: #f4f6f1;
+  --surface: #ffffff;
+  --text: #1f2a24;
+  --muted: #5d6b63;
+  --accent: #2f6f4f;
+  --accent-dark: #7cc49d;
+  --accent-text: #ffffff;
+  --line: #dfe5dc;
+  --header-bg: #1f4d37;
+  --header-text: #ffffff;
+  --header-muted: #cfe3d6;
+  --hero-bg: linear-gradient(135deg, #2f6f4f 0%, #5f9c78 100%);
+  --hero-text: #ffffff;
+  --band: #e7efe6;
+  color-scheme: light dark;
+}
+:root[data-theme="ocean"] {
+  --bg: #f1f6fa; --text: #10283a; --muted: #4f6576; --line: #d6e4ee;
+  --accent: #1c6ea4; --accent-dark: #7cc3f0; --band: #e2eef6;
+  --header-bg: #0f3d5e; --header-muted: #c3dcee;
+  --hero-bg: linear-gradient(135deg, #15598a 0%, #3fa7c9 100%);
+}
+:root[data-theme="sunset"] {
+  --bg: #fdf6f0; --text: #3a2418; --muted: #7a5c4c; --line: #f0dccd;
+  --accent: #c4552d; --accent-dark: #f4a07c; --band: #fbe8db;
+  --header-bg: #7a2e17; --header-muted: #f6cdb8;
+  --hero-bg: linear-gradient(135deg, #c4552d 0%, #e8a05a 100%);
+}
+:root[data-theme="plum"] {
+  --bg: #f8f4f9; --text: #2e1b33; --muted: #6d5a72; --line: #e6d9ea;
+  --accent: #7b3f8c; --accent-dark: #d4a3e0; --band: #f0e5f3;
+  --header-bg: #4a2357; --header-muted: #e2c9ea;
+  --hero-bg: linear-gradient(135deg, #6a3479 0%, #c06c9a 100%);
+}
+:root[data-theme="clay"] {
+  --bg: #f5f0e8; --text: #2d2a26; --muted: #6b645b; --line: #e4dccf;
+  --accent: #8a5a3c; --accent-dark: #e0b48f; --band: #ece3d5;
+  --header-bg: #3d3229; --header-muted: #e2d4c2;
+  --hero-bg: linear-gradient(135deg, #8a5a3c 0%, #c19a6b 100%);
+}
+:root[data-theme="midnight"] {
+  --bg: #0f141c; --surface: #18202b; --text: #e6edf5; --muted: #9fb0c3; --line: #263243;
+  --accent: #6fb3ff; --accent-dark: #6fb3ff; --accent-text: #08121f; --band: #141b25;
+  --header-bg: #0a0e14; --header-muted: #9fb0c3;
+  --hero-bg: linear-gradient(135deg, #1b2a44 0%, #2d4a7a 100%);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root, :root[data-theme] {
+    --bg: #12161b;
+    --surface: #1a2027;
+    --text: #e8edf2;
+    --muted: #a3adb8;
+    --line: #2a323c;
+    --band: #161b21;
+    --accent: var(--accent-dark);
+    --accent-text: #0d1116;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+a { color: var(--accent); }
+img { max-width: 100%; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+.site-header { background: var(--header-bg); color: var(--header-text); }
+.header-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding-top: 14px; padding-bottom: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; color: var(--header-text); text-decoration: none; }
+.brand img { height: 36px; width: auto; border-radius: 6px; background: #fff; padding: 2px; }
+nav { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+nav a { color: var(--header-muted); text-decoration: none; font-size: 0.95rem; padding: 2px 0; border-bottom: 2px solid transparent; }
+nav a:hover { color: var(--header-text); }
+nav a[aria-current="page"] { color: var(--header-text); font-weight: 600; border-bottom-color: var(--header-text); }
+main.wrap { padding-top: 32px; padding-bottom: 48px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 12px; }
+h2 { font-size: 1.3rem; margin: 28px 0 8px; }
+h3 { font-size: 1.1rem; margin: 0 0 4px; }
+.hero { background: var(--hero-bg); color: var(--hero-text); border-radius: 18px; padding: 44px 32px; margin-bottom: 8px; }
+.hero h1 { font-size: 2.4rem; }
+.lede { font-size: 1.15rem; color: var(--muted); max-width: 640px; }
+.hero .lede { color: var(--hero-text); opacity: 0.92; margin-bottom: 0; }
+.muted { color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 12px; padding: 18px; }
+.card h2 { margin-top: 0; }
+.person .photo { width: 96px; height: 96px; object-fit: cover; border-radius: 50%; border: 3px solid var(--accent); }
+.product .price { font-weight: 700; font-size: 1.1rem; margin-bottom: 0; color: var(--accent); }
+.pill-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.pill-list li { background: var(--band); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; }
+.link-list { padding-left: 20px; }
+.link-list li { margin-bottom: 10px; }
+.steps { padding-left: 22px; }
+.steps h2 { margin-top: 20px; }
+.button { display: inline-block; background: var(--accent); color: var(--accent-text); padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: 600; }
+.cta { margin-top: 40px; background: var(--band); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.cta h2 { margin-top: 0; }
+.notice { background: var(--surface); border-left: 4px solid var(--accent); padding: 14px 16px; border-radius: 8px; margin: 16px 0 8px; }
+.site-footer { background: var(--header-bg); color: var(--header-muted); padding: 28px 0; font-size: 0.95rem; }
+.site-footer strong { color: var(--header-text); }
+.site-footer a { color: var(--header-text); }
+.footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.fine { color: var(--header-muted); opacity: 0.85; font-size: 0.85rem; margin-top: 16px; }
+.post-list { display: flex; flex-direction: column; gap: 16px; }
+.post-date { margin: 0 0 4px; font-size: 0.9rem; }
+.post-card h2, .post-card h3 { margin: 0 0 8px; }
+.post-card h2 a, .post-card h3 a { color: var(--text); text-decoration: none; }
+.post-thumb { float: right; width: 160px; height: 120px; object-fit: cover; border-radius: 10px; margin: 0 0 8px 16px; }
+.post { max-width: 720px; }
+.post-image { width: 100%; max-height: 420px; object-fit: cover; border-radius: 14px; margin: 8px 0 16px; }

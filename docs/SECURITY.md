@@ -93,6 +93,9 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - Staff routes are refused on Relay channels: the listener decides reachability,
   not a header.
 - Admin actions (users, pairing, device revoke, settings) are audited.
+- Roles (#106): the front desk (`office`) sees the whole schedule but no
+  message threads; only `admin` manages staff accounts. Bookings record
+  the person who made them as the audit actor.
 - As built (#38):
   - TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, ±1 step), and each code works
     once (last accepted step stored).
@@ -102,6 +105,16 @@ attacker, and jailbroken devices with root on the patient's own phone.
     absolute limit. CSRF is a per-session token checked in constant time on
     every change.
   - Staff accounts are created on the host (`wehelpd staff add`).
+  - Admins add providers in the staff web (#100). A provider gets a set-up
+    link, never a password chosen by the admin.
+    - The token is 32 random bytes, kept in the URL fragment so it stays
+      out of request logs and Referer. Only its SHA-256 is stored.
+    - It works once, expires in 24 hours, and a newer link cancels it.
+    - The route is LAN only. Every failure gets the same answer.
+  - Disabling a staff account (`users.disabled_at`) ends its web sessions,
+    revokes refresh tokens and refuses password sign-in. Every bearer
+    request is checked too, so an unexpired access token stops working at
+    once. Admin changes to accounts are audited in the same transaction.
   - The breached-password check is still an open decision.
 
 ### Telehealth
@@ -116,8 +129,16 @@ attacker, and jailbroken devices with root on the patient's own phone.
 ### Push and website
 
 - Push payloads come from a fixed category list, with no names, times or text.
-- The website is static, rendered only from the Practice profile, and has no
-  forms, scripts from third parties or cookies.
+- The website is static, rendered only from the practice's website content,
+  uploads and catalogue (never a patient table), and has no forms, scripts
+  or cookies. The Relay enforces this too: a short list of file types, no
+  HTML with `<script`, size caps, and a `default-src 'none'` CSP on every
+  response (#97).
+- An office can publish only its own site: the Relay files a bundle under
+  the office ID its SSH connection authenticated as.
+- Supply orders are patient data. They are placed only in the app through
+  the pinned tunnel, never on the website, and staff see them only on the
+  office LAN. Every change is audited (#97).
 
 ## Data protection at rest
 

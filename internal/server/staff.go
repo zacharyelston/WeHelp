@@ -68,7 +68,7 @@ func checkStaffPassword(ctx context.Context, tx pgx.Tx, tenant, email, password 
 		select u.id, u.tenant_id, u.role::text, u.display_name, u.password_hash, u.totp_secret,
 		       u.totp_enabled_at is not null, u.totp_last_step, u.failed_logins, u.locked_until, t.name
 		from users u join tenants t on t.id = u.tenant_id
-		where t.name = $1 and u.email = $2 for update of u`, tenant, email).
+		where t.name = $1 and u.email = $2 and u.disabled_at is null for update of u`, tenant, email).
 		Scan(&u.ID, &u.TenantID, &u.Role, &u.Name, &u.Hash, &u.TOTPSecret, &u.TOTPEnabled, &u.TOTPLastStep,
 			&u.FailedLogins, &u.LockedUntil, &u.TenantName)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (u.Hash == nil || u.Role == "patient")) {

@@ -15,6 +15,11 @@ struct ContentView: View {
                 .tabItem { Label("Messages", systemImage: "bubble.left.and.bubble.right") }
             AppointmentsView()
                 .tabItem { Label("Schedule", systemImage: "calendar") }
+            if !appState.isStaff {
+                // Supply store and library (#97); patients order here.
+                StoreView()
+                    .tabItem { Label("Store", systemImage: "bag") }
+            }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gear") }
         }
@@ -28,6 +33,9 @@ struct TodayView: View {
                 Label("Daily check-in", systemImage: "checkmark.circle")
                 Label("Weight reminder", systemImage: "scalemass")
                 Label("Sync health monitors", systemImage: "waveform.path.ecg")
+                Section("From your practice") {
+                    NavigationLink { LibraryView() } label: { Label("Library", systemImage: "books.vertical") }
+                }
             }
             .navigationTitle("Today")
         }

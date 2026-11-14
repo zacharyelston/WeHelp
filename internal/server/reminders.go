@@ -73,6 +73,12 @@ func (s *Server) RunReminders(ctx context.Context, interval time.Duration) {
 		} else if n > 0 {
 			slog.Info("reminders sent", "count", n)
 		}
+		// Scheduled blog posts that came due go out with a republish (#121).
+		if n, err := s.publishDuePosts(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			slog.Warn("blog: scheduled publish check failed", "err", err)
+		} else if n > 0 {
+			slog.Info("blog: sites republished for scheduled posts", "count", n)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -101,7 +107,22 @@ func (s *Server) sendDueReminders(ctx context.Context, now time.Time) (int, erro
 		return 0, fmt.Errorf("check-ins: %w", err)
 	}
 	sent := 0
+	switches := map[uuid.UUID]map[string]bool{} // per practice, for this run (#109)
 	for _, d := range append(appts, checkins...) {
+		on, cached := switches[d.tenantID]
+		if !cached {
+			if _, on, err = practiceConfig(ctx, s.pool, d.tenantID); err != nil {
+				return sent, err
+			}
+			switches[d.tenantID] = on
+		}
+		feature := "reminders"
+		if d.kind == "checkin" {
+			feature = "checkins"
+		}
+		if !on[feature] {
+			continue
+		}
 		ok, err := s.sendReminder(ctx, d)
 		if err != nil {
 			return sent, err
@@ -287,6 +308,9 @@ func (s *Server) SetCheckinCadence(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	if id.Role != "provider" {
 		writeErr(w, http.StatusForbidden, "only providers set check-in reminders")
+		return
+	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "checkins") {
 		return
 	}
 	patient, err := uuid.Parse(chi.URLParam(r, "userID"))

@@ -99,6 +99,7 @@ ARCHITECTURE.md, "Connections".
 | pquerna/otp | **adopt**: TOTP for staff sign-in. Small, widely used |
 | Apple App Attest | **evaluate** (#11): proves the genuine app at enrollment |
 | A local breached-password list (HIBP-style hashes) | **evaluate**: staff password screening without an outbound call |
+| Staff invites (#100): admin issues a set-up link, the person sets their own password | **adopt, built in-house**. This is the usual pattern (GitLab, Grafana and Keycloak "required actions"; OWASP ASVS V2.5 and NIST SP 800-63B §6 on initial secrets): a random, single-use, short-lived token, stored hashed, never a password the admin chooses. Our own: 32 random bytes in the URL fragment (kept out of logs and Referer), SHA-256 stored, 24 h, one live invite per account. It leads into the existing TOTP enrollment (#38). A library (Keycloak, Ory Kratos) would be new infrastructure for one form |
 
 ## V1 telehealth (V1-M4)
 
@@ -108,6 +109,28 @@ ARCHITECTURE.md, "Connections".
 | pion/turn | **adopt** (confirmed in S2): relay-only 1:1 calls worked, and two calls cost about 6% of one core and 14 MB. Add a quota, a peer `PermissionHandler` and TURN over TLS on 443. See [spikes/S2.md](spikes/S2.md) |
 | WebRTC iOS framework (Google's build via a SwiftPM package) | **adopt** (S2): `stasel/WebRTC` 157.0.0, BSD-3, about 12 MB installed and 5.5 MB to download, roughly monthly releases. Pin it, mirror it, and update every quarter. See [spikes/S2.md](spikes/S2.md) |
 | LiveKit, SFU + SFrame | **reference**: only needed for group visits, which are post-V1 |
+
+## Practice website, library and store (V1-M5, #5, #97)
+
+Requirement: staff build a small public site in the Back Office (about us,
+bios, services, how to get the app and join, a library of podcast links and
+PDFs, and a supply catalogue) and the Relay serves it. Patients order
+supplies in the app. Orders are patient data, so they stay in the Back
+Office and never pass through the public site.
+
+| Candidate | Verdict |
+|---|---|
+| Go `html/template` + `embed` | **adopt**: renders the pages in the Back Office with contextual escaping; no build step, no dependency |
+| `archive/tar` streamed over a new SSH channel type (`wehelp-site`) | **adopt**: the bundle rides the office's existing authenticated connection, so the Relay binds it to the office ID with no extra signing scheme. SSH global requests are capped at one 256 KB packet, too small for PDFs, so a channel is used instead |
+| Hugo, Jekyll, other static site generators | **reference**: the right shape (templates plus content to static files), but a second toolchain for a site of five pages |
+| Hosted site builders (Squarespace, Wix), WordPress | **skip**: a third party or a dynamic CMS per practice, with logins and plugins to secure |
+| Content-Security-Policy `default-src 'none'` with no scripts | **adopt**: the Relay serves every site file with it, and refuses HTML with `<script`, so a site can't run code or call out |
+| Shopify, WooCommerce, Stripe Checkout | **skip for V1**: payment is out of scope ("pay at pickup or by invoice"), and an order is patient data that must stay in the Back Office |
+| Podcast RSS feeds and embedded players | **skip**: plain external links. Embedding a player means third-party scripts and trackers on the practice site |
+| iOS QuickLook (`quickLookPreview`) | **adopt**: shows library PDFs that the app fetched through its pinned tunnel |
+| Blog posts in Hugo/Jekyll (front matter with a date, drafts, future posts held back) | **adopt the model** for the practice blog (#121): title, plain-text body, optional image, a publish time, and a draft flag. Rendered by the same `html/template` pages. No Markdown or HTML in posts, so nothing needs sanitising |
+| WordPress or Ghost scheduled publishing | **reference**: "future" posts go live by themselves. Ours: a once-a-minute check in the Back Office republishes the static site when a scheduled post comes due |
+| RSS/Atom feed for the blog | **skip for now**: easy to add later as one more static file; nothing asks for it yet |
 
 ## V1 operations (V1-M6)
 
@@ -147,6 +170,25 @@ output, so patient data never leaves the box. See
 | llamafile | **reference**: single-file packaging of llama.cpp and weights; an option for shipping a pinned runtime |
 | Open-weight models (Llama, Qwen, Mistral, Gemma families) | **evaluate in #83**: pick by quality at a size that fits the box, and by licence terms for a commercial clinical setting. Pin by file hash |
 | Hosted model APIs | **skip**: sending PHI to a third party is what this design exists to avoid |
+
+## Practice types, message switches and care teams (post-V1, PRACTICE_TYPES.md)
+
+Requirement: serve practices beyond naturopaths (therapists and
+psychologists, other allied health, and non-clinical services such as hair
+salons). Let a practice or a provider turn messaging off. Let a patient
+choose a group of providers who all see their messages, for continuity of
+care. Verdicts are provisional until the work issues are specified.
+
+| Candidate | Verdict |
+|---|---|
+| HIPAA treatment disclosures (45 CFR 164.506) | **reference**: providers may share PHI with each other for treatment without the patient’s authorization. Asking the patient before adding someone to their care team is therefore a product choice, stricter than the rule, and it suits therapy practices |
+| HIPAA psychotherapy notes (45 CFR 164.501, 164.508(a)(2)) | **reference**: a therapist’s separate session notes need specific authorization to disclose. Messages are not psychotherapy notes, but therapy practices expect messaging to be off or private by default |
+| 42 CFR Part 2 (substance use disorder records) | **reference**: stricter consent for SUD treatment records. A therapy preset must be able to keep every thread private to one provider. Legal review before marketing to SUD programs |
+| FHIR R4 `CareTeam` resource | **adopt the shape**: a patient-scoped list of participants with roles and a period. Our `care_team_members` maps onto it for FHIR later (#26) |
+| Shared-inbox “message pools” in patient portals (e.g. Epic MyChart) | **reference**: a team or front desk answers a practice inbox, and a clinician can be out of the pool. That is the practice inbox and the provider message switch here |
+| Therapy practice software with client portals (e.g. SimplePractice, TherapyNotes) | **reference** to study: client portals, secure messaging that can be turned off, and “not for emergencies” notices |
+| Salon booking apps (e.g. Square Appointments, Vagaro, Fresha) | **reference** to study: booking, reminders, a client list, retail and a staff picker. Salons are not HIPAA covered entities; they need the same app with plainer words and no clinical features |
+| Feature-flag services (LaunchDarkly and similar) | **skip**: a few practice and provider switches stored in the Back Office are enough; no new infrastructure |
 
 ## Questionnaires and kiosk content (post-V1, #82)
 

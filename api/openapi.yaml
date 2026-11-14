@@ -42,6 +42,30 @@ components:
   # Reusable parameters
   # -------------------------------------------------------------------------
   parameters:
+    TeamPatientID:
+      name: patientID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Whose care team (#111).
+    TeamMemberID:
+      name: memberID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: A provider on the care team (#111).
+    ProviderUserID:
+      name: userID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: A provider account in the admin's practice (#100).
     RequestID:
       name: requestID
       in: path
@@ -243,7 +267,7 @@ components:
           format: uuid
         role:
           type: string
-          enum: [provider, patient, admin]
+          enum: [provider, patient, admin, office]
         display_name: { type: string }
 
     LinkView:
@@ -361,6 +385,8 @@ components:
         created_at:
           type: string
           format: date-time
+        provider_name: { type: string, description: "In lists (#106)." }
+        patient_name: { type: string, description: "In lists (#106)." }
 
     PreferredTime:
       type: object
@@ -415,6 +441,10 @@ components:
       type: object
       required: [patient_id, starts_at, ends_at]
       properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: Required when the front desk or an admin books (#106); a provider always books for themself.
         patient_id:
           type: string
           format: uuid
@@ -568,7 +598,7 @@ components:
           enum: [active, totp_setup]
           description: totp_setup means the session can only set up TOTP.
         user_id: { type: string, format: uuid }
-        role: { type: string, enum: [provider, admin] }
+        role: { type: string, enum: [provider, office, admin] }
         display_name: { type: string }
         practice: { type: string }
         csrf_token: { type: string, description: Send as X-CSRF-Token on every change. }
@@ -580,6 +610,48 @@ components:
         secret: { type: string, description: "Base32, for manual entry." }
         otpauth_url: { type: string }
         qr_png: { type: string, format: byte }
+
+    StaffSetupRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, description: The token from the set-up link's URL fragment. }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+    CreateProviderRequest:
+      type: object
+      required: [display_name, email]
+      properties:
+        role: { type: string, enum: [provider, office], default: provider, description: "office = front desk (#106)." }
+        display_name: { type: string, maxLength: 200 }
+        email: { type: string, format: email, description: Their sign-in name. }
+    ProviderAccount:
+      type: object
+      required: [id, display_name, email, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [provider, office] }
+        status:
+          type: string
+          enum: [invited, invite_expired, totp_pending, active, disabled]
+          description: >
+            invited = a set-up link is open; invite_expired = it expired or
+            was cancelled; totp_pending = password set, authenticator not yet;
+            active = fully set up; disabled = cannot sign in.
+        created_at: { type: string, format: date-time }
+        disabled_at: { type: string, format: date-time }
+        invite_expires_at: { type: string, format: date-time }
+    ProviderInvite:
+      type: object
+      required: [provider, setup_url, expires_at]
+      properties:
+        provider:
+          $ref: "#/components/schemas/ProviderAccount"
+        setup_url:
+          type: string
+          description: Shown once. The single-use token is in the URL fragment.
+        expires_at: { type: string, format: date-time }
 
     ConversationView:
       type: object
@@ -593,6 +665,335 @@ components:
         last_at: { type: string, format: date-time }
         last_from_me: { type: boolean }
         unread_count: { type: integer }
+
+    SiteContent:
+      type: object
+      description: The practice website's content (#97). Practice information only, never patient data.
+      properties:
+        practice_name: { type: string, maxLength: 120 }
+        tagline: { type: string, maxLength: 200 }
+        about: { type: string, maxLength: 5000, description: "Paragraphs separated by blank lines." }
+        hours: { type: string, maxLength: 500 }
+        address: { type: string, maxLength: 300 }
+        phone: { type: string, maxLength: 40 }
+        email: { type: string, maxLength: 120 }
+        app_url: { type: string, description: "App Store link; https only." }
+        join: { type: string, maxLength: 2000, description: "Extra words for the Get the app page." }
+        logo_file: { type: string, description: "Filename of an uploaded image." }
+        theme:
+          type: string
+          enum: ["", sage, ocean, sunset, plum, clay, midnight]
+          description: "The website colour scheme (#104); empty means sage."
+        providers:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              credentials: { type: string }
+              bio: { type: string }
+              photo_file: { type: string }
+        services:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              description: { type: string }
+        podcasts:
+          $ref: "#/components/schemas/PodcastList"
+
+    PodcastList:
+      type: array
+      maxItems: 50
+      items:
+        type: object
+        required: [title, url]
+        properties:
+          title: { type: string }
+          url: { type: string, description: "https only." }
+          description: { type: string }
+
+    SiteFile:
+      type: object
+      required: [id, kind, title, filename, content_type, size, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [library, image] }
+        title: { type: string }
+        filename: { type: string, description: "Published as files/<filename>." }
+        content_type: { type: string }
+        size: { type: integer }
+        created_at: { type: string, format: date-time }
+
+    StaffProfile:
+      type: object
+      required: [display_name, credentials, bio, show_on_website, has_photo, role]
+      properties:
+        display_name: { type: string }
+        credentials: { type: string }
+        bio: { type: string }
+        show_on_website: { type: boolean }
+        has_photo: { type: boolean }
+        role: { type: string, enum: [provider, office, admin] }
+        updated_at: { type: string, format: date-time }
+    StaffProfileUpdate:
+      type: object
+      required: [display_name]
+      additionalProperties: false
+      properties:
+        display_name: { type: string, maxLength: 120 }
+        credentials: { type: string, maxLength: 120 }
+        bio: { type: string, maxLength: 3000 }
+        show_on_website: { type: boolean }
+    WebsiteProfile:
+      type: object
+      required: [name, credentials, has_photo]
+      properties:
+        name: { type: string }
+        credentials: { type: string }
+        has_photo: { type: boolean }
+
+    PracticeType:
+      type: object
+      required: [id, label, clinical, words]
+      properties:
+        id: { type: string, enum: [naturopath, therapy, allied_health, salon] }
+        label: { type: string }
+        clinical: { type: boolean, description: "false hides check-ins and health monitors." }
+        off:
+          type: array
+          items: { type: string }
+          description: Features this type starts with turned off (#109).
+        words:
+          type: object
+          required: [patient, patients, provider, providers]
+          description: Lower case; for example client, clients, stylist, stylists.
+          properties:
+            patient: { type: string }
+            patients: { type: string }
+            provider: { type: string }
+            providers: { type: string }
+    PracticeView:
+      type: object
+      required: [type, types, features, switches]
+      properties:
+        type: { $ref: "#/components/schemas/PracticeType" }
+        types:
+          type: array
+          items: { $ref: "#/components/schemas/PracticeType" }
+        features:
+          type: object
+          additionalProperties: { type: boolean }
+          description: "Effective switches (#109): the type's defaults with the admin's overrides."
+        switches:
+          type: array
+          description: The switches, in Settings order.
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: { type: string }
+              label: { type: string }
+
+    MessageSettings:
+      type: object
+      required: [mode, days, start_minute, end_minute, auto_reply]
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: ["on", hours, "off"] }
+        days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+          description: 0 = Sunday, office time.
+        start_minute: { type: integer, minimum: 0, maximum: 1439 }
+        end_minute: { type: integer, minimum: 1, maximum: 1440 }
+        auto_reply: { type: string, maxLength: 500, description: "Empty: a standard reply naming the hours." }
+
+    PracticeMessage:
+      type: object
+      required: [id, patient_id, author_id, author_name, from_patient, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid, description: Whose thread. }
+        author_id: { type: string, format: uuid }
+        author_name: { type: string, description: "The patient, or the staff member who answered for the practice." }
+        from_patient: { type: boolean }
+        body: { type: string }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    InboxConversation:
+      type: object
+      required: [patient_id, patient_name, last_body, last_at, last_from_patient, unread]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        last_body: { type: string }
+        last_at: { type: string, format: date-time }
+        last_from_patient: { type: boolean }
+        unread: { type: integer, description: "From the patient, not yet read by the practice." }
+
+    CareTeam:
+      type: object
+      required: [patient_id, patient_name, members]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        members:
+          type: array
+          items:
+            type: object
+            required: [member_id, name, status, include_history, invited_by, created_at]
+            properties:
+              member_id: { type: string, format: uuid }
+              name: { type: string }
+              status: { type: string, enum: [pending, active, removed] }
+              include_history: { type: boolean }
+              invited_by: { type: string, description: Name of who added or proposed them. }
+              created_at: { type: string, format: date-time }
+              approved_at: { type: string, format: date-time }
+              removed_at: { type: string, format: date-time }
+        reads:
+          type: array
+          description: "Patient only: who opened the thread, newest first (last 100)."
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              at: { type: string, format: date-time }
+        eligible:
+          type: array
+          description: Providers not on the team, who can be proposed or added (GET only).
+          items:
+            type: object
+            properties:
+              member_id: { type: string, format: uuid }
+              name: { type: string }
+    CareTeamSummary:
+      type: object
+      required: [patient_id, patient_name, my_status, active_members]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        my_status: { type: string, enum: [active, pending, none] }
+        active_members: { type: integer }
+        last_message_at: { type: string, format: date-time }
+    CareTeamMessage:
+      type: object
+      required: [id, author_id, author_name, from_patient, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        author_id: { type: string, format: uuid }
+        author_name: { type: string }
+        from_patient: { type: boolean }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
+
+    SitePost:
+      type: object
+      required: [id, title, body, image_file, author, draft, publish_at, status, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string, description: "Plain text; paragraphs separated by blank lines." }
+        image_file: { type: string, description: "An uploaded site image's filename, or empty." }
+        author: { type: string }
+        draft: { type: boolean }
+        publish_at: { type: string, format: date-time }
+        status: { type: string, enum: [draft, scheduled, live] }
+        updated_at: { type: string, format: date-time }
+    SitePostRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title: { type: string, maxLength: 200 }
+        body: { type: string, maxLength: 20000 }
+        image_file: { type: string, maxLength: 100 }
+        draft: { type: boolean, default: false }
+        publish_at: { type: string, format: date-time, description: "When it goes live; default now." }
+
+    SiteView:
+      type: object
+      required: [content, files, published_url]
+      properties:
+        content: { $ref: "#/components/schemas/SiteContent" }
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/SiteFile" }
+        updated_at: { type: string, format: date-time, nullable: true }
+        published_at: { type: string, format: date-time, nullable: true }
+        published_url: { type: string }
+        profiles:
+          type: array
+          description: Bios that come from staff profiles (#102); they replace a typed bio with the same name.
+          items: { $ref: "#/components/schemas/WebsiteProfile" }
+        themes:
+          type: array
+          description: The website themes to pick from (#104).
+          items:
+            type: object
+            required: [id, label, swatch]
+            properties:
+              id: { type: string }
+              label: { type: string }
+              swatch: { type: string, description: "The accent colour, for the picker." }
+
+    Product:
+      type: object
+      required: [id, sku, name, description, category, unit, price_cents, active, sort]
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        unit: { type: string, description: 'e.g. "60 capsules"' }
+        price_cents: { type: integer }
+        active: { type: boolean }
+        sort: { type: integer }
+
+    ProductRequest:
+      type: object
+      required: [sku, name, price_cents]
+      properties:
+        sku: { type: string, maxLength: 40 }
+        name: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        category: { type: string, maxLength: 60 }
+        unit: { type: string, maxLength: 60 }
+        price_cents: { type: integer, minimum: 0, maximum: 1000000 }
+        active: { type: boolean, default: true }
+        sort: { type: integer }
+
+    Order:
+      type: object
+      required: [id, patient_id, status, note, staff_note, total_cents, items, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string, description: "Staff on the office LAN only." }
+        status: { type: string, enum: [placed, ready, fulfilled, cancelled] }
+        note: { type: string, description: "The patient's." }
+        staff_note: { type: string, description: "From the practice; shown to the patient." }
+        total_cents: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            required: [product_id, name, unit, unit_price_cents, quantity]
+            properties:
+              product_id: { type: string, format: uuid }
+              name: { type: string, description: "As it was when ordered." }
+              unit: { type: string }
+              unit_price_cents: { type: integer }
+              quantity: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        closed_at: { type: string, format: date-time, nullable: true }
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -1140,8 +1541,10 @@ paths:
   /api/v1/appointments:
     post:
       tags: [appointments]
-      summary: Create an appointment (provider only)
+      summary: Create an appointment (staff)
       description: |
+        A provider books their own schedule; the front desk (office) and
+        admins book for the provider named in provider_id (#106).
         Requires an active provider-patient link. The provider cannot
         double-book — overlapping appointments are rejected with 409.
       requestBody:
@@ -1184,6 +1587,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/FromParam"
         - $ref: "#/components/parameters/ToParam"
+        - name: provider_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Front desk and admins only (#106), who otherwise see the whole practice.
       responses:
         "200":
           description: OK
@@ -1823,6 +2231,1084 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/v1/staff/setup:
+    post:
+      tags: [staff]
+      summary: Redeem a set-up link; set a password and start TOTP setup (#100)
+      description: >
+        The token comes from the set-up link an admin made (its URL
+        fragment). It works once, for 24 hours, on the office LAN. Sets a
+        session cookie that can only set up TOTP, as at a first sign-in.
+        Through the Relay this route is a 404.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffSetupRequest"
+      responses:
+        "200":
+          description: Password set; status totp_setup.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMe"
+        "400":
+          description: Password too short, or the link is invalid, used, replaced or expired (one answer for all).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers:
+    get:
+      tags: [staff]
+      summary: The practice's provider accounts (admins only, #100)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Provider accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderAccount"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [staff]
+      summary: Add a provider and get a single-use set-up link (admins only, #100)
+      description: >
+        Creates a provider account with no password. The set-up link is
+        returned only here; only its hash is stored. The provider sets their
+        own password and enrolls TOTP from it. Audited as staff.invite.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
+      responses:
+        "201":
+          description: Provider added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderInvite"
+        "400":
+          description: Missing name or invalid email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: That email already has an account in this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/invite:
+    post:
+      tags: [staff]
+      summary: Replace a provider's set-up link (admins only, #100)
+      description: >
+        For a link that expired or was lost. Cancels the old link. Only for
+        an account that hasn't set a password. Audited as staff.invite.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: New link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderInvite"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already set up, or disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/disable:
+    post:
+      tags: [staff]
+      summary: Disable a provider account (admins only, #100)
+      description: >
+        Ends their staff web sessions, revokes refresh tokens and cancels
+        open set-up links; sign-in and API calls are refused until enabled.
+        Nothing is deleted and paired devices stay paired. Audited as
+        staff.disable.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderAccount"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/enable:
+    post:
+      tags: [staff]
+      summary: Enable a disabled provider account (admins only, #100)
+      description: Audited as staff.enable. A provider who never set up their account needs a new set-up link.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderAccount"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Not disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile:
+    get:
+      tags: [staff]
+      summary: Your own profile, used for the website bio (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The signed-in staff member's profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Save your own profile (#102)
+      description: >
+        Name as shown (also the account's display name), credentials, bio and
+        whether the practice website shows you. The next website publish uses
+        it. Audited as staff.profile_update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffProfileUpdate"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "400":
+          description: Missing name, a field too long, or an unknown field.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile/photo:
+    get:
+      tags: [staff]
+      summary: Your own photo, for the preview (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404":
+          description: No photo, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Replace your own photo (#102)
+      description: >
+        The body is the image: PNG, JPEG or WebP, at most 2 MB, checked by
+        its content. Audited as staff.profile_update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "400":
+          description: Not a PNG, JPEG or WebP image, or over 2 MB.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [staff]
+      summary: Remove your own photo (#102)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffProfile"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice:
+    get:
+      tags: [practice]
+      summary: The practice type and its words (#108)
+      description: >
+        Any signed-in user, including the app through the Relay: it holds no
+        patient data. The words are what this practice calls the people it
+        serves and its staff; the API itself always says patient and provider.
+      responses:
+        "200":
+          description: The practice type, and the types to choose from.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [practice]
+      summary: Set the practice type (admins, office LAN only, #108)
+      description: Audited as practice.update. The website uses the new words at its next publish.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              additionalProperties: false
+              properties:
+                type: { type: string, enum: [naturopath, therapy, allied_health, salon] }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "400":
+          description: Unknown practice type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice/features:
+    put:
+      tags: [practice]
+      summary: Turn practice features on or off (admins, office LAN only, #109)
+      description: >
+        Only the switches sent change. A switched-off feature is hidden in the
+        staff web and the app, and the server refuses it with 409. Audited as
+        practice.features. Check-ins stay off for a practice type that isn't
+        clinical.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [features]
+              additionalProperties: false
+              properties:
+                features:
+                  type: object
+                  additionalProperties: { type: boolean }
+                  description: "Feature id to on (true) or off (false): messages, requests, reminders, checkins, video, store, library, website."
+      responses:
+        "200":
+          description: Saved; the effective switches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "400":
+          description: Unknown feature, or nothing sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile/messages:
+    get:
+      tags: [staff]
+      summary: Your own message mode (#109)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The settings (defaults if never set).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSettings"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Set how you take messages from patients (#109)
+      description: >
+        on: as usual. hours: messages arrive any time; outside the hours (office
+        time) the patient gets the automatic reply, at most once every 12 hours,
+        and you get no notification. off: patients can't message you (409).
+        Audited as staff.message_settings.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSettings"
+        "400":
+          description: Bad mode, days or hours, or the reply is too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox:
+    get:
+      tags: [practice]
+      summary: The practice inbox (#110)
+      description: >
+        A patient gets their own thread with the practice (any channel). The
+        front desk (office) and admins get the list of conversations, newest
+        first, on the office LAN only. Providers get 403. 409 when the
+        practice has messages off.
+      responses:
+        "200":
+          description: "Patient: {messages}. Front desk: {conversations}."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PracticeMessage" }
+                  conversations:
+                    type: array
+                    items: { $ref: "#/components/schemas/InboxConversation" }
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Messages are off for this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [practice]
+      summary: Write to the practice, or reply as the practice (#110)
+      description: >
+        A patient writes in their own thread. The front desk or an admin
+        replies in a patient's thread (patient_id required, LAN only), signed
+        with their name. Audited as practice_message.create. Pushes are generic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                patient_id: { type: string, format: uuid, description: Front desk only. }
+                body: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeMessage"
+        "400":
+          description: Empty or too long, or patient_id missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient, or the front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Messages are off for this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox/{patientID}:
+    get:
+      tags: [practice]
+      summary: One patient's thread with the practice (#110)
+      description: The front desk and admins (LAN), or the patient for their own.
+      parameters:
+        - name: patientID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The thread, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PracticeMessage" }
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Another patient's thread, or the front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox/read:
+    post:
+      tags: [practice]
+      summary: Mark the other side's messages read (#110)
+      description: A patient marks the practice's replies read; the front desk marks a patient's messages read (patient_id required).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: How many were marked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marked: { type: integer }
+        "400":
+          description: patient_id missing (front desk).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams:
+    get:
+      tags: [care-teams]
+      summary: Your care teams (#111)
+      description: >
+        A provider gets the teams they are on or invited to, and their linked
+        patients they could join (my_status none). A patient gets their own
+        team, with who has read the thread. The front desk and admins get 403.
+        409 when care teams or messages are off for the practice.
+      responses:
+        "200":
+          description: "Provider: {teams}. Patient: a CareTeam."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/CareTeam"
+                  - type: object
+                    required: [teams]
+                    properties:
+                      teams:
+                        type: array
+                        items: { $ref: "#/components/schemas/CareTeamSummary" }
+        "403":
+          description: Not a provider or patient.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}:
+    get:
+      tags: [care-teams]
+      summary: A patient's care team (#111)
+      description: The patient, a member, an invited provider, or a provider with an active link. The patient also gets the read log.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      responses:
+        "200":
+          description: The team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: No access.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members:
+    post:
+      tags: [care-teams]
+      summary: Add or propose a provider (#111)
+      description: >
+        The patient adds a provider at once (care_team.add). A member or a
+        linked provider proposes one, who waits for the patient's approval
+        (care_team.propose). include_history lets them see messages from
+        before they joined.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [member_id]
+              properties:
+                member_id: { type: string, format: uuid }
+                include_history: { type: boolean, default: false }
+      responses:
+        "201":
+          description: Added or proposed; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "400":
+          description: Not a provider of this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No access.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already on the team or waiting, or care teams are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}/approve:
+    post:
+      tags: [care-teams]
+      summary: The patient approves a proposed provider (#111)
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Approved; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: Not the patient, or no such pending member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}/decline:
+    post:
+      tags: [care-teams]
+      summary: The patient declines a proposed provider (#111)
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Declined; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: Not the patient, or no such pending member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}:
+    delete:
+      tags: [care-teams]
+      summary: Remove a member, or leave (#111)
+      description: The patient removes anyone; a member can only remove themselves. A removed member sees nothing of the thread, past or future.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Removed; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "403":
+          description: A member removing someone else.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No access, or no such member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/messages:
+    get:
+      tags: [care-teams]
+      summary: The shared thread (#111)
+      description: >
+        The patient or an active member, oldest first. A member sees messages
+        from before they joined only with include_history. Each member's read
+        is audited as care_team.read and shown to the patient.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      responses:
+        "200":
+          description: The thread.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/CareTeamMessage" }
+        "404":
+          description: Not the patient or an active member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [care-teams]
+      summary: Write to the shared thread (#111)
+      description: The patient or an active member. Audited as care_team_message.create; everyone else on the team gets a generic push.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeamMessage"
+        "400":
+          description: Empty or too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not the patient or an active member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/site/posts:
+    get:
+      tags: [site]
+      summary: Blog posts, newest first (staff, office LAN only, #121)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Every post with its status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [posts]
+                properties:
+                  posts:
+                    type: array
+                    items: { $ref: "#/components/schemas/SitePost" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [site]
+      summary: Write a blog post (staff, office LAN only, #121)
+      description: >
+        Goes on the website at publish_at (default now) unless it is a draft.
+        Once the site has been published, the Back Office republishes it by
+        itself within a minute of a post coming due. Audited as site_post.create.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitePostRequest"
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "400":
+          description: Missing title or text, too long, or a bad date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/site/posts/{postID}:
+    put:
+      tags: [site]
+      summary: Edit a blog post (staff, office LAN only, #121)
+      description: Audited as site_post.update.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: postID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SitePostRequest"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "400":
+          description: Missing title or text, too long, or a bad date.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such post, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [site]
+      summary: Delete a blog post (staff, office LAN only, #121)
+      description: Practice content, not a record. The site drops it at the next publish. Audited as site_post.delete.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: postID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+        "404":
+          description: No such post, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/v1/devices/current/push:
     put:
       tags: [devices]
@@ -1869,3 +3355,395 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  # -------------------------------------------------------------------------
+  # Practice website, library and supply store (#97)
+  # -------------------------------------------------------------------------
+  /api/v1/site:
+    get:
+      tags: [site]
+      summary: The website content and uploaded files (staff, office LAN only)
+      description: Before anything is saved, starter content naming the practice.
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      responses:
+        "200":
+          description: Content and files.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteView" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    put:
+      tags: [site]
+      summary: Save the website content (staff, office LAN only)
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteContent" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content: { $ref: "#/components/schemas/SiteContent" }
+        "400":
+          description: Too long, or a link that isn't https.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/site/files:
+    post:
+      tags: [site]
+      summary: Upload a library download or an image (staff, office LAN only)
+      description: >
+        PDF, PNG, JPEG, WebP, ICO or plain text, at most 10 MB. The contents
+        must match the extension. Library files are published at
+        files/<filename> and listed in the app's library.
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [kind, file]
+              properties:
+                kind: { type: string, enum: [library, image] }
+                title: { type: string, maxLength: 200 }
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteFile" }
+        "400":
+          description: Wrong type, too large, or contents don't match.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: A file with that name exists.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/site/files/{fileID}:
+    delete:
+      tags: [site]
+      summary: Delete an upload (staff, office LAN only)
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      parameters:
+        - name: fileID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Deleted. Publish again to take it off the site.
+        "404":
+          description: No such file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/site/publish:
+    post:
+      tags: [site]
+      summary: Render the site and publish it to the Relay (staff, office LAN only)
+      description: >
+        Renders the pages from the website content, uploads and active
+        products (never a patient table) and streams them to the Relay over
+        the office's SSH connection. The Relay serves them read-only at
+        /s/<office-id>/. Audited as site.publish.
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      responses:
+        "200":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, files, bytes]
+                properties:
+                  url: { type: string }
+                  files: { type: integer }
+                  bytes: { type: integer }
+        "502":
+          description: The Relay refused the site.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: Not connected to a Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/library:
+    get:
+      tags: [site]
+      summary: Podcast links and downloads for the app
+      responses:
+        "200":
+          description: The library.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [podcasts, files, site_url]
+                properties:
+                  podcasts: { $ref: "#/components/schemas/PodcastList" }
+                  files:
+                    type: array
+                    items: { $ref: "#/components/schemas/SiteFile" }
+                  site_url: { type: string, description: "The published site, or empty." }
+
+  /api/v1/library/files/{fileID}:
+    get:
+      tags: [site]
+      summary: Download one library file through the pinned connection
+      parameters:
+        - name: fileID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The file.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            text/plain:
+              schema: { type: string }
+        "404":
+          description: No such library file.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/store/products:
+    get:
+      tags: [store]
+      summary: The supply catalogue
+      description: Active products for patients; every product for staff on the office LAN.
+      responses:
+        "200":
+          description: Products, by category.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [products, payment]
+                properties:
+                  products:
+                    type: array
+                    items: { $ref: "#/components/schemas/Product" }
+                  payment: { type: string, example: "Pay at pickup or by invoice." }
+    post:
+      tags: [store]
+      summary: Add a product (staff, office LAN only)
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductRequest" }
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "409":
+          description: SKU taken.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/store/products/{productID}:
+    put:
+      tags: [store]
+      summary: Change a product (staff, office LAN only)
+      description: Orders already placed keep the name and price they were placed with.
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      parameters:
+        - name: productID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductRequest" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "404":
+          description: No such product.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/store/products/demo:
+    post:
+      tags: [store]
+      summary: Load the ten demo products (staff, office LAN only)
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      responses:
+        "200":
+          description: How many were added (existing SKUs are skipped).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added: { type: integer }
+
+  /api/v1/orders:
+    post:
+      tags: [store]
+      summary: Place a supply order (patients, in the app)
+      description: >
+        1 to 20 active products, 1 to 20 of each, and at most 5 orders in
+        progress. Payment is at pickup or by invoice. Audited as order.create.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1, maximum: 20 }
+                note: { type: string, maxLength: 500 }
+      responses:
+        "201":
+          description: Placed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400":
+          description: Bad quantities or a product that isn't available.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not a patient.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Too many orders in progress.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    get:
+      tags: [store]
+      summary: Orders, newest first
+      description: >
+        A patient's own orders; for staff on the office LAN, every order with
+        the patient's name. Staff get 404 through the Relay.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [placed, ready, fulfilled, cancelled] }
+      responses:
+        "200":
+          description: Orders.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders]
+                properties:
+                  orders:
+                    type: array
+                    items: { $ref: "#/components/schemas/Order" }
+
+  /api/v1/orders/{orderID}/cancel:
+    post:
+      tags: [store]
+      summary: Cancel your own order while it is still placed (patients)
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404":
+          description: No such order of the caller's.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Already ready, fulfilled or cancelled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/orders/{orderID}/status:
+    post:
+      tags: [store]
+      summary: Move an order on (staff, office LAN only)
+      description: >
+        placed → ready, fulfilled or cancelled; ready → fulfilled, cancelled
+        or back to placed. Audited, and the patient's devices get the generic
+        order_update push.
+      security: [{ bearerAuth: [] }, { staffCookie: [] }]
+      parameters:
+        - name: orderID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [placed, ready, fulfilled, cancelled] }
+                note: { type: string, maxLength: 500, description: "Shown to the patient." }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "409":
+          description: Not a move allowed from the current status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }

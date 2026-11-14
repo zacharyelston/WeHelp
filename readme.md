@@ -1,9 +1,33 @@
 # WeHelp
 
+### Built by providers, for providers.
+
+<a href="https://zacharyelston.github.io/WeHelp/#5"><img src="presentation/img/ecosystem.svg" alt="The WeHelp ecosystem: in the practice, a mini PC Back Office holds all patient data and a front desk laptop uses it over the office Wi-Fi; the patient app pairs by scanning a QR code shown at the front desk; the app talks to the Back Office through WeHelp's Relay, which only sees encrypted traffic; all patient data stays in the Back Office; the Registry lists practices; the Relay serves each practice's website and blog." width="100%"></a>
+
+We have spent the last 30 years in healthcare services technology and patient
+services, and licensed providers sit on our board of directors and shape what
+we build.
+
 Open source software suite for healthcare providers — the backend they want and
 deserve. Providers and patients connect, share health data, schedule visits,
 exchange memos and check-ins, and sync readings from Bluetooth health
-monitors. **For providers and patients, by providers and patients.**
+monitors.
+
+<table>
+  <tr>
+    <td width="44%"><a href="https://zacharyelston.github.io/WeHelp/#8"><img src="presentation/img/08-provider-appointments.png" alt="Staff web: a provider's appointments and appointment requests"></a></td>
+    <td width="18%"><a href="https://zacharyelston.github.io/WeHelp/#6"><img src="presentation/img/app-schedule.png" alt="The WeHelp iPhone app's Schedule screen"></a></td>
+    <td width="38%"><a href="https://zacharyelston.github.io/WeHelp/#14"><img src="presentation/img/s01-site-home-ocean.png" alt="A practice website made with WeHelp, in the ocean theme"></a></td>
+  </tr>
+  <tr>
+    <td align="center">Staff web: the provider's day</td>
+    <td align="center">iPhone app</td>
+    <td align="center">Practice website, six themes</td>
+  </tr>
+</table>
+
+**[See the full presentation →](https://zacharyelston.github.io/WeHelp/)**
+Who we are, how it works, the product screen by screen, security, getting started and where the build stands.
 
 Designed to run on an appliance PC in a provider's office (one Go binary +
 Postgres, ~500 patients per practice). A cloud-hosted tier runs the same

@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeHelp: telehealth that stays in the practice</title>
+<meta name="description" content="WeHelp: appointments, messages, video visits, a website and a supply store for small practices, with patient records kept in the practice's own office.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+* { margin: 0; box-sizing: border-box; }
+html, body { height: 100%; background: #0b1b28; overflow: hidden; }
+#stage { position: fixed; left: 50%; top: 50%; width: 1920px; height: 1080px; transform-origin: 0 0; }
+#stage > section { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: none; }
+#stage > section.on { display: flex; }
+.dot { display: inline-block; flex: none; width: 18px; height: 18px; border-radius: 50%; background: currentColor; margin-top: 12px; }
+.point .dot { color: var(--accent); }
+section.dark .point .dot { color: #7CC3F0; }
+#bar { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+  font: 14px 'DM Sans', Arial, sans-serif; color: #cfe0ec; background: rgba(8, 20, 30, 0.7); padding: 6px 12px; border-radius: 999px; }
+#bar button { font: inherit; color: inherit; background: none; border: 1px solid #47657c; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+#bar a { color: inherit; }
+#stage table { border-collapse: collapse; width: 100%; } #stage th, #stage td { text-align: left; padding: 0.35em 0.6em; border-bottom: 1px solid rgba(127,127,127,0.35); } #stage th { font-weight: 700; }
+@media print { html, body { overflow: visible; background: #fff; } #stage { position: static; transform: none !important; }
+  #stage > section { position: relative; display: flex !important; page-break-after: always; } #bar { display: none; } }
+</style>
+<style>
+/* WeHelp deck: ocean palette from the product's website theme. */
+:root {
+  --ink: #10283A;
+  --paper: #F4F7FA;
+  --white: #FBFCFD;
+  --accent: #1C6EA4;
+  --accent-soft: #DCEAF4;
+  --warm: #C4552D;
+  --muted: #4A5B6B;
+  --muted-dark: #B9CDDC;
+  --line: #D6E4EE;
+}
+body { font-family: 'DM Sans', Arial, sans-serif; color: var(--ink); }
+section { counter-increment: page; padding: 128px 128px 160px; display: flex; flex-direction: column; gap: 32px; box-sizing: border-box; }
+section.light { background: var(--paper); color: var(--ink); }
+section.white { background: var(--white); color: var(--ink); }
+section.dark { background: var(--ink); color: #EAF1F6; }
+section.accent { background: var(--accent); color: #F7FBFD; }
+
+h1 { font-size: 112px; font-weight: 700; line-height: 1.05; letter-spacing: -2px; }
+h2 { font-size: 72px; font-weight: 700; line-height: 1.1; letter-spacing: -1px; }
+h3 { font-size: 36px; font-weight: 700; line-height: 1.2; }
+p { font-size: 28px; line-height: 1.45; }
+.eyebrow { font-size: 26px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); }
+section.dark .eyebrow { color: #7CC3F0; }
+section.accent .eyebrow { color: #F7FBFD; }
+.lede { font-size: 34px; line-height: 1.4; color: var(--muted); }
+section.dark .lede { color: var(--muted-dark); }
+section.accent .lede { color: #E4F0F8; }
+.small { font-size: 24px; color: var(--muted); }
+section.dark .small { color: var(--muted-dark); }
+
+.row { display: flex; flex-direction: row; gap: 48px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 24px; }
+.grow { flex: 1; }
+.center { align-items: center; }
+
+.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+.cards.two { grid-template-columns: 1fr 1fr; }
+.cards.tight { gap: 24px; }
+.cards.tight .card { padding: 26px 30px; gap: 10px; }
+.card { color: var(--ink); background: var(--white); border: 1px solid var(--line); border-top: 6px solid var(--accent); border-radius: 20px; padding: 36px; display: flex; flex-direction: column; gap: 16px; }
+.card .body { font-size: 26px; line-height: 1.45; color: var(--muted); }
+section.dark .card { color: #EAF1F6; background: #18374D; border-color: #2A4C66; border-top-color: #7CC3F0; }
+section.dark .card .body { color: var(--muted-dark); }
+.card .num { font-size: 26px; font-weight: 700; color: var(--accent); }
+section.dark .card .num { color: #7CC3F0; }
+
+.shot { border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(16, 40, 58, 0.18); background: #ffffff; object-fit: contain; }
+.phone { border-radius: 44px; border: 8px solid #10283A; box-shadow: 0 24px 60px rgba(16, 40, 58, 0.25); object-fit: cover; background: #ffffff; }
+.caption { font-size: 24px; color: var(--muted); text-align: center; }
+
+.points { display: flex; flex-direction: column; gap: 22px; }
+.point { display: flex; flex-direction: row; gap: 18px; align-items: flex-start; }
+.point x-icon { width: 36px; height: 36px; color: var(--accent); }
+section.dark .point x-icon { color: #7CC3F0; }
+.point p { font-size: 28px; line-height: 1.4; }
+
+.tag { font-size: 24px; font-weight: 700; padding: 6px 18px; border-radius: 999px; background: var(--accent-soft); color: #15598A; }
+.tag.warm { background: #FBE8DB; color: #8A3518; }
+.ph { color: var(--warm); font-weight: 700; }
+section.dark .ph, section.accent .ph { color: #FFD3BD; }
+section .card .ph { color: #A8441F; }
+section.dark .card .ph { color: #FFD3BD; }
+
+.foot { position: absolute; left: 128px; bottom: 64px; width: 1664px; display: flex; flex-direction: row; justify-content: space-between; }
+.foot p { font-size: 24px; color: var(--muted); }
+.foot .pg::before { content: counter(page); }
+section.dark .foot p { color: var(--muted-dark); }
+section.accent .foot p { color: #E4F0F8; }
+
+.box { background: var(--white); border: 2px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+section.dark .box { background: #18374D; border-color: #2A4C66; }
+.box.hot { border-color: #7CC3F0; background: #1D4A68; }
+.box h3 { font-size: 34px; }
+.box .body { font-size: 24px; line-height: 1.4; color: var(--muted-dark); }
+
+.rise { animation: rise 600ms ease-out both; animation-delay: calc(var(--i, 0) * 120ms); }
+@keyframes rise { from { opacity: 0; transform: translate(0, 24px); } to { opacity: 1; transform: translate(0, 0); } }
+
+</style>
+</head>
+<body>
+<main id="stage">
+<section id="cover" class="dark" data-transition="fade">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col grow" style="gap:32px">
+<p class="eyebrow">WeHelp · Built by providers, for providers</p>
+<h1>Telehealth that stays in the practice</h1>
+<p class="lede">Appointments, messages, video visits, a website and a supply store for small practices, with every patient record kept on a computer in the practice’s own office.</p>
+<div class="row" style="gap:16px"><p class="tag">iPhone and iPad app</p><p class="tag">Staff web</p><p class="tag">Practice website</p></div>
+</div>
+<div class="row rise" style="gap:28px; --i:2">
+<img class="phone" src="img/app-schedule.png" alt="The WeHelp app's Schedule screen with upcoming and past visits" style="width:300px; height:652px">
+<img class="phone" src="img/m01-site-home-ocean.png" alt="A practice website made with WeHelp, on a phone, in the ocean theme" style="width:300px; height:652px">
+</div>
+</div>
+<div class="foot"><p>WeHelp · November 2026</p><p>github.com/zacharyelston/WeHelp</p></div>
+
+</section>
+
+<section id="who" class="accent">
+<p class="eyebrow">Who we are</p>
+<h2>Built by providers, for providers</h2>
+<div class="cards">
+<div class="card rise" style="--i:0"><p class="num">30 years</p><h3>In healthcare services technology</h3><p class="body">Three decades building healthcare services technology and patient services.</p></div>
+<div class="card rise" style="--i:1"><p class="num">Our board</p><h3>Licensed providers</h3><p class="body">Licensed providers sit on our board of directors and shape what we build.</p></div>
+<div class="card rise" style="--i:2"><p class="num">What it changes</p><h3>Software that respects the visit</h3><p class="body">Providers choose when they take messages, records stay in the practice, and patients never have a password to forget.</p></div>
+</div>
+<p class="lede">WeHelp is made by people who know patient services, for the people who see patients.</p>
+<div class="foot"><p>WeHelp</p><p>2</p></div>
+
+</section>
+
+<section id="problem" class="light">
+<p class="eyebrow">The problem</p>
+<h2>Small practices rent their patients’ records back from someone else’s cloud</h2>
+<div class="cards" style="margin-top:24px">
+<div class="card rise" style="--i:0"><h3>Data held elsewhere</h3><p class="body">Patient portals and telehealth tools keep records on the vendor’s servers. The practice owns the relationship but not the copy.</p></div>
+<div class="card rise" style="--i:1"><h3>Five tools for one visit</h3><p class="body">A website, a booking tool, a messaging app, a video service and an online shop, each with its own login and bill.</p></div>
+<div class="card rise" style="--i:2"><h3>Compliance on a tiny team</h3><p class="body">A three-person office has the same privacy duties as a hospital, without an IT department to meet them.</p></div>
+</div>
+<div class="foot"><p>WeHelp</p><p>3</p></div>
+
+</section>
+
+<section id="solution" class="white">
+<p class="eyebrow">What WeHelp is</p>
+<h2>One app for patients. One small server in the office.</h2>
+<div class="cards" style="margin-top:24px">
+<div class="card rise" style="--i:0"><p class="num">The WeHelp app</p><h3>iPhone and iPad</h3><p class="body">Patients book, message, join video visits and order supplies. Providers use the same app for their day, at the office or away.</p></div>
+<div class="card rise" style="--i:1"><p class="num">The Back Office</p><h3>A Mac mini in the practice</h3><p class="body">Holds every patient record, the schedule and the audit trail. The team works in a staff web on the office network.</p></div>
+<div class="card rise" style="--i:2"><p class="num">WeHelp services</p><h3>Relay and Registry</h3><p class="body">We run the parts that connect phones, host the practice website and send notifications. They never hold patient data.</p></div>
+</div>
+<div class="foot"><p>WeHelp</p><p>4</p></div>
+
+</section>
+
+<section id="architecture" class="dark">
+<p class="eyebrow">How it works</p>
+<h2>Patient data lives only in the practice</h2>
+<div style="position:relative; width:1664px; height:520px">
+<div style="position:absolute; left:1236px; top:40px; width:424px; height:476px; border:2px dashed #F4A07C; border-radius:24px"></div>
+<p class="small" style="position:absolute; left:1264px; top:52px; width:372px; color:#F4A07C; letter-spacing:0.12em; font-weight:700">THE PRACTICE</p>
+<div class="box" style="position:absolute; left:632px; top:0; width:400px; padding:18px 28px"><h3 style="font-size:30px">Registry</h3></div>
+<p class="small" style="position:absolute; left:100px; top:20px; width:500px; text-align:right">Which practices exist. No patient data.</p>
+<div class="box" style="position:absolute; left:0; top:100px; width:400px; height:180px"><h3>WeHelp app</h3><p class="body">Device key in the iPhone’s Secure Enclave.</p></div>
+<div class="box" style="position:absolute; left:632px; top:100px; width:400px; height:180px"><h3>Relay</h3><p class="body">Run by WeHelp. Sees only encrypted traffic.</p></div>
+<div class="box hot" style="position:absolute; left:1264px; top:100px; width:372px; height:180px"><h3>Back Office</h3><p class="body">Mini PC appliance. All patient data.</p></div>
+<div class="box" style="position:absolute; left:1264px; top:340px; width:372px; height:160px"><h3>Front desk</h3><p class="body">Laptop on the office Wi‑Fi. Shows the pairing QR.</p></div>
+<div class="box hot" style="position:absolute; left:532px; top:340px; width:600px; height:180px; flex-direction:row; align-items:center; gap:24px">
+<svg aria-label="A QR code" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" rx="6" fill="#F7FBFD"/><g fill="#10283A"><rect x="8" y="8" width="24" height="24"/><rect x="64" y="8" width="24" height="24"/><rect x="8" y="64" width="24" height="24"/></g><g fill="#F7FBFD"><rect x="12" y="12" width="16" height="16"/><rect x="68" y="12" width="16" height="16"/><rect x="12" y="68" width="16" height="16"/></g><g fill="#10283A"><rect x="16" y="16" width="8" height="8"/><rect x="72" y="16" width="8" height="8"/><rect x="16" y="72" width="8" height="8"/><rect x="40" y="8" width="6" height="6"/><rect x="50" y="14" width="6" height="6"/><rect x="40" y="24" width="6" height="6"/><rect x="40" y="40" width="6" height="6"/><rect x="50" y="40" width="6" height="6"/><rect x="62" y="44" width="6" height="6"/><rect x="74" y="40" width="6" height="6"/><rect x="84" y="50" width="6" height="6"/><rect x="8" y="42" width="6" height="6"/><rect x="20" y="48" width="6" height="6"/><rect x="30" y="40" width="6" height="6"/><rect x="44" y="52" width="6" height="6"/><rect x="56" y="58" width="6" height="6"/><rect x="40" y="64" width="6" height="6"/><rect x="50" y="74" width="6" height="6"/><rect x="40" y="84" width="6" height="6"/><rect x="64" y="64" width="6" height="6"/><rect x="74" y="70" width="6" height="6"/><rect x="84" y="62" width="6" height="6"/><rect x="66" y="80" width="6" height="6"/><rect x="80" y="84" width="6" height="6"/></g></svg>
+<div class="col" style="gap:8px; width:420px"><h3>QR pairing</h3><p class="body">One scan at the front desk ties this phone to this office.</p></div>
+</div>
+<svg style="position:absolute;left:388px;top:178px" width="256" height="24" aria-hidden="true"><line x1="12" y1="12" x2="244" y2="12" stroke="#7CC3F0" stroke-width="4"/><polygon points="244,12 229.59284636235716,18.959448545779683 229.59284636235716,5.040551454220316" fill="#7CC3F0"/></svg>
+<svg style="position:absolute;left:1020px;top:178px" width="256" height="24" aria-hidden="true"><line x1="244" y1="12" x2="12" y2="12" stroke="#7CC3F0" stroke-width="4"/><polygon points="12,12 26.40715363764283,5.040551454220313 26.40715363764283,18.959448545779686" fill="#7CC3F0"/></svg>
+<svg style="position:absolute;left:820px;top:64px" width="24" height="48" aria-hidden="true"><line x1="12" y1="12" x2="12" y2="36" stroke="#B9CDDC" stroke-width="4"/><polygon points="12,36 5.040551454220316,21.59284636235717 18.959448545779686,21.59284636235717" fill="#B9CDDC"/></svg>
+<svg style="position:absolute;left:1438px;top:268px" width="24" height="84" aria-hidden="true"><line x1="12" y1="72" x2="12" y2="12" stroke="#7CC3F0" stroke-width="4"/><polygon points="12,12 18.959448545779686,26.40715363764283 5.040551454220316,26.40715363764283" fill="#7CC3F0"/></svg>
+<svg style="position:absolute;left:188px;top:268px" width="356" height="174" aria-hidden="true"><line x1="12" y1="12" x2="344" y2="162" stroke="#F4A07C" stroke-width="4"/><polygon points="344,162 328.0052607106774,162.41026219250642 333.73614120247356,149.72591337066422" fill="#F4A07C"/></svg>
+<svg style="position:absolute;left:1120px;top:418px" width="156" height="24" aria-hidden="true"><line x1="144" y1="12" x2="12" y2="12" stroke="#F4A07C" stroke-width="4"/><polygon points="12,12 26.40715363764283,5.040551454220313 26.40715363764283,18.959448545779686" fill="#F4A07C"/></svg>
+<p class="small" style="position:absolute; left:400px; top:204px; width:232px; text-align:center">pinned TLS</p>
+<p class="small" style="position:absolute; left:1032px; top:204px; width:232px; text-align:center">outbound SSH</p>
+<p class="small" style="position:absolute; left:1466px; top:292px; width:180px">office Wi‑Fi</p>
+<p class="small" style="position:absolute; left:0; top:440px; width:500px; text-align:right; color:#F4A07C">the phone’s device key</p>
+</div>
+<p class="lede">No passwords and no open ports: the phone’s encryption ends in the office, not at WeHelp.</p>
+<div class="foot"><p>WeHelp</p><p>5</p></div>
+
+</section>
+
+<section id="patient-app" class="light">
+<div class="row" style="gap:72px; align-items:center; flex:1">
+<div class="col" style="width:620px; gap:28px">
+<p class="eyebrow">The patient app</p>
+<h2>Paired at the front desk. No password, ever.</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p>The front desk shows a QR code. The patient scans it once, and a key in the iPhone’s Secure Enclave becomes their sign-in.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Face ID opens the app. A lost phone is revoked from the staff web.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>One app for several practices, and for providers too.</p></div>
+</div>
+</div>
+<div class="row" style="gap:28px">
+<div class="col center rise" style="gap:16px; --i:0"><img class="phone" src="img/app-welcome.png" alt="WeHelp welcome screen with a Pair with your practice button" style="width:270px; height:587px"><p class="caption">Pair</p></div>
+<div class="col center rise" style="gap:16px; --i:1"><img class="phone" src="img/app-today.png" alt="Today screen with daily check-in, weight reminder and health monitor sync" style="width:270px; height:587px"><p class="caption">Today</p></div>
+<div class="col center rise" style="gap:16px; --i:2"><img class="phone" src="img/app-schedule.png" alt="Schedule screen listing upcoming, cancelled, missed and completed visits" style="width:270px; height:587px"><p class="caption">Schedule</p></div>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>6</p></div>
+
+</section>
+
+<section id="video" class="white">
+<div class="row" style="gap:72px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">Video visits</p>
+<h2>Encrypted end to end, through WeHelp’s own relay</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Media is encrypted between the two devices (DTLS-SRTP). The relay forwards packets it cannot decode.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Works on any network, relay-only, so no one learns a patient’s home IP address.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Proven iPhone to iPad: HD (1280×720) on one call, two calls at once on an iPad.</p></div>
+</div>
+<p class="small">Engineering test, November 2026. The visit screen in the app is in progress.</p>
+</div>
+<img class="shot rise" src="img/video-proof.png" alt="Engineering test: two encrypted video calls between an iPad and an iPhone through the WeHelp relay, both connected" style="width:500px; height:720px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>7</p></div>
+
+</section>
+
+<section id="schedule" class="light">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:520px; gap:28px">
+<p class="eyebrow">The staff web</p>
+<h2>The day, in one place</h2>
+<p class="lede">Patients ask for a visit with their preferred times. Providers confirm or decline in a click, and WeHelp sends the reminders.</p>
+<div class="row" style="gap:12px"><p class="tag">Requests</p><p class="tag">Reminders</p><p class="tag">Check-ins</p></div>
+</div>
+<img class="shot rise" src="img/08-provider-appointments.png" alt="Staff web Appointments tab: an appointment request from Luis Ortega, the schedule form and a week of visits" style="width:1080px; height:760px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>8</p></div>
+
+</section>
+
+<section id="front-desk" class="white">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">The front desk</p>
+<h2>The front desk runs the whole day</h2>
+<p class="lede">Every provider’s schedule and requests in one place. The front desk books for anyone, confirms requests, works orders and pairs phones, without reading anyone’s messages.</p>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Provider</b>: their own patients, day and messages.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Front desk</b>: the whole practice’s schedule, no staff setup.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Admin</b>: everything, plus staff accounts and settings.</p></div>
+</div>
+</div>
+<img class="shot rise" src="img/n-desk-appointments.png" alt="The front desk's Appointments tab: requests for any provider, a provider picker, and every provider's visits" style="width:680px; height:764px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>9</p></div>
+
+</section>
+
+<section id="messages" class="white">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<img class="shot rise" src="img/09-provider-messages.png" alt="Staff web Messages tab: conversations list and a thread with Maya Patel including an appointment reminder" style="width:1080px; height:675px; --i:0">
+<div class="col" style="width:520px; gap:28px">
+<p class="eyebrow">Messages</p>
+<h2>Secure messaging between visits</h2>
+<p class="lede">Patients message their care team from the app. Staff answer from the web or an iPad. Reminders land in the same thread.</p>
+<p class="small">Notifications say only “new message”: never a name or a word of the content.</p>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>10</p></div>
+
+</section>
+
+<section id="inbox" class="light">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<img class="shot rise" src="img/n-inbox.png" alt="The practice inbox: patients' questions to the practice and a reply signed by the front desk" style="width:860px; height:806px; --i:0">
+<div class="col" style="width:740px; gap:28px">
+<p class="eyebrow">Practice inbox</p>
+<h2>Patients can message the practice</h2>
+<p class="lede">Bookings, orders and directions go to a practice inbox. The front desk answers, signed with their name.</p>
+<p class="small">Providers keep their own threads, and the front desk never reads them. A salon uses the inbox as its main line to clients.</p>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>11</p></div>
+
+</section>
+
+<section id="care-teams" class="white">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">Care teams</p>
+<h2>Continuity of care, with the patient’s permission</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p>A patient chooses which providers share one thread with them. A colleague joins only when the patient approves.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>New members see earlier messages only if the patient allows it. Removing someone takes the history too.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Every read is recorded, and the patient can see who read their thread and when.</p></div>
+</div>
+</div>
+<img class="shot rise" src="img/n-careteam.png" alt="A provider's Care teams tab: Maya Patel's team, one colleague waiting for approval, and the shared thread" style="width:800px; height:750px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>12</p></div>
+
+</section>
+
+<section id="store" class="light">
+<p class="eyebrow">Supply store</p>
+<h2>Supplements and supplies, ordered in the app</h2>
+<div class="row" style="gap:48px; align-items:flex-start">
+<div class="col rise" style="gap:16px; --i:0"><img class="shot" src="img/04-admin-orders.png" alt="Staff web Orders tab with two supply orders, one placed and one ready" style="width:672px; height:420px"><p class="caption">The front desk works the orders</p></div>
+<div class="col rise" style="gap:16px; --i:1"><img class="shot" src="img/s03-site-store-sunset.png" alt="The practice website's supply store page in the sunset theme" style="width:672px; height:420px"><p class="caption">The catalogue on the practice website</p></div>
+</div>
+<p class="lede">Patients order in the app and pay at pickup or by invoice. A status change notifies their phone. The website shows the catalogue but takes no orders, so no patient data goes public.</p>
+<div class="foot"><p>WeHelp</p><p>13</p></div>
+
+</section>
+
+<section id="website" class="dark">
+<div class="row" style="gap:56px; align-items:center; flex:1">
+<div class="col" style="width:560px; gap:28px">
+<p class="eyebrow">Practice website</p>
+<h2>A website in minutes, in six themes</h2>
+<p class="lede">Home, team, services, a library, the supply store and “get the app and join”. Staff edit it in the Website tab and publish with one button.</p>
+<p class="small">Served by WeHelp’s Relay. No sign-in, no forms, no tracking, no patient data.</p>
+</div>
+<div style="position:relative; width:1048px; height:760px">
+<img class="shot rise" src="img/s01-site-home-ocean.png" alt="Harbor Wellness Clinic website home page in the ocean theme" style="position:absolute; left:0; top:0; width:880px; height:550px; --i:0">
+<img class="shot rise" src="img/s05-site-home-midnight.png" alt="The same website in the midnight dark theme" style="position:absolute; left:168px; top:300px; width:720px; height:450px; --i:1">
+<img class="phone rise" src="img/m02-site-team-sunset.png" alt="The team page on a phone in the sunset theme" style="position:absolute; left:820px; top:150px; width:228px; height:494px; --i:2">
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>14</p></div>
+
+</section>
+
+<section id="blog" class="light">
+<div class="row" style="gap:56px; align-items:center; flex:1">
+<div class="col" style="width:560px; gap:28px">
+<p class="eyebrow">Blog</p>
+<h2>Timely posts that publish themselves</h2>
+<p class="lede">Flu season, holiday hours, a new service, a tip of the day. Staff write a post, pick when it goes live, and the website updates on its own.</p>
+<p class="small">Drafts stay off the site. Each post can carry a photo, gets its own page, and the newest three show on the home page.</p>
+</div>
+<div style="position:relative; width:1048px; height:760px">
+<img class="shot rise" src="img/b-blog-card.png" alt="The Blog card in the staff web, with scheduled, draft and live posts" style="position:absolute; left:0; top:0; width:640px; height:465px; --i:0">
+<img class="shot rise" src="img/b-site-blog.png" alt="The practice website's Blog page with three posts" style="position:absolute; left:260px; top:310px; width:560px; height:420px; --i:1">
+<img class="phone rise" src="img/b-site-post-phone.png" alt="The flu shot post on a phone" style="position:absolute; left:820px; top:110px; width:228px; height:494px; --i:2">
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>15</p></div>
+
+</section>
+
+<section id="team" class="light">
+<p class="eyebrow">Running the practice</p>
+<h2>Add a provider in a minute. They write their own bio.</h2>
+<div class="row" style="gap:40px; align-items:flex-start">
+<div class="col rise" style="gap:14px; --i:0"><img class="shot" src="img/07-admin-providers.png" alt="Admin's Providers screen with a one-time set-up link for Dr. Zoe Alvarez" style="width:528px; height:330px"><p class="caption">1. The admin adds them and gets a one-time link</p></div>
+<div class="col rise" style="gap:14px; --i:1"><img class="shot" src="img/10-provider-profile.png" alt="My profile screen with credentials, bio and photo" style="width:528px; height:330px"><p class="caption">2. They set their own sign-in, bio and photo</p></div>
+<div class="col rise" style="gap:14px; --i:2"><img class="shot" src="img/s02-site-team-ocean.png" alt="Our team page on the practice website with Dr. Ada Shaw's photo and bio" style="width:528px; height:330px"><p class="caption">3. The website shows them on the next publish</p></div>
+</div>
+<p class="lede">Admins never see a provider’s password. Every sign-in needs a password and an authenticator code. Disabling someone signs them out at once and deletes nothing.</p>
+<div class="foot"><p>WeHelp</p><p>16</p></div>
+
+</section>
+
+<section id="practice-types" class="dark">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">Practice types</p>
+<h2>One product for many kinds of practice</h2>
+<p class="lede">Each practice picks its type. The words, the features it starts with and the website all follow.</p>
+<table style="font-size:26px; color:#EAF1F6">
+<tr><th style="width:50%">Type</th><th style="width:50%">Says</th></tr>
+<tr><td>Naturopathic</td><td>patient · provider</td></tr>
+<tr><td>Therapy and psychology</td><td>client · therapist</td></tr>
+<tr><td>Allied health</td><td>patient · practitioner</td></tr>
+<tr><td>Salon and personal services</td><td>client · stylist</td></tr>
+</table>
+<p class="small">Security is the same for every type.</p>
+</div>
+<img class="shot rise" src="img/n-practice-types.png" alt="Settings: choosing the practice type, with the words each one uses" style="width:800px; height:750px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>17</p></div>
+
+</section>
+
+<section id="switches" class="light">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<img class="shot rise" src="img/n-message-modes.png" alt="My profile, Messages: on, office hours with an automatic reply, or off" style="width:800px; height:750px; --i:0">
+<div class="col" style="width:800px; gap:28px">
+<p class="eyebrow">Switches</p>
+<h2>Providers choose when they are reachable</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Office hours</b>: messages arrive any time; outside hours the patient gets an automatic reply and the provider isn’t notified.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Off</b>: patients are pointed to the practice inbox instead.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>The practice turns off what it doesn’t use, from the store to video, and the server enforces it.</p></div>
+</div>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>18</p></div>
+
+</section>
+
+<section id="security" class="dark">
+<p class="eyebrow">Security</p>
+<h2>Built to pass a security audit</h2>
+<div class="cards tight">
+<div class="card rise" style="--i:0"><h3>No patient passwords</h3><p class="body">A key in the phone’s Secure Enclave, unlocked with Face ID. Nothing to phish or reuse.</p></div>
+<div class="card rise" style="--i:1"><h3>Staff on the office network</h3><p class="body">Password plus authenticator code, sessions that expire, and staff pages unreachable from the internet.</p></div>
+<div class="card rise" style="--i:2"><h3>WeHelp can’t read it</h3><p class="body">The Relay passes encrypted traffic it cannot decode. Notifications carry no names.</p></div>
+<div class="card rise" style="--i:3"><h3>Every change on record</h3><p class="body">An append-only, hash-chained audit trail, exportable to the practice’s compliance tools.</p></div>
+<div class="card rise" style="--i:4"><h3>The bar we build to</h3><p class="body">HIPAA, OWASP ASVS Level 2 and MASVS Level 2, with an outside audit and pen test before launch.</p></div>
+<div class="card rise" style="--i:5"><h3>Boring by design</h3><p class="body">Go, Postgres and SwiftUI. Every change is reviewed and tested in CI before it ships.</p></div>
+</div>
+<div class="foot"><p>WeHelp</p><p>19</p></div>
+
+</section>
+
+<section id="onboarding" class="white">
+<p class="eyebrow">Getting started</p>
+<h2>From box to first patient in an afternoon</h2>
+<div class="cards" style="grid-template-columns:1fr 1fr 1fr 1fr; margin-top:24px">
+<div class="card rise" style="--i:0"><p class="num">Step 1</p><h3>Plug in the Back Office</h3><p class="body">A Mac mini on the office network. It installs itself with a one-time token from WeHelp.</p></div>
+<div class="card rise" style="--i:1"><p class="num">Step 2</p><h3>Add the team</h3><p class="body">The admin adds providers; each sets up their own sign-in and profile.</p></div>
+<div class="card rise" style="--i:2"><p class="num">Step 3</p><h3>Publish the website</h3><p class="body">Fill in the practice details, pick a theme, press Publish.</p></div>
+<div class="card rise" style="--i:3"><p class="num">Step 4</p><h3>Pair patients</h3><p class="body">At the front desk: the patient scans a QR code and is in.</p></div>
+</div>
+<p class="lede">No inbound firewall rules, no cloud account to configure, no passwords for patients to forget.</p>
+<div class="foot"><p>WeHelp</p><p>20</p></div>
+
+</section>
+
+<section id="status" class="light">
+<p class="eyebrow">Where we are</p>
+<h2>Working end to end in a demo practice today</h2>
+<div class="cards">
+<div class="card rise" style="--i:0"><p class="num">Built and running</p><p class="body">Appliance, Relay and Registry · QR pairing · appointments and reminders · messages · staff roles and onboarding · website with themes and a blog · store and orders · practice types · switches and office hours · practice inbox · care teams</p></div>
+<div class="card rise" style="--i:1"><p class="num">Next, for V1</p><p class="body">Video visits and the new features in the app · hardening, outside security audit and pen test · a field pilot in a naturopath practice</p></div>
+<div class="card rise" style="--i:2"><p class="num">After V1</p><p class="body">In-office check-in iPad with intake questionnaires · an on-premises AI assistant whose model runs in the office · links to EHRs through FHIR</p></div>
+</div>
+<div class="foot"><p>WeHelp</p><p>21</p></div>
+
+</section>
+
+<section id="business" class="accent">
+<p class="eyebrow">Business model</p>
+<h2>A subscription per practice, with the hardware in the office</h2>
+<div class="cards">
+<div class="card rise" style="--i:0"><p class="num">Subscription</p><h3>Per practice, per month</h3><p class="body">Relay, website hosting, notifications, updates and support: <span class="ph">[$__ / month]</span></p></div>
+<div class="card rise" style="--i:1"><p class="num">Appliance</p><h3>The Back Office</h3><p class="body">A Mac mini set up by WeHelp, bought by the practice or included: <span class="ph">[$__ one-time]</span></p></div>
+<div class="card rise" style="--i:2"><p class="num">Market</p><h3>Independent practices</h3><p class="body">Starting with naturopaths, then other small practices: <span class="ph">[__ practices in our first region]</span></p></div>
+</div>
+<p class="lede">The Registry already tracks practices, their providers and subscriptions, and a suspended subscription disconnects within a minute.</p>
+<div class="foot"><p>WeHelp</p><p>22</p></div>
+
+</section>
+
+<section id="ask" class="dark">
+<p class="eyebrow">Next steps</p>
+<h2>Join us</h2>
+<div class="cards two" style="margin-top:16px">
+<div class="card rise" style="--i:0"><p class="num">For practices</p><h3>Be a pilot practice</h3><p class="body">We install the Back Office, set up your website and pair your first patients with you. <span class="ph">[pilot terms]</span></p></div>
+<div class="card rise" style="--i:1"><p class="num">For investors</p><h3>Raising <span class="ph">[$__]</span></h3><p class="body">To finish V1, pass the outside audit and run the first field pilots. <span class="ph">[use of funds]</span></p></div>
+</div>
+<div style="flex:1"></div>
+<p class="lede"><span class="ph">[Name]</span> · <span class="ph">[email]</span> · <span class="ph">[website]</span></p>
+<div class="foot"><p>WeHelp</p><p>23</p></div>
+
+</section>
+
+</main>
+<nav id="bar" aria-label="Slides">
+<button id="prev" aria-label="Previous slide">‹</button><span id="count"></span><button id="next" aria-label="Next slide">›</button>
+<a href="https://github.com/zacharyelston/WeHelp">GitHub</a>
+</nav>
+<script>
+(() => {
+  const slides = [...document.querySelectorAll("#stage > section")];
+  const stage = document.getElementById("stage");
+  let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+  function fit() {
+    const s = Math.min(innerWidth / 1920, (innerHeight - 56) / 1080);
+    stage.style.transform = "scale(" + s + ") translate(-960px, -" + (540 + 28 / s) + "px)";
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle("on", k === i));
+    document.getElementById("count").textContent = (i + 1) + " / " + slides.length;
+    history.replaceState(null, "", "#" + (i + 1));
+  }
+  addEventListener("resize", fit);
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "PageDown", " "].includes(e.key)) show(i + 1);
+    if (["ArrowLeft", "PageUp"].includes(e.key)) show(i - 1);
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+  });
+  document.getElementById("prev").onclick = () => show(i - 1);
+  document.getElementById("next").onclick = () => show(i + 1);
+  let x0 = null;
+  addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; });
+  addEventListener("touchend", (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1)); x0 = null; });
+  fit(); show(i);
+})();
+</script>
+</body>
+</html>

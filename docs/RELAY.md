@@ -18,7 +18,8 @@ phone ──TLS──► Relay :8443   CONNECT <office-id>.wehelp.invalid:443
   use their office ID as the SSH user, and pin the Relay's host key from
   their registration. The Relay accepts a key only if it is on the current
   signed office list for this Relay. It opens one channel type,
-  `wehelp-phone`, and accepts none from offices.
+  `wehelp-phone`, and accepts one from offices, `wehelp-site`, to publish
+  the practice website (#97).
 - **Phones** connect with TLS 1.3 to the Relay (pinning the Relay TLS key)
   and send `CONNECT <office-id>.wehelp.invalid:443`. Inside, they run TLS
   again, end to end with the office, pinning the office key. The Relay only
@@ -64,6 +65,9 @@ bin/wehelp-relay serve
 | `relay_apns_key` | (empty = push off) | The app publisher's APNs `.p8` key, mode 600, held only on the Relay (#7) |
 | `relay_apns_key_id`, `relay_apns_team` | | Key ID and team ID from the Apple developer account |
 | `relay_apns_topic` | `com.zacelston.wehelp` | The app's bundle ID |
+| `relay_site_addr` | `:8444` | HTTPS listener for practice websites (#97); empty = off |
+| `relay_site_public_url` | (empty) | e.g. `https://192.168.1.20:8444`; told to offices so staff see the full link |
+| `relay_site_cert`, `relay_site_key` | (empty = the Relay TLS cert) | A real certificate for the site listener; key mode 600 |
 
 The Back Office opens its tunnel by itself from `wehelpd serve` once it is
 installed (#35). The settings are `relay_tunnel` (default on) and
@@ -89,6 +93,27 @@ office):
 The automated version is `internal/tunnel/e2e_test.go`. It also checks that
 none of the request or response plaintext appears in the bytes the Relay
 handles.
+
+## Practice websites (#97)
+
+- Staff press **Save and publish** on the Back Office Website tab. The
+  office opens a `wehelp-site` channel, writes one tar and reads a JSON
+  reply. The Relay stores it under the office ID the SSH connection
+  authenticated as, in `{relay_dir}/sites/<office-id>/`, swapping the whole
+  directory at once.
+- It refuses anything but `.html .css .txt .pdf .png .jpg .jpeg .webp
+  .ico`, more than 200 files, 10 MB per file or 25 MB in all, HTML
+  containing `<script`, and a second publish within 5 seconds.
+- It serves `GET`/`HEAD` of `/s/<office-id>/…` only, for offices on the
+  current list, with `Content-Security-Policy: default-src 'none'; style-src
+  'self'; img-src 'self'`, `nosniff` and `X-Frame-Options: DENY`. Downloads
+  are sent as attachments. Visitor addresses are not logged.
+- With no `relay_site_cert`, browsers warn about the Relay's self-signed
+  certificate; that is expected in the Demo topology.
+
+```bash
+curl -k https://192.168.1.20:8444/s/<office-id>/store.html
+```
 
 ## Rotating Relay keys
 

@@ -6,6 +6,32 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The ecosystem diagram shows the practice side of the Relay: the Back Office
+  as a mini PC appliance, and the front desk as a laptop using the staff web
+  over the office Wi-Fi, where the pairing QR code is shown. The
+  presentation's "How it works" slide matches.
+- The readme opens with a hero diagram of the WeHelp ecosystem
+  (`presentation/img/ecosystem.svg`): the app and the Back Office tied
+  together by QR pairing, the Relay, the Registry and the practice website
+  and blog. The presentation has a Blog slide after the website (23 slides).
+- The presentation covers the new features: the front desk's day, the
+  practice inbox, care teams, practice types, and switches with provider
+  office hours, with an updated status slide (22 slides).
+- The readme and the presentation lead with who we are: built by providers,
+  for providers, from 30 years in healthcare services technology and patient
+  services, with licensed providers on the board of directors. The deck has a
+  new "Who we are" slide after the cover, and its page numbers now count
+  themselves.
+- The readme opens with screenshots (staff web, iPhone app, practice website)
+  and links to the overview presentation, published from `presentation/` to
+  GitHub Pages (https://zacharyelston.github.io/WeHelp/) by
+  `.github/workflows/pages.yml`. The presentation is a static copy of the
+  WeHelp overview deck: arrow keys or swipe to move, and it prints as one
+  slide per page.
+- Proposal for other kinds of practice (docs/PRACTICE_TYPES.md, epic #112):
+  presets with their own words for therapy, allied health and salons; switches
+  so a practice or a provider can turn messaging off; a practice inbox; and
+  care teams, where a patient approves the providers who share their thread.
 - AGENTS.md and CONTRIBUTING.md brought up to date (#13):
   - issues and PRs live in zacharyelston/WeHelp;
   - V1 milestones and the docs to read first;
@@ -89,6 +115,175 @@ All notable changes to WeHelp are documented here. Format follows
   - Shared sign-in pieces (TOTP, tokens, QR, argon2id) moved to
     `internal/staffauth`, so the Registry doesn't import the Back Office's
     `auth` package.
+- Practice blog (#121).
+  - The Website tab has a **Blog** card. Staff write timely or seasonal
+    posts: a title, the text, an optional uploaded image, a go-live time,
+    and a draft flag. They can also edit and delete posts.
+  - The website gets a Blog page (newest first), a page per post, and the
+    latest three posts on the home page. The Blog link appears only once
+    there are posts. Drafts and future posts stay off the site.
+  - Once the site has been published, the Back Office republishes it by
+    itself within a minute of a scheduled post coming due. That publish is
+    audited with no actor and marked `scheduled`.
+  - Posts are plain text, escaped by the templates, and practice content
+    only. Audited as `site_post.create`, `site_post.update` and
+    `site_post.delete`.
+  - Routes under `/api/v1/site/posts` (staff, LAN only). Migration
+    `V17__site_posts.sql`.
+- Care teams (#111, docs/PRACTICE_TYPES.md phase 4).
+  - A patient chooses a group of providers who share one thread with them,
+    for continuity of care.
+  - A provider already caring for the patient proposes a colleague, who
+    joins only when the patient approves. The patient can also add a
+    provider directly.
+  - Members are providers, never the front desk or admins.
+  - A new member sees earlier messages only if the patient allows it. A
+    removed member sees nothing, past or future.
+  - Every member's read of the thread is audited (`care_team.read`), and
+    the patient sees who read it and when.
+  - Disabling a provider removes them from every team.
+  - A new **Care teams** switch: off by default for therapy, never on for
+    a practice that isn't clinical.
+  - Providers get a **Care teams** tab in the staff web. Patient approval
+    in the app waits for the test devices; the API is ready.
+  - Routes under `/api/v1/care-teams`. Migration `V16__care_teams.sql`.
+- Practice inbox (#110, docs/PRACTICE_TYPES.md phase 3).
+  - Patients message "the practice", and the front desk and admins answer
+    in a new staff web **Inbox** tab. Each reply is signed with the staff
+    member's name.
+  - Providers don't see it, and it is a table of its own
+    (`practice_messages`), separate from provider threads.
+  - It follows the messages switch. A provider with messages off now
+    points patients to the practice inbox.
+  - The front desk no longer sees the always-empty Messages tab.
+  - Routes: `GET`/`POST /api/v1/practice-inbox`,
+    `GET /api/v1/practice-inbox/{patientID}` and
+    `POST /api/v1/practice-inbox/read`. Patients use them on any channel;
+    the front desk only on the office LAN. Audited as
+    `practice_message.create`; pushes are generic. Migration
+    `V15__practice_inbox.sql`.
+  - The app screen follows when the test devices are back.
+- Practice and provider switches (#109, docs/PRACTICE_TYPES.md phase 2).
+  - Settings has a **Features** card. An admin turns off messages,
+    appointment requests, reminders, check-ins, video, the store, the
+    library or the website.
+  - Each practice type has defaults: therapy starts without the store and
+    check-ins; a salon without check-ins, video and the library.
+  - A switched-off feature disappears from the staff web, and the server
+    refuses it with 409, so older app versions can't use it either. Staff
+    keep the catalogue while the store is off. The reminder worker skips
+    reminders and check-ins that are off. The website drops its Store and
+    Library pages when those are off. Nothing is deleted.
+  - Providers choose how they take messages, under **My profile** →
+    Messages:
+    - on, as before;
+    - office hours: messages arrive any time, but outside the hours the
+      patient gets an automatic reply (at most once every 12 hours) and
+      the provider gets no notification;
+    - off: patients get a 409 asking them to call the practice. Staff can
+      always write to patients.
+  - New routes: `PUT /api/v1/practice/features` (admins, audited as
+    `practice.features`) and `GET`/`PUT /api/v1/staff/profile/messages`
+    (audited as `staff.message_settings`). Automatic replies are audited
+    as `message.auto_reply`. Migration `V14__switches.sql`.
+- Practice types (#108, docs/PRACTICE_TYPES.md phase 1).
+  - An admin picks the practice type on a new **Settings** screen:
+    naturopathic, therapy and psychology, allied health, or salon and
+    personal services.
+  - The type sets the words: patient or client; provider, practitioner,
+    therapist or stylist. The staff web and the website use them (the
+    website at its next publish). The API and database still say patient
+    and provider.
+  - A salon is not clinical, so the staff web hides check-in reminders.
+    Security is the same for every type.
+  - New routes: `GET /api/v1/practice` for anyone signed in (the app will
+    read the words, and it holds no patient data), and `PUT` for admins on
+    the LAN, audited as `practice.update`. Migration
+    `V13__practice_settings.sql`.
+  - Not yet: the app using the words, and the Registry recording the type
+    (waits for the Registry console, #99).
+- Office role for the front desk (#106).
+  - A third staff role, `office`, sees every patient and every provider's
+    schedule and appointment requests. The front desk books, changes and
+    confirms visits for any provider (`provider_id` on
+    `POST /appointments`), and works orders, the store, the website,
+    patients and pairing. It cannot read message threads or manage staff.
+  - `admin` keeps everything plus setup. Its Providers screen becomes
+    **Staff** and invites providers or front-desk accounts.
+  - Appointment lists carry provider and patient names. The staff web
+    shows a Provider column and picker for the front desk and admins.
+  - The seed adds `frontdesk@demo.wehelp` / `wehelp-demo-office`, and the
+    sign-in page lists it. `wehelpd staff add --role office` also works.
+    Office accounts can't pair their own phone yet: the app has no
+    front-desk view. Migration `V12__office_role.sql`.
+- Website themes (#104).
+  - The Website tab has a **Look** card with six colour schemes: sage
+    green, ocean blue, sunset coral, plum, warm clay and midnight (dark).
+  - Each theme colours the header, footer, a banner on the home page,
+    buttons, cards and photo frames. Visitors in dark mode get a dark
+    version with the theme's accent. The choice is saved with the site
+    content and applied at the next publish; the default is sage.
+  - Fixed: page content no longer sits flush against the header.
+- Staff profiles for the website bios (#102).
+  - Every staff member has **My profile** in the staff web: name as shown,
+    credentials, bio and a photo (PNG, JPEG or WebP, at most 2 MB, checked
+    by content). They choose whether the practice website shows them.
+  - Publishing the website turns those profiles into provider bios with
+    their photos. A bio typed in the Website tab with the same name is
+    replaced; other typed bios stay. The Website tab lists which bios come
+    from profiles. Disabled accounts never appear.
+  - New routes `/api/v1/staff/profile` and `/api/v1/staff/profile/photo`
+    cover your own profile only. They are LAN only and audited as
+    `staff.profile_update`. Migration `V11__staff_profiles.sql` adds them.
+- Admins register providers from the staff web (#100).
+  - A **Providers** button (admins only) lists the practice's provider
+    accounts. An admin adds one by name and email and gets a set-up link.
+  - The link works once, for 24 hours, on the office network. Its token is
+    in the URL fragment, and only its SHA-256 is stored. The provider opens
+    it, chooses their own password and enrolls TOTP as at a first sign-in.
+    Admins never see or set the password. A new link replaces the old one.
+  - Admins can disable a provider and enable them again. Disabling ends web
+    sessions, revokes refresh tokens and refuses sign-in and API calls.
+    Nothing is deleted, and paired devices stay paired.
+  - New routes: `/api/v1/staff/setup` and `/api/v1/staff/providers…`. They
+    are LAN only, return 403 for providers, and are audited (`staff.invite`,
+    `staff.setup`, `staff.disable`, `staff.enable`). Migration
+    `V10__staff_invites.sql` adds them.
+  - This is the Back Office half of #62: Registry roster entries will feed
+    the same invite. `wehelpd staff add` still works on the host.
+  - The demo seed adds an admin, `admin@demo.wehelp`. The staff sign-in page
+    lists it under Dr. Ada's demo login.
+
+- Practice website with a library and a supply store (#97, most of #5).
+  - Staff build the site on a new staff web **Website** tab: about us,
+    hours and contact, provider bios, services, "Get the app and join" (the
+    download and the in-office QR pairing steps), podcast links, and
+    uploaded PDFs and images (10 MB each; contents must match the type).
+  - **Save and publish** renders six static pages with `html/template` and
+    streams them as a tar over a new `wehelp-site` SSH channel on the
+    office's Relay connection. The Relay files the site under the office ID
+    that connection authenticated as, and serves it read-only at
+    `https://<relay>:8444/s/<office-id>/` (`relay_site_addr`,
+    `relay_site_public_url`, optional `relay_site_cert`/`relay_site_key`).
+  - The Relay accepts only `.html .css .txt .pdf .png .jpg .jpeg .webp
+    .ico`, at most 200 files, 10 MB each and 25 MB in all, refuses HTML
+    with `<script`, and serves every file with a `default-src 'none'` CSP
+    and `nosniff`. A suspended office's site goes away with its listing.
+  - The **Store** tab keeps the catalogue (the seed and a button load ten
+    demo vitamin, supplement and herbal products). The public site shows
+    it and says "Order in the WeHelp app"; payment is at pickup or by
+    invoice.
+  - Patients order in the app's new **Store** tab (quantities, a note, My
+    orders, cancel while placed), through the pinned tunnel only. Staff work
+    orders on the staff web **Orders** tab (ready, fulfilled, cancelled),
+    on the office LAN only. Every change is audited, and staff changes
+    send the new fixed push category `order_update` ("Your supply order has
+    an update.").
+  - The app's **Library** (Store tab and Today) lists podcast links and
+    opens downloads in Quick Look, fetched through the pinned tunnel.
+  - Migration V9 adds `site_profiles`, `site_files`, `products`, `orders`
+    and `order_items`. Still open on #5: `apple-app-site-association` and
+    Universal Links.
 - Appointment requests (#68, #39).
   - Patients tap **Request** on the Schedule tab and pick a provider, 1–3
     preferred days with a time of day, and an optional reason. Up to 3 can
@@ -513,6 +708,15 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Appliance boot after a reboot (#123). Lima's `vz.pid` can survive a
+  reboot and name a process ID macOS has reused, and Colima then won't
+  start. If Docker isn't up a minute after login, the boot job clears that
+  stale state and restarts Colima. Seen on Barnacle after a macOS update;
+  the fix was checked on Barnacle against the same state.
+- Website publish (#97): when the Relay refused a publish (for example
+  "publishing too often") before the whole bundle was sent, the Back Office
+  reported EOF instead of the reason. It now reads the reply after a failed
+  write. This also fixes the flaky `TestPublishSiteThroughRelay`.
 - CI: Dockerfile and workflow pinned to Go 1.25 while go.mod requires 1.26 —
   bumped both to 1.26.
 - `audit.Record` genesis event: first event in a tenant chain now links to

@@ -32,7 +32,7 @@ func (s *Server) ListPatients(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
-	if id.Role != "provider" && id.Role != "admin" {
+	if !isStaffRole(id.Role) {
 		writeErr(w, http.StatusForbidden, "staff only")
 		return
 	}
@@ -43,7 +43,7 @@ func (s *Server) ListPatients(w http.ResponseWriter, r *http.Request) {
 		left join provider_patients pp on pp.patient_id = u.id and pp.provider_id = $2
 		left join devices d on d.user_id = u.id
 		where u.tenant_id = $1 and u.role = 'patient'`
-	if id.Role != "admin" {
+	if !practiceWide(id.Role) {
 		q += ` and pp.status is not null and pp.status <> 'revoked'`
 	}
 	q += ` group by u.id, pp.status order by u.display_name, u.email`

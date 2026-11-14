@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/auth"
+	"github.com/zacharyelston/wehelp/internal/site"
 )
 
 // Demo credentials. Passwords meet the 12-character minimum enforced by the
@@ -34,6 +35,16 @@ const (
 	ProviderEmail    = "dr.ada.shaw@demo.wehelp"
 	ProviderPassword = "wehelp-demo-provider"
 	ProviderName     = "Dr. Ada Shaw"
+
+	// The practice admin (#100): adds providers, office settings, pairing.
+	AdminEmail    = "admin@demo.wehelp"
+	AdminPassword = "wehelp-demo-admin"
+	AdminName     = "Office Admin"
+
+	// The front desk (#106): the whole practice's schedule, no setup.
+	OfficeEmail    = "frontdesk@demo.wehelp"
+	OfficePassword = "wehelp-demo-office"
+	OfficeName     = "Front Desk"
 
 	// Patients have no password: they pair a phone in the office (#37).
 	Patient1Email = "jordan.lee@demo.wehelp"
@@ -47,6 +58,7 @@ const (
 // want to drive the API programmatically after seeding.
 type Result struct {
 	TenantID  uuid.UUID
+	Admin     Account
 	Provider  Account
 	Patient1  Account
 	Patient2  Account
@@ -85,6 +97,13 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 		return nil, fmt.Errorf("seed: tenant: %w", err)
 	}
 
+	admin, err := ensureUser(ctx, tx, tenantID, AdminEmail, AdminPassword, "admin", AdminName)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := ensureUser(ctx, tx, tenantID, OfficeEmail, OfficePassword, "office", OfficeName); err != nil {
+		return nil, err
+	}
 	provider, err := ensureUser(ctx, tx, tenantID, ProviderEmail, ProviderPassword, "provider", ProviderName)
 	if err != nil {
 		return nil, err
@@ -125,12 +144,18 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 		return nil, err
 	}
 
+	// The demo supply catalogue (#97). Products are not patient data.
+	if _, err := site.AddDemoCatalogue(ctx, tx, tenantID); err != nil {
+		return nil, fmt.Errorf("seed: products: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("seed: commit: %w", err)
 	}
 
 	res := &Result{
 		TenantID:  tenantID,
+		Admin:     *admin,
 		Provider:  *provider,
 		Patient1:  *patient1,
 		Patient2:  *patient2,
@@ -299,6 +324,13 @@ func printCredentials(out io.Writer, r *Result) {
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "=== WeHelp seed complete ===")
 	fmt.Fprintln(out, "Tenant:", DemoTenant, "("+r.TenantID.String()+")")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Admin (adds providers: Providers button):")
+	fmt.Fprintln(out, "  email:    ", AdminEmail)
+	fmt.Fprintln(out, "  password: ", AdminPassword)
+	fmt.Fprintln(out, "Front desk (whole schedule, no setup):")
+	fmt.Fprintln(out, "  email:    ", OfficeEmail)
+	fmt.Fprintln(out, "  password: ", OfficePassword)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Provider (login with these):")
 	fmt.Fprintln(out, "  email:    ", ProviderEmail)

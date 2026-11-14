@@ -25,6 +25,7 @@ type Server struct {
 	pairing   *office.Pairing // nil until the office is installed (#35)
 	httpsPort string          // set: plain HTTP only redirects to HTTPS (#38)
 	pusher    Pusher          // push through the Relay (#7); nil = off
+	sitePub   SitePublisher   // website publishing through the Relay (#97); nil = off
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -84,6 +85,22 @@ func (s *Server) Router() chi.Router {
 			r.Post("/totp/confirm", s.StaffTOTPConfirm)
 			r.Get("/me", s.StaffMe)
 			r.Post("/logout", s.StaffLogout)
+			// Provider accounts (#100): admins invite, disable and enable;
+			// the provider redeems the set-up link.
+			r.Post("/setup", s.StaffSetup)
+			r.With(s.authenticate).Get("/providers", s.ListProviders)
+			r.With(s.authenticate).Post("/providers", s.CreateProvider)
+			r.With(s.authenticate).Post("/providers/{userID}/invite", s.ReissueProviderInvite)
+			r.With(s.authenticate).Post("/providers/{userID}/disable", s.DisableProvider)
+			r.With(s.authenticate).Post("/providers/{userID}/enable", s.EnableProvider)
+			// Your own profile (#102), used for the website bios.
+			r.With(s.authenticate).Get("/profile", s.GetStaffProfile)
+			r.With(s.authenticate).Put("/profile", s.PutStaffProfile)
+			r.With(s.authenticate).Get("/profile/photo", s.GetStaffProfilePhoto)
+			r.With(s.authenticate).Put("/profile/photo", s.PutStaffProfilePhoto)
+			r.With(s.authenticate).Delete("/profile/photo", s.DeleteStaffProfilePhoto)
+			r.With(s.authenticate).Get("/profile/messages", s.GetMessageSettings) // message mode (#109)
+			r.With(s.authenticate).Put("/profile/messages", s.PutMessageSettings)
 		})
 
 		// Phones pair through the Relay (#37); no session yet.
@@ -92,6 +109,21 @@ func (s *Server) Router() chi.Router {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me", s.Me)
+			r.Get("/practice", s.GetPractice) // practice type and words (#108)
+			// Practice inbox (#110): patients any channel; the front desk on the LAN.
+			r.Get("/practice-inbox", s.GetPracticeInbox)
+			r.Get("/practice-inbox/{patientID}", s.GetPracticeInboxThread)
+			r.Post("/practice-inbox", s.PostPracticeInbox)
+			r.Post("/practice-inbox/read", s.ReadPracticeInbox)
+			// Care teams (#111): the patient and their providers, any channel.
+			r.Get("/care-teams", s.ListCareTeams)
+			r.Get("/care-teams/{patientID}", s.GetCareTeam)
+			r.Post("/care-teams/{patientID}/members", s.AddCareTeamMember)
+			r.Post("/care-teams/{patientID}/members/{memberID}/approve", s.ApproveCareTeamMember)
+			r.Post("/care-teams/{patientID}/members/{memberID}/decline", s.DeclineCareTeamMember)
+			r.Delete("/care-teams/{patientID}/members/{memberID}", s.RemoveCareTeamMember)
+			r.Get("/care-teams/{patientID}/messages", s.GetCareTeamMessages)
+			r.Post("/care-teams/{patientID}/messages", s.PostCareTeamMessage)
 			r.Post("/links", s.CreateLink)
 			r.Get("/links", s.ListLinks)
 			r.Post("/links/{userID}/accept", s.AcceptLink)
@@ -113,6 +145,13 @@ func (s *Server) Router() chi.Router {
 			r.Delete("/devices/{deviceID}", s.RevokeMyDevice)
 			r.Put("/devices/current/push", s.SetPushToken)
 			r.Delete("/devices/current/push", s.ClearPushToken)
+			// Supply store and library (#97). Staff listing orders is LAN only.
+			r.Get("/store/products", s.ListProducts)
+			r.Post("/orders", s.CreateOrder)
+			r.Get("/orders", s.ListOrders)
+			r.Post("/orders/{orderID}/cancel", s.CancelOrder)
+			r.Get("/library", s.GetLibrary)
+			r.Get("/library/files/{fileID}", s.GetLibraryFile)
 		})
 
 		// Staff routes: office LAN only. Through the Relay they are a 404
@@ -125,6 +164,23 @@ func (s *Server) Router() chi.Router {
 			r.Post("/patients", s.CreatePatient)
 			r.Post("/pairing/invites", s.CreateInvite)
 			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
+			r.Put("/practice", s.PutPractice)                  // admins (#108)
+			r.Put("/practice/features", s.PutPracticeFeatures) // admins (#109)
+			// Practice website and store admin (#97).
+			r.Get("/site", s.GetSite)
+			r.Put("/site", s.PutSite)
+			r.Post("/site/files", s.UploadSiteFile)
+			r.Delete("/site/files/{fileID}", s.DeleteSiteFile)
+			r.Post("/site/publish", s.PublishSite)
+			// The blog (#121).
+			r.Get("/site/posts", s.ListPosts)
+			r.Post("/site/posts", s.CreatePost)
+			r.Put("/site/posts/{postID}", s.UpdatePost)
+			r.Delete("/site/posts/{postID}", s.DeletePost)
+			r.Post("/store/products", s.CreateProduct)
+			r.Put("/store/products/{productID}", s.UpdateProduct)
+			r.Post("/store/products/demo", s.AddDemoProducts)
+			r.Post("/orders/{orderID}/status", s.SetOrderStatus)
 		})
 	})
 
