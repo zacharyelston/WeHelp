@@ -174,6 +174,9 @@ live on its own hardware, and demos run only on demo hardware with demo data.
 
 Design: [OBSERVABILITY.md](OBSERVABILITY.md).
 
+Issues: #53 Alloy sidecar, #54 OTel metrics, #55 dashboards and load guard,
+#56 audit stream export, #57 Relay telemetry, #58 Cloud Dashboards PoC.
+
 - **Alloy sidecar** on the Back Office; JSON logs and OTel metrics from
   `wehelpd`.
 - **Dashboards profile:** Grafana, Loki and Prometheus with resource limits,
