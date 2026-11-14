@@ -86,7 +86,15 @@ func serveCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			var apns *relay.APNs
+			if cfg.RelayAPNsKey != "" {
+				if apns, err = relay.LoadAPNs(cfg.RelayAPNsKey, cfg.RelayAPNsKeyID, cfg.RelayAPNsTeam, cfg.RelayAPNsTopic); err != nil {
+					return fmt.Errorf("push: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "push on: APNs key %s, topic %s\n", cfg.RelayAPNsKeyID, cfg.RelayAPNsTopic)
+			}
 			r, err := relay.New(relay.Config{
+				APNs:         apns,
 				RelayID:      cfg.RelayID,
 				HostKey:      keys.HostKey,
 				TLSCert:      keys.TLSCert,

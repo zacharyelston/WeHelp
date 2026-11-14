@@ -19,6 +19,7 @@ final class AppState {
     /// UserDefaults keys. None is a secret.
     static let accountsKey = "accounts"
     static let activeKey = "activeAccount"
+    static let pushTokenKey = "apnsToken" // an APNs device token; not a secret
 
     private(set) var phase: Phase = .launching
     private(set) var me: Me?
@@ -83,6 +84,15 @@ final class AppState {
         if let a = active { api = APIClient(office: a.office, session: session(for: a.id)) }
         for key in ["serverURL", "savedConnections", "hiddenPresetConnections"] { // pre-#89 settings
             defaults.removeObject(forKey: key)
+        }
+        // Push (#7): register the APNs token with every paired practice.
+        NotificationCenter.default.addObserver(forName: .weHelpPushToken, object: nil, queue: .main) { [weak self] note in
+            let token = note.object as? String
+            MainActor.assumeIsolated {
+                guard let self, let token else { return }
+                self.defaults.set(token, forKey: Self.pushTokenKey)
+                Task { await self.registerPushToken() }
+            }
         }
         // A device the practice revoked (#10) loses just that account.
         NotificationCenter.default.addObserver(forName: .weHelpSessionEnded, object: nil, queue: .main) { [weak self] note in
@@ -188,6 +198,18 @@ final class AppState {
         defaults.removeObject(forKey: "tenant")
     }
 
+    // MARK: Push (#7)
+
+    /// Sends the device's APNs token to every paired practice. Best effort;
+    /// it runs again whenever iOS hands over the token or a practice is added.
+    func registerPushToken() async {
+        guard let token = defaults.string(forKey: Self.pushTokenKey) else { return }
+        for a in accounts {
+            let client = APIClient(office: a.office, session: session(for: a.id))
+            try? await client.setPushToken(token, environment: Push.environment)
+        }
+    }
+
     // MARK: Pairing (#37, #89)
 
     enum Pairing: Equatable {
@@ -243,6 +265,7 @@ final class AppState {
             pairing = .idle
             pairedCount += 1
             phase = .signedIn
+            Task { await registerPushToken() }
         } catch is CancellationError {
             Keychain.deleteAll(account: id)
             sessions[id] = nil

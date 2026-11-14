@@ -238,6 +238,18 @@ categories ("New message", "Appointment reminder", "Visit starting"). The
 Relay rejects anything else. The app fetches the details through its pinned
 connection.
 
+As built (#7):
+- The app registers its APNs token with each practice it's paired with,
+  and the Back Office keeps it on the device record. **The Relay stores no
+  tokens.**
+- Each push is an SSH global request (`wehelp-push`) carrying the token,
+  the app's APNs environment and the category. The Relay checks the
+  category, supplies the fixed text itself, limits each office to 120
+  pushes a minute, and logs only the office ID, category and result.
+- Tokens are cleared when a device is revoked or when Apple reports them
+  invalid.
+- APNs is hand-rolled (HTTP/2 + ES256 JWT), per spike S3.
+
 ### Practice website
 
 Staff fill in a Practice profile (name, providers, hours, address, phone,

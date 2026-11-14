@@ -70,7 +70,7 @@ func revokeDevice(ctx context.Context, tx pgx.Tx, tenantID, ownerID, deviceID, a
 	if err != nil || revoked != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `update devices set revoked_at = now() where id = $1`, deviceID); err != nil {
+	if _, err := tx.Exec(ctx, `update devices set revoked_at = now(), push_token = null, push_env = null where id = $1`, deviceID); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `update refresh_tokens set revoked_at = now() where device_id = $1 and revoked_at is null`, deviceID); err != nil {

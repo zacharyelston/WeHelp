@@ -47,6 +47,8 @@ targets:
       path: WeHelp/WeHelp.entitlements
       properties:
         com.apple.developer.healthkit: true
+        # Push (#7). Xcode sets production when exporting for the App Store.
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zacelston.wehelp

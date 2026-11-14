@@ -65,6 +65,13 @@ struct APIClient: Sendable {
         let _: Empty = try await authorized("DELETE", "api/v1/devices/\(id)")
     }
 
+    // MARK: Push (#7)
+
+    func setPushToken(_ token: String, environment: String) async throws {
+        let _: Empty = try await authorized("PUT", "api/v1/devices/current/push",
+                                           body: ["token": token, "environment": environment])
+    }
+
     // MARK: Pairing (#37)
 
     struct PairResult: Decodable, Sendable {

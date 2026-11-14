@@ -45,6 +45,11 @@ type Config struct {
 	RelayConnectAddr  string        `mapstructure:"relay_connect_addr"`
 	RelayRegistryKey  string        `mapstructure:"relay_registry_key"` // pinned: wehelp-registry pubkey
 	RelayListInterval time.Duration `mapstructure:"relay_list_interval"`
+	// Push (#7): the app publisher's APNs auth key, held only by the Relay.
+	RelayAPNsKey   string `mapstructure:"relay_apns_key"` // .p8 path, mode 600; empty = push off
+	RelayAPNsKeyID string `mapstructure:"relay_apns_key_id"`
+	RelayAPNsTeam  string `mapstructure:"relay_apns_team"`
+	RelayAPNsTopic string `mapstructure:"relay_apns_topic"` // the app's bundle ID
 }
 
 func defaultRelayDir() string {
@@ -107,6 +112,10 @@ func Load(cfgFile string) error {
 	viper.SetDefault("relay_connect_addr", ":8443")
 	viper.SetDefault("relay_registry_key", "")
 	viper.SetDefault("relay_list_interval", "1m")
+	viper.SetDefault("relay_apns_key", "")
+	viper.SetDefault("relay_apns_key_id", "")
+	viper.SetDefault("relay_apns_team", "")
+	viper.SetDefault("relay_apns_topic", "com.zacelston.wehelp")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
