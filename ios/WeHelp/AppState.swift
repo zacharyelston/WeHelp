@@ -130,10 +130,10 @@ final class AppState {
         defaults.removeObject(forKey: "serverURL") // pre-Relay setting (#36)
         loadConnections(bundle: bundle)
         // A revoked device (#10) is signed out as soon as the server says so.
-        Task { [weak self] in
-            for await _ in NotificationCenter.default.notifications(named: .weHelpSessionEnded) {
-                guard let self, self.phase == .signedIn else { continue }
-                await self.wipeLocalSession()
+        NotificationCenter.default.addObserver(forName: .weHelpSessionEnded, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.phase == .signedIn else { return }
+                Task { await self.wipeLocalSession() }
             }
         }
     }
