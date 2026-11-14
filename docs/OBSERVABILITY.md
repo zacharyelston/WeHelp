@@ -1,7 +1,7 @@
 # WeHelp observability
 
-How the Back Office and the Relay report their health, and how audit events
-leave the box for long-term retention. Architecture is in
+How the Back Office, the Relay and the Registry report their health, and how
+audit events leave the box for long-term retention. Architecture is in
 [ARCHITECTURE.md](ARCHITECTURE.md); the security bar is in
 [SECURITY.md](SECURITY.md).
 
@@ -37,7 +37,8 @@ leave the box for long-term retention. Architecture is in
 ```
 
 - **Alloy (always on, on every host).** One Grafana Alloy collector per
-  Back Office and per Relay, as a Compose sidecar with a memory limit. It
+  Back Office, Relay and Registry host, as a Compose sidecar with a memory
+  limit. It
   collects container logs, host metrics, OTLP from our binaries, and (on the
   Back Office) the audit stream. It forwards to whatever destinations are
   configured. It's the only telemetry component that must run next to the
@@ -46,7 +47,7 @@ leave the box for long-term retention. Architecture is in
   Prometheus (metrics), shipped as a separate Compose profile. They can run
   on the same host, on another machine, or not at all. Several hosts can feed
   one dashboard stack. Each Alloy sets `office_id` and `role` labels
-  (`backoffice` or `relay`).
+  (`backoffice`, `relay` or `registry`).
 - **Remote export (optional, per deployment).**
   - **Ops stream:** to a Grafana or OTLP endpoint.
   - **Audit stream:** to syslog (RFC 5424 over TLS) or OTLP.
@@ -91,6 +92,15 @@ leave the box for long-term retention. Architecture is in
 - TURN allocations and bandwidth;
 - push requests by category;
 - no device IPs.
+
+**Registry (`wehelp-registry`):**
+- console sign-ins and failures;
+- install tokens issued and redeemed;
+- office-list publications and the version each Relay holds;
+- roster requests;
+- no practice or provider details in labels.
+
+The Registry console shows Relay and office health from these dashboards.
 
 **Hosts:** CPU, load, memory, disk and network, from Alloy's built-in node
 exporter.

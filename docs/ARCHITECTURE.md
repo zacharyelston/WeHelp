@@ -2,17 +2,23 @@
 
 WeHelp V1 connects a practice with its patients. The V1 practice is a
 naturopath office. Patients use an iPhone app for appointments, messages and
-telehealth visits. The practice runs its own server, and a relay connects the
-two.
+telehealth visits. The practice runs its own server (the Back Office), a
+Relay connects phones to it, and the WeHelp Registry, our corporate support
+arm, decides which practices exist and which Relay serves them.
 
 This document is the source of truth for V1. Security goals and the audit bar
 are in [SECURITY.md](SECURITY.md); build order and scope are in
 [V1_PLAN.md](V1_PLAN.md).
 
-## The three parts
+## The services
 
 ```
-                    TLS end to end, pinned office key
+                       WeHelp Registry (corporate)
+                       practices · providers · subscriptions
+                       admin console for WeHelp support
+                          │ signed office list        ▲ install token,
+                          ▼ (pulled by each Relay)    │ office public key
+                    TLS end to end, pinned office key │
  iPhone app ═════════════════════════════════════════════► Back Office
  (patients,  ──CONNECT──► Relay ◄──── outbound SSH ──────── (in the practice)
   providers)              │  routes by office ID            wehelpd + Postgres
@@ -22,14 +28,18 @@ are in [SECURITY.md](SECURITY.md); build order and scope are in
                           │  sends PHI-free pushes
 ```
 
-| Part | Runs on | Holds | Never holds |
+| Service | Runs on | Holds | Never holds |
 |---|---|---|---|
 | **Back Office** (`wehelpd`) | A Mac mini in the practice | All patient data, staff accounts, the audit chain | Inbound internet ports |
-| **Relay** (`wehelp-relay`) | A server we operate (V1 demos: the dev laptop) | Office registry, published websites, push tokens | Patient data, office TLS keys, plaintext of any patient connection |
-| **iPhone app** | Patient's or provider's own iPhone or iPad | A Secure Enclave device key and the pinned office identity | Long-lived passwords |
+| **Relay** (`wehelp-relay`) | A server we operate (V1 demos: the dev laptop) | A cached, signed office list from the Registry; published websites; push tokens | Patient data, office TLS keys, plaintext of any patient connection |
+| **Registry** (`wehelp-registry`) | WeHelp's corporate server (V1 demos: the dev laptop) | Practices, their providers and admin contacts, subscriptions, office public keys, Relay assignments | Patient data of any kind |
+| **Mobile** (iPhone app) | Patient's or provider's own iPhone or iPad | A Secure Enclave device key and the pinned office identity | Long-lived passwords |
+| **Dashboards** | Anywhere (see [OBSERVABILITY.md](OBSERVABILITY.md)) | Telemetry from the Back Office, Relay and Registry | Patient data |
 
-**The rule:** the part that connects phones never holds or reads patient
-data. Every V1 design choice below follows from it.
+**The rule:** the parts that connect phones or run the business never hold or
+read patient data. Patient data lives only in the Back Office and, while
+displayed, on the patient's own phone. Every V1 design choice below follows
+from it.
 
 ## Connections
 
@@ -38,8 +48,9 @@ data. Every V1 design choice below follows from it.
 - The Back Office opens one outbound SSH connection to the Relay
   (`golang.org/x/crypto/ssh`) and keeps it up, reconnecting with backoff.
 - It authenticates with an **office SSH key** (ed25519, generated at install
-  and never leaving the Back Office). The Relay accepts only keys in its
-  office registry, so registering a key is how an office subscribes.
+  and never leaving the Back Office). The Relay accepts only offices on the
+  Registry's signed office list, so being registered and active in the
+  Registry is how an office subscribes.
 - The Back Office pins the Relay's SSH host key and refuses to connect if it
   changes.
 - For each phone connection, the Relay opens an SSH channel to that office.
@@ -62,6 +73,34 @@ data. Every V1 design choice below follows from it.
 
 Every phone takes this path, including on the office Wi-Fi. There is one path
 to secure, test and audit.
+
+### Registry → Relay: signed office list
+
+- The Registry publishes an **office list**: office ID, office SSH public
+  key, status (active or suspended) and assigned Relay, with a version
+  number. It is signed with the Registry's ed25519 signing key.
+- Each Relay pulls the list over HTTPS every minute, verifies the signature
+  against the Registry key it pinned at install, and rejects any list with an
+  older version. It keeps the last good list, so a Registry outage doesn't
+  stop practices working.
+- Suspending an office in the Registry disconnects it from its Relay within
+  one pull interval.
+- A compromised Relay can't add an office, and a forged list can't be
+  injected without the Registry's signing key.
+
+### Back Office ↔ Registry: install and roster
+
+- **Install:** WeHelp support registers the practice in the Registry console
+  and gets a single-use **install token**. On the Mac mini, `wehelpd init`
+  generates the office keys and sends the token plus the office SSH public
+  key to the Registry over HTTPS. The Registry returns the office ID, the
+  assigned Relay's address and SSH host key, and the Registry's signing key.
+- **Roster:** the Back Office fetches its practice's provider roster from the
+  Registry, authenticated with the office key. It uses the roster to invite
+  provider staff accounts. Staff accounts and their credentials live only in
+  the Back Office.
+- The Back Office never sends patient data to the Registry; there is no API
+  for it.
 
 ### Staff → Back Office: office LAN only
 
@@ -100,11 +139,20 @@ protect them at rest.
 Lost or replaced phone: staff revoke the device and pair the new phone the
 same way. Providers pair their devices the same way, with the provider role.
 
+### Practices and providers: the Registry
+
+WeHelp support registers each practice in the Registry console: legal name,
+address, admin contacts, subscription, and the practice's **providers**
+(name, credentials such as licence number, role). These are business and
+workforce records, not patient data. Practice admins can view their own
+practice's record; changes go through WeHelp support in V1.
+
 ### Staff accounts
 
 Staff sign in to the staff UI with a password plus TOTP. Roles: `admin`
 (office settings, users, pairing) and `provider` (patients, schedule,
-messages, visits).
+messages, visits). Provider accounts are invited from the Registry roster;
+the Back Office holds the accounts and credentials.
 
 ## V1 features
 
@@ -172,13 +220,50 @@ appointments" links open the app.
 
 ## Relay internals
 
-- **One Go binary** (`wehelp-relay`) and a small SQLite file for the office
-  registry and push tokens. No Postgres, and no import of any Back Office
-  data package: a build-failing test enforces this.
+- **One Go binary** (`wehelp-relay`) and a small SQLite file for the cached
+  signed office list and push tokens. No Postgres, and no import of any Back
+  Office data package: a build-failing test enforces this.
 - **Listeners:** CONNECT proxy (TLS), SSH (offices), TURN (UDP and TCP),
   HTTPS (websites).
+- **Admin view:** Relay health (connected offices, tunnels, TURN load) is
+  shown in the Registry console from the Relay's telemetry. Relays have no
+  separate admin login: what they accept is controlled only through the
+  signed office list.
 - **Logs** hold connection metadata only (office ID, byte counts, timing),
   for at most 7 days. Device IP addresses are not logged.
+
+## Registry internals
+
+- **One Go binary** (`wehelp-registry`) plus Postgres, run by WeHelp. It
+  holds business and workforce data only, and imports no Back Office data
+  package; a build-failing test enforces this, as for the Relay.
+- **Registry console:** a web UI for WeHelp support staff (password + TOTP,
+  roles `support` and `registry-admin`). It covers:
+  - registering and suspending practices;
+  - managing providers and admin contacts;
+  - issuing install tokens;
+  - assigning Relays;
+  - viewing Relay and office health.
+- **Signing key:** ed25519, used only to sign office lists. In V1 it is a
+  mode-600 file with a documented rotation procedure. Before field use with
+  multiple practices, it moves to a hardware-backed key.
+- **Audit:** every console action and every list publication is recorded in
+  the Registry's own hash-chained audit log.
+- **APIs:**
+  - install (token-authenticated, single use);
+  - office list (public, signed);
+  - roster (office-key-authenticated);
+  - console API (staff sessions).
+
+## Service ownership
+
+| Data | Owner | Copies |
+|---|---|---|
+| Patients, messages, appointments, visit records | Back Office | The patient's phone, while displayed |
+| Staff accounts and credentials | Back Office | None |
+| Practice, providers, subscription | Registry | Provider roster pulled by that practice's Back Office |
+| Which offices may connect, and to which Relay | Registry | Signed office list cached by each Relay |
+| Device keys | The phone (private key); Back Office (public key) | None |
 
 ## Observability
 
@@ -192,10 +277,10 @@ guard stops dashboards that starve a small host. Details are in
 
 ## Test and demo topologies
 
-| Topology | Relay | Back Office | Data |
-|---|---|---|---|
-| **Dev** | Developer laptop | Developer laptop (`make compose-up`) | Seed data |
-| **Demo** (investors, practitioners) | Developer laptop | Barnacle (Mac mini) | Synthetic demo practices only |
-| **Field** (the naturopath practice) | Production Relay | Practice Mac mini | Real patients, only after the V1 audit and pen test pass |
+| Topology | Registry | Relay | Back Office | Data |
+|---|---|---|---|---|
+| **Dev** | Developer laptop | Developer laptop | Developer laptop (`make compose-up`) | Seed data |
+| **Demo** (investors, practitioners) | Developer laptop | Developer laptop | Barnacle (Mac mini) | Synthetic demo practices only |
+| **Field** (the naturopath practice) | WeHelp production Registry | Production Relay | Practice Mac mini | Real patients, only after the V1 audit and pen test pass |
 
-Demo and field never share a Back Office, a Relay or keys.
+Demo and field never share a Registry, a Back Office, a Relay or keys.

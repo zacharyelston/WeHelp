@@ -6,6 +6,20 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- WeHelp Registry added to the V1 architecture: a fourth service, the
+  corporate control plane and support arm.
+  - WeHelp support registers practices and their providers in a Registry
+    console, issues single-use install tokens, and assigns each practice to
+    a Relay.
+  - Relays accept only offices on an ed25519-signed, versioned office list
+    pulled from the Registry. They cache the last good list and reject
+    rollbacks; suspending a practice disconnects it within a minute.
+  - Back Offices enroll with an install token and pull their provider roster
+    from the Registry.
+  - The Registry holds no patient data and has an import-boundary test.
+
+  Services are now Back Office, Relay, Registry, Mobile, plus dashboards for
+  the first three. Security, plan, observability and lit review updated.
 - Observability designed (docs/OBSERVABILITY.md):
   - a Grafana Alloy sidecar on every Back Office and Relay;
   - optional Grafana, Loki and Prometheus dashboards that can run anywhere,
