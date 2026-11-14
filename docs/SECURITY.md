@@ -186,6 +186,17 @@ attacker, and jailbroken devices with root on the patient's own phone.
     rewrites. `Verify` checks their links and reports how many it could check
     only that way.
   - A version-1 event may not follow a version-2 one.
+  - The old head lock (`select … limit 1 for update`) let two events
+    written at the same moment link to the same parent. `Verify` accepts
+    such forks among version-1 events when the parent is an earlier event,
+    and counts them. A link to a hash that isn't in the chain still breaks
+    it, so deleted events are still found. Version-2 events may not fork.
+  - Checking (#24): `wehelpd audit verify` on the host checks every
+    practice and exits 1 on a break. Admins can check their own practice
+    from the staff web (`GET /api/v1/staff/audit/verify`, recorded as
+    audit.verify). The Back Office checks every chain a minute after it
+    starts and then daily, logging a break as an error; alerting comes with
+    #54.
   - The chain detects edits, deletions and reordering. On its own it can't
     stop someone who rewrites the whole table and recomputes every hash;
     exporting the chain head off the box (#56) closes that.

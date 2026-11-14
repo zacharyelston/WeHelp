@@ -2812,12 +2812,13 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [ok, verified, link_only]
+                required: [ok, verified, link_only, forked]
                 properties:
                   ok: { type: boolean }
                   verified: { type: integer, description: "Events checked." }
                   broken_at: { type: integer, description: "Sequence number of the first bad event; absent when ok." }
                   link_only: { type: integer, description: "Pre-#28 events checked by link only." }
+                  forked: { type: integer, description: "Pre-#28 events written at the same moment as another, linked to the same parent (the old head lock allowed it)." }
         "403":
           description: Not an admin.
           content:
