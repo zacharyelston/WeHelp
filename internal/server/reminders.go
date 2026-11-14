@@ -101,7 +101,22 @@ func (s *Server) sendDueReminders(ctx context.Context, now time.Time) (int, erro
 		return 0, fmt.Errorf("check-ins: %w", err)
 	}
 	sent := 0
+	switches := map[uuid.UUID]map[string]bool{} // per practice, for this run (#109)
 	for _, d := range append(appts, checkins...) {
+		on, cached := switches[d.tenantID]
+		if !cached {
+			if _, on, err = practiceConfig(ctx, s.pool, d.tenantID); err != nil {
+				return sent, err
+			}
+			switches[d.tenantID] = on
+		}
+		feature := "reminders"
+		if d.kind == "checkin" {
+			feature = "checkins"
+		}
+		if !on[feature] {
+			continue
+		}
 		ok, err := s.sendReminder(ctx, d)
 		if err != nil {
 			return sent, err
@@ -287,6 +302,9 @@ func (s *Server) SetCheckinCadence(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	if id.Role != "provider" {
 		writeErr(w, http.StatusForbidden, "only providers set check-in reminders")
+		return
+	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "checkins") {
 		return
 	}
 	patient, err := uuid.Parse(chi.URLParam(r, "userID"))

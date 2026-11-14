@@ -27,6 +27,10 @@ function Word(k) {
 function clinical() {
   return !practiceInfo || !practiceInfo.type || practiceInfo.type.clinical !== false;
 }
+// feature reports whether the practice has a switch on (#109).
+function feature(name) {
+  return !practiceInfo || !practiceInfo.features || practiceInfo.features[name] !== false;
+}
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -202,12 +206,12 @@ function renderDashboard() {
     <div id="alert-area"></div>
     <div class="tabs">
       <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">${Word("patients")}</div>
-      <div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>
+      ${feature("messages") ? `<div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>` : ""}
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
-      <div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
-      <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>
-      <div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>
+      ${feature("store") ? `<div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
+      <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
+      ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
     </div>
     <div id="tab-content"></div>`;
 }
@@ -378,7 +382,7 @@ async function loadAppointments(container) {
 
   let html = "";
   if (isProvider) {
-    html += await requestsCard(names, wide);
+    if (feature("requests")) html += await requestsCard(names, wide);
     if (!wide) {
       patients = patients.filter((l) => l.status === "active" && l.provider_id === session.user_id)
         .map((l) => ({ id: l.patient_id, label: personName(names, l.patient_id) }))
@@ -587,14 +591,14 @@ async function loadLinks(container) {
     html += '<p class="empty">No links.</p>';
   } else {
     // Check-in reminders are clinical: hidden for a salon (#108).
-    html += `<table><thead><tr><th>${Word("provider")}</th><th>${Word("patient")}</th><th>Status</th>${clinical() ? "<th>Check-in reminders</th>" : ""}<th>Actions</th></tr></thead><tbody>`;
+    html += `<table><thead><tr><th>${Word("provider")}</th><th>${Word("patient")}</th><th>Status</th>${feature("checkins") ? "<th>Check-in reminders</th>" : ""}<th>Actions</th></tr></thead><tbody>`;
     for (const l of links) {
       const provider = personName(names, l.provider_id);
       const patient = personName(names, l.patient_id);
       html += `<tr>
         <td>${provider}</td><td>${patient}</td>
         <td><span class="badge badge-${l.status}">${l.status}</span></td>
-        ${clinical() ? `<td>${checkinCell(l)}</td>` : ""}
+        ${feature("checkins") ? `<td>${checkinCell(l)}</td>` : ""}
         <td>`;
       if (l.status === "pending" && session.role === "patient" && l.patient_id === session.user_id) {
         html += `<button class="btn btn-sm" onclick="acceptLink('${l.provider_id}')">Accept</button>`;

@@ -99,6 +99,8 @@ func (s *Server) Router() chi.Router {
 			r.With(s.authenticate).Get("/profile/photo", s.GetStaffProfilePhoto)
 			r.With(s.authenticate).Put("/profile/photo", s.PutStaffProfilePhoto)
 			r.With(s.authenticate).Delete("/profile/photo", s.DeleteStaffProfilePhoto)
+			r.With(s.authenticate).Get("/profile/messages", s.GetMessageSettings) // message mode (#109)
+			r.With(s.authenticate).Put("/profile/messages", s.PutMessageSettings)
 		})
 
 		// Phones pair through the Relay (#37); no session yet.
@@ -148,7 +150,8 @@ func (s *Server) Router() chi.Router {
 			r.Post("/patients", s.CreatePatient)
 			r.Post("/pairing/invites", s.CreateInvite)
 			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
-			r.Put("/practice", s.PutPractice) // admins (#108)
+			r.Put("/practice", s.PutPractice)                  // admins (#108)
+			r.Put("/practice/features", s.PutPracticeFeatures) // admins (#109)
 			// Practice website and store admin (#97).
 			r.Get("/site", s.GetSite)
 			r.Put("/site", s.PutSite)

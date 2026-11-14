@@ -306,6 +306,9 @@ func (s *Server) PublishSite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "website") {
+		return
+	}
 	if s.sitePub == nil {
 		writeErr(w, http.StatusServiceUnavailable, "this office is not connected to a Relay")
 		return
@@ -367,11 +370,12 @@ func (s *Server) buildSite(ctx context.Context, tenant uuid.UUID) ([]byte, int, 
 		if c, _, _, _, err = s.loadContent(ctx, tx, tenant); err != nil {
 			return err
 		}
-		pt, err := practiceType(ctx, tx, tenant) // the practice's words (#108)
+		pt, on, err := practiceConfig(ctx, tx, tenant) // words (#108) and switches (#109)
 		if err != nil {
 			return err
 		}
 		c.Words = pt.Words
+		c.Off = map[string]bool{"store": !on["store"], "library": !on["library"]}
 		rows, err := tx.Query(ctx, `
 			select sku, name, description, category, unit, price_cents from products
 			where tenant_id = $1 and active order by category, sort, name`, tenant)
@@ -420,6 +424,9 @@ type libraryView struct {
 // Route: GET /api/v1/library
 func (s *Server) GetLibrary(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "library") {
+		return
+	}
 	var v libraryView
 	err := s.readTx(r.Context(), func(tx pgx.Tx) error {
 		c, _, published, url, err := s.loadContent(r.Context(), tx, id.TenantID)
@@ -447,6 +454,9 @@ func (s *Server) GetLibrary(w http.ResponseWriter, r *http.Request) {
 // Route: GET /api/v1/library/files/{fileID}
 func (s *Server) GetLibraryFile(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "library") {
+		return
+	}
 	fileID, err := uuid.Parse(chi.URLParam(r, "fileID"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid file id")
