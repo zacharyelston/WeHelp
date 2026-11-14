@@ -71,6 +71,14 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Spike S1 (#32), written up in docs/spikes/S1.md, with throwaway code in
+  `spikes/s1/`. A phone reaches its Back Office through a relay with HTTP
+  `CONNECT` and an SSH channel, using TLS 1.3 end to end to a pinned office
+  key. The relay's recordings held no plaintext.
+  - Finding: default ATS rejects the pinned self-signed office certificate,
+    so V1 needs one scoped exception for `*.wehelp.invalid`.
+  - Finding: macOS Local Network privacy needs a one-time approval on
+    Barnacle for the Demo topology (added to docs/APPLIANCE.md).
 - Spike S3 (#34), written up in docs/spikes/S3.md, with throwaway code in
   `spikes/s3/`. The Relay-side sender pushed through the APNs sandbox with
   the team's token key, limited to three fixed PHI-free categories (others

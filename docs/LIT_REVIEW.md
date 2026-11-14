@@ -71,8 +71,8 @@ ARCHITECTURE.md, "Connections".
 | Candidate | Verdict |
 |---|---|
 | golang.org/x/crypto/ssh | **adopt**: office ↔ Relay transport. Key auth, host-key pinning and custom channel types are all in the standard Go extended library, with no new protocol to invent or audit |
-| iOS 17 `ProxyConfiguration` (HTTP `CONNECT`, Network framework) | **adopt** (confirm in spike S1): `URLSession` reaches the Relay as a `CONNECT` proxy, so routing needs no DNS or SNI tricks and the inner TLS stays end to end |
-| `URLSession` delegate SPKI pinning | **adopt**: pin the office TLS key delivered by the QR. Fails closed |
+| iOS 17 `ProxyConfiguration` (HTTP `CONNECT`, Network framework) | **adopt** (confirmed by spike S1, docs/spikes/S1.md): `URLSession` reaches the Relay as a TLS `CONNECT` proxy with a pinned relay key; the inner TLS stays end to end |
+| `URLSession` delegate key pinning | **adopt**, with a scoped ATS exception: S1 showed default ATS rejects a pinned self-signed office cert even when the delegate anchors trust. V1 keeps one exception for the reserved `*.wehelp.invalid` office names (TLS 1.3 still required; the pin still fails closed). Network.framework for the inner TLS is the fallback if audit challenges it |
 | Tailscale Funnel | **reference**: an edge that routes without terminating TLS. Same principle |
 | frp, yamux, SNI-passthrough routing | **superseded** by SSH + `CONNECT` (fewer moving parts; no public DNS or certificates per office) |
 | Cloudflare Tunnel, ngrok default edges | **skip**: they terminate TLS at a third party, which would see PHI |

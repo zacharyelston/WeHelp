@@ -34,7 +34,14 @@ files.
    - **Field hosts:** automatic login stays **off** and FileVault is **on**
      (SECURITY.md). After a power cut someone signs in once; the boot job
      then does the rest.
-5. **Clone and start:**
+5. **Local Network permission** (macOS 15 and later; only when the Relay is
+   on the office LAN, as in the Demo topology): on the Mac mini's own
+   screen, approve "Allow local network" for Colima and the WeHelp tunnel
+   when macOS asks. Check it under System Settings → Privacy & Security →
+   Local Network. Without it, connections to LAN addresses fail with
+   `no route to host` or `broken pipe`. A production Relay on the internet
+   isn't affected. See docs/spikes/S1.md.
+6. **Clone and start:**
    ```
    git clone https://github.com/zacharyelston/WeHelp.git ~/wehelp
    cd ~/wehelp && git checkout <release tag>
