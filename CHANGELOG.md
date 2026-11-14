@@ -42,6 +42,15 @@ All notable changes to WeHelp are documented here. Format follows
   opaque `?cursor`), and mark-read. Sending requires an active
   provider-patient link; creates and read-receipts are audit-chained in the
   same transaction.
+- Appointments API (#18): POST/GET/PATCH /api/v1/appointments.
+  Provider-only create requires an active link with the patient and rejects
+  overlapping scheduled appointments (409); concurrent bookings for one
+  provider are serialised with a transaction-scoped advisory lock. List is
+  scoped to the caller (provider or patient) with optional `?from`/`?to`
+  bounds on `starts_at`. PATCH supports reschedule (re-checks overlap) and
+  status transitions only from `scheduled` to `cancelled`, `completed` or
+  `no_show` (409 otherwise). All mutations are audited, including the status
+  change.
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
   a P-256 key in the Secure Enclave (a software key on the simulator) and

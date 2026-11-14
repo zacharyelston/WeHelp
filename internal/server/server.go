@@ -77,6 +77,9 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 			r.Post("/messages", s.CreateMessage)
 			r.Get("/messages", s.ListMessages)
 			r.Post("/messages/{messageID}/read", s.MarkRead)
+			r.Post("/appointments", s.CreateAppointment)
+			r.Get("/appointments", s.ListAppointments)
+			r.Patch("/appointments/{appointmentID}", s.UpdateAppointment)
 		})
 	})
 
