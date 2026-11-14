@@ -23,3 +23,8 @@ build/
 
 # Generated spike Xcode projects (xcodegen)
 spikes/*/ios/*.xcodeproj/
+
+# Backups (#41): per-practice settings and keys, and .env kept by a restore.
+deploy/backup.conf
+deploy/backup-recipients.txt
+deploy/.env.before-restore-*
