@@ -55,6 +55,7 @@ final class VisitCall: NSObject {
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var checkTask: Task<Void, Never>?
     @ObservationIgnored private var offered = false
+    @ObservationIgnored private var begun = false
 
     private static let factory: RTCPeerConnectionFactory = {
         RTCInitializeSSL()
@@ -73,6 +74,10 @@ final class VisitCall: NSObject {
     // MARK: Lifecycle
 
     func begin() async {
+        // SwiftUI may run the screen's task again (a full-screen cover can
+        // appear twice); a second start would put two calls on this device.
+        guard !begun else { return }
+        begun = true
         guard await permissions() else {
             phase = .failed("WeHelp needs the camera and microphone for a video visit. Turn them on in Settings > WeHelp.")
             return
@@ -94,7 +99,7 @@ final class VisitCall: NSObject {
         phase = join.peerPresent ? .connecting : .waiting("Waiting for \(peerName)…")
         pollTask = Task { [weak self] in await self?.pollLoop() }
         if isProvider && join.peerPresent { await offer(restart: false) }
-        if !isProvider && join.peerPresent { send(OutgoingSignal(type: "restart")) } // ask for a fresh offer
+        // A patient who joins needn't ask: the provider offers on "joined".
     }
 
     /// Leave the call; the visit stays open to rejoin.

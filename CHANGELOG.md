@@ -97,6 +97,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Video visits in the iOS app (#6, step 4).
+  - **Starting:** appointments inside the join window show **Start video
+    visit** to the provider, and **Join video visit** to the patient once it
+    is open. Until then the patient sees "Your provider will start the video
+    visit". The Schedule checks every 15 seconds while a window is open.
+  - **Call screen:** the other person full screen, your camera in a corner;
+    mute, camera, flip, and leave or end. Works on iPad in every orientation,
+    with ⌘D and ⌘E shortcuts.
+  - **WebRTC** (`stasel/WebRTC` 157.0.0, pinned) with relay-only ICE and
+    AES-GCM SRTP preferred. The provider offers and re-offers with an ICE
+    restart. The call is ended if the other phone's DTLS certificate doesn't
+    match the fingerprint in its SDP.
+  - Third-party licences screen in Settings. First iOS unit-test target
+    (`WeHelpTests`).
+  - The signal long-poll now waits 15 seconds, under the app's 20-second
+    request timeout.
 - Video visits in the Back Office (#6, step 3).
   - **Starting:** any scheduled appointment can become a video visit. The
     provider starts it from the app (`POST
