@@ -97,6 +97,14 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Logging hygiene (#42).
+  - **Back Office:** the seed command no longer logs emails, only user IDs.
+    `TestNoPHIInLogs` runs a full flow (seeding, pairing, messages,
+    appointments, requests, inbox, orders, a video visit, refusals) and
+    fails if any name, email, text, SDP, token or code is logged.
+  - **Relay:** logs go to daily files under `{relay_dir}/logs`, kept
+    `relay_log_days` (7). `relay_log_dir: -` keeps stderr.
+    `TestRelayLogsNoDeviceAddress` checks phone addresses never appear.
 - Reads of patient data are audited (#40). Each read of patients, a
   patient's devices, links, appointments and requests, messages and
   conversations, the practice inbox, care teams, orders or a pairing invite

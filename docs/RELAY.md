@@ -115,6 +115,15 @@ handles.
 curl -k https://192.168.1.20:8444/s/<office-id>/store.html
 ```
 
+## Logs (#42)
+
+The Relay writes daily log files, `{relay_dir}/logs/relay-YYYY-MM-DD.log`
+(mode 600), and deletes files older than `relay_log_days` (default 7). Set
+`relay_log_dir` to another directory, or to `-` for stderr when a journal
+(journald) keeps them, with its own retention set to 7 days. Lines carry
+office IDs, categories and byte counts, never device addresses or patient
+data. Startup lines (listeners, the TLS pin) still go to stderr.
+
 ## Video-visit TURN (#6)
 
 Video visits send media phone to phone, DTLS-SRTP end to end, forced through
