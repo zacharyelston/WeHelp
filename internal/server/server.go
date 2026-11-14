@@ -85,6 +85,9 @@ func (s *Server) Router() chi.Router {
 		})
 	})
 
+	// Static web client (SPA) — served at root, falls back to API routes above.
+	s.webRoutes(r)
+
 	return r
 }
 
