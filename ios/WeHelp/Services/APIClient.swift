@@ -115,6 +115,15 @@ struct APIClient: Sendable {
         return try await authorized("POST", "api/v1/messages", body: payload)
     }
 
+    // MARK: Appointments
+
+    /// Appointments where the caller is the patient (or provider), ordered
+    /// by start time.
+    func appointments() async throws -> [Appointment] {
+        let list: AppointmentList = try await authorized("GET", "api/v1/appointments")
+        return list.appointments
+    }
+
     // MARK: Plumbing
 
     /// Sends with the access token; on 401 refreshes once and retries.

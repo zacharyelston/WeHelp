@@ -82,3 +82,39 @@ struct CreatedMessage: Decodable, Sendable {
     let id: UUID
     let kind: String
 }
+
+/// One appointment from `GET /api/v1/appointments`. Held in memory only.
+struct Appointment: Identifiable, Decodable, Sendable, Hashable {
+    let id: UUID
+    let providerID: UUID
+    let patientID: UUID
+    let startsAt: Date
+    let endsAt: Date
+    let status: Status
+    let createdAt: Date
+
+    /// Server statuses. A future status the app doesn't know decodes as
+    /// `.unknown` rather than failing the whole list.
+    enum Status: String, Decodable, Sendable {
+        case scheduled, cancelled, completed, unknown
+        case noShow = "no_show"
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Status(rawValue: raw) ?? .unknown
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, status
+        case providerID = "provider_id"
+        case patientID = "patient_id"
+        case startsAt = "starts_at"
+        case endsAt = "ends_at"
+        case createdAt = "created_at"
+    }
+}
+
+struct AppointmentList: Decodable, Sendable {
+    let appointments: [Appointment]
+}
