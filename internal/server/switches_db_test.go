@@ -179,7 +179,7 @@ func TestProviderMessageModes(t *testing.T) {
 	}
 
 	// Office hours on a day that isn't today: an automatic reply, once.
-	tomorrow := int(time.Now().UTC().Add(24*time.Hour).Weekday())
+	tomorrow := int(time.Now().UTC().Add(24 * time.Hour).Weekday())
 	if code := mode(map[string]any{"mode": "hours", "days": []int{tomorrow}, "start_minute": 540, "end_minute": 1020, "auto_reply": ""}); code != http.StatusOK {
 		t.Fatalf("set hours: %d", code)
 	}

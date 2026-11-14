@@ -150,7 +150,7 @@ func (s *Server) Router() chi.Router {
 			r.Post("/patients", s.CreatePatient)
 			r.Post("/pairing/invites", s.CreateInvite)
 			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
-			r.Put("/practice", s.PutPractice) // admins (#108)
+			r.Put("/practice", s.PutPractice)                  // admins (#108)
 			r.Put("/practice/features", s.PutPracticeFeatures) // admins (#109)
 			// Practice website and store admin (#97).
 			r.Get("/site", s.GetSite)
