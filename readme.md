@@ -5,6 +5,22 @@ deserve. Providers and patients connect, share health data, schedule visits,
 exchange memos and check-ins, and sync readings from Bluetooth health
 monitors. **For providers and patients, by providers and patients.**
 
+<table>
+  <tr>
+    <td width="44%"><a href="https://zacharyelston.github.io/WeHelp/#7"><img src="presentation/img/08-provider-appointments.png" alt="Staff web: a provider's appointments and appointment requests"></a></td>
+    <td width="18%"><a href="https://zacharyelston.github.io/WeHelp/#5"><img src="presentation/img/app-schedule.png" alt="The WeHelp iPhone app's Schedule screen"></a></td>
+    <td width="38%"><a href="https://zacharyelston.github.io/WeHelp/#10"><img src="presentation/img/s01-site-home-ocean.png" alt="A practice website made with WeHelp, in the ocean theme"></a></td>
+  </tr>
+  <tr>
+    <td align="center">Staff web: the provider's day</td>
+    <td align="center">iPhone app</td>
+    <td align="center">Practice website, six themes</td>
+  </tr>
+</table>
+
+**[See the full presentation →](https://zacharyelston.github.io/WeHelp/)**
+How it works, the product screen by screen, security, getting started and where the build stands.
+
 Designed to run on an appliance PC in a provider's office (one Go binary +
 Postgres, ~500 patients per practice). A cloud-hosted tier runs the same
 artifact — but the on-prem box is the reference deployment, not an
