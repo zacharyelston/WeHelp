@@ -41,12 +41,20 @@ struct AppointmentsView: View {
     @Environment(AppState.self) private var appState
     @State private var model = AppointmentsModel()
 
+    /// Who the visit is with, from this user's point of view.
+    private func counterpart(_ a: Appointment) -> String? {
+        appState.isStaff ? appState.name(of: a.patientID) : appState.name(of: a.providerID)
+    }
+
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Schedule")
                 .refreshable { await model.refresh(api: appState.api) }
-                .task { await model.refresh(api: appState.api) }
+                .task {
+                    await appState.refreshPeople()
+                    await model.refresh(api: appState.api)
+                }
         }
     }
 
@@ -79,7 +87,7 @@ struct AppointmentsView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    ForEach(upcoming) { AppointmentRow(appointment: $0) }
+                    ForEach(upcoming) { AppointmentRow(appointment: $0, with: counterpart($0)) }
                 } header: {
                     Text("Upcoming")
                 } footer: {
@@ -89,7 +97,7 @@ struct AppointmentsView: View {
                 }
                 if !past.isEmpty {
                     Section("Past") {
-                        ForEach(past) { AppointmentRow(appointment: $0) }
+                        ForEach(past) { AppointmentRow(appointment: $0, with: counterpart($0)) }
                     }
                 }
             }
@@ -99,6 +107,7 @@ struct AppointmentsView: View {
 
 struct AppointmentRow: View {
     let appointment: Appointment
+    var with: String? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -113,7 +122,7 @@ struct AppointmentRow: View {
                 Text(timeRange)
                     .font(.subheadline)
                     .strikethrough(appointment.status == .cancelled)
-                Text("Visit with your care team")
+                Text(with.map { "Visit with \($0)" } ?? "Visit with your care team")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

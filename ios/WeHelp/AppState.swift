@@ -10,7 +10,9 @@ enum Role: String, Codable {
 @MainActor
 @Observable
 final class AppState {
-    enum Phase: Equatable { case launching, signedOut, signedIn }
+    /// unreachable: this device is paired but the practice can't be reached
+    /// right now. The account is kept; it is never treated as unpaired.
+    enum Phase: Equatable { case launching, signedOut, signedIn, unreachable(String) }
 
     /// UserDefaults keys. Neither is a secret.
     static let officeKey = "currentOffice"
@@ -19,6 +21,24 @@ final class AppState {
     private(set) var phase: Phase = .launching
     private(set) var me: Me?
     var role: Role? { me.flatMap { Role(rawValue: $0.role) } }
+    /// Provider and admin devices get the practice view (#69).
+    var isStaff: Bool { me?.role == "provider" || me?.role == "admin" }
+
+    /// Display names of the people the caller is linked with, from
+    /// /api/v1/links. In memory only; never written to disk.
+    private(set) var people: [UUID: String] = [:]
+
+    func name(of id: UUID) -> String? { people[id].flatMap { $0.isEmpty ? nil : $0 } }
+
+    func refreshPeople() async {
+        guard let links = try? await api.links() else { return }
+        var names: [UUID: String] = [:]
+        for l in links where l.status != "revoked" {
+            if let n = l.providerName { names[l.providerID] = n }
+            if let n = l.patientName { names[l.patientID] = n }
+        }
+        people = names
+    }
 
     let session = SessionStore()
     private(set) var api: APIClient
@@ -152,10 +172,15 @@ final class AppState {
         } catch APIError.unauthorized, APIError.notEnrolled {
             await wipeLocalSession()
         } catch {
-            // Server unreachable: keep the stored session so a later launch
-            // can resume it; show sign-in for now.
-            phase = .signedOut
+            // Practice unreachable (Relay down, no network, office offline):
+            // keep the pairing and offer to try again, never the pair screen.
+            phase = .unreachable(error.localizedDescription)
         }
+    }
+
+    /// Tries to reach the practice again after `.unreachable`.
+    func retry() {
+        phase = .launching
     }
 
     /// Password login, then enroll this device and keep only the
@@ -172,13 +197,9 @@ final class AppState {
         phase = .signedIn
     }
 
-    /// Revokes the device on the server, then wipes tokens and the device key.
-    func signOut() async {
-        await api.logout()
-        await wipeLocalSession()
-    }
 
     private func wipeLocalSession() async {
+        people = [:]
         await session.clear()
         DeviceKey.delete()
         me = nil

@@ -15,9 +15,11 @@ import (
 )
 
 type linkView struct {
-	ProviderID uuid.UUID `json:"provider_id"`
-	PatientID  uuid.UUID `json:"patient_id"`
-	Status     string    `json:"status"`
+	ProviderID   uuid.UUID `json:"provider_id"`
+	PatientID    uuid.UUID `json:"patient_id"`
+	Status       string    `json:"status"`
+	ProviderName string    `json:"provider_name"` // display names, so apps can label people (#69)
+	PatientName  string    `json:"patient_name"`
 }
 
 type createLinkRequest struct {
@@ -184,9 +186,12 @@ func (s *Server) RevokeLink(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListLinks(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	rows, err := s.pool.Query(r.Context(), `
-		select provider_id, patient_id, status from provider_patients
-		where tenant_id = $1 and (provider_id = $2 or patient_id = $2)
-		order by created_at`, id.TenantID, id.UserID)
+		select pp.provider_id, pp.patient_id, pp.status, pr.display_name, pa.display_name
+		from provider_patients pp
+		join users pr on pr.id = pp.provider_id
+		join users pa on pa.id = pp.patient_id
+		where pp.tenant_id = $1 and (pp.provider_id = $2 or pp.patient_id = $2)
+		order by pp.created_at`, id.TenantID, id.UserID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "query failed")
 		return
@@ -196,7 +201,7 @@ func (s *Server) ListLinks(w http.ResponseWriter, r *http.Request) {
 	links := []linkView{}
 	for rows.Next() {
 		var l linkView
-		if err := rows.Scan(&l.ProviderID, &l.PatientID, &l.Status); err != nil {
+		if err := rows.Scan(&l.ProviderID, &l.PatientID, &l.Status, &l.ProviderName, &l.PatientName); err != nil {
 			writeErr(w, http.StatusInternalServerError, "scan failed")
 			return
 		}

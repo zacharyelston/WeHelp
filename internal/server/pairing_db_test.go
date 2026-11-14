@@ -162,6 +162,22 @@ func totpNow(t *testing.T, secret string) string {
 }
 
 // login signs a staff member in for a bearer token (password + TOTP, #38).
+// doInto is do for responses that aren't a JSON object (e.g. arrays).
+func (c *client) doInto(method, path string, out any) int {
+	c.t.Helper()
+	req := httptest.NewRequest(method, "/api/v1"+path, nil)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	if c.relay {
+		req = req.WithContext(tunnel.WithViaRelay(req.Context()))
+	}
+	rec := httptest.NewRecorder()
+	c.h.ServeHTTP(rec, req)
+	_ = json.Unmarshal(rec.Body.Bytes(), out)
+	return rec.Code
+}
+
 func login(t *testing.T, h http.Handler, pool *pgxpool.Pool, email, password string) string {
 	t.Helper()
 	secret := enableTOTP(t, pool, email)

@@ -34,7 +34,7 @@ are in [SECURITY.md](SECURITY.md); build order and scope are in
 | **Relay** (`wehelp-relay`) | A server we operate (V1 demos: the dev laptop) | A cached, signed office list from the Registry; published websites; push tokens | Patient data, office TLS keys, plaintext of any patient connection |
 | **Registry** (`wehelp-registry`) | WeHelp's corporate server (V1 demos: the dev laptop) | Practices, their providers and admin contacts, subscriptions, office public keys, Relay assignments | Patient data of any kind |
 | **Patient app** (Mobile) | The patient's own iPhone | A Secure Enclave device key and the pinned office identity | Long-lived passwords; patient data at rest |
-| **Provider app** (Mobile, #69) | The provider's own iPhone or iPad, in or out of the office | The same, with the provider role | The same |
+| **Provider app** (Mobile, #69) | The provider's own iPhone or iPad, in or out of the office | The same, with the provider role. **Decision (2026-11-14): one WeHelp app** that opens on the provider view when the device is paired to a provider or admin account; no separate listing | The same |
 | **Kiosk iPad** (post-V1, #8) | A shared, office-owned iPad on the office Wi-Fi | An office device key; talks to the Back Office directly, never through the Relay | Anything from one patient once the next begins |
 | **Dashboards** | Anywhere (see [OBSERVABILITY.md](OBSERVABILITY.md)) | Telemetry from the Back Office, Relay and Registry | Patient data |
 

@@ -30,6 +30,12 @@ final class InboxModel {
             nextCursor = p.nextCursor
             pagesLoaded = 1
             contacts = Self.activeContacts(l, me: me)
+            var n: [UUID: String] = [:]
+            for link in l {
+                if let p = link.providerName { n[link.providerID] = p }
+                if let p = link.patientName { n[link.patientID] = p }
+            }
+            names = n
             error = nil
         } catch is CancellationError {
             return
@@ -75,10 +81,13 @@ final class InboxModel {
 
     func message(_ id: UUID) -> Message? { messages.first { $0.id == id } }
 
-    /// How a sender is shown. The API has no display names yet, so linked
-    /// users are "Care team" (with a short ID only when there is more than
-    /// one to tell apart).
+    /// Display names from /links (#69), set by the view.
+    var names: [UUID: String] = [:]
+
+    /// How a sender is shown: their name when known, otherwise "Care team"
+    /// or "Patient" (with a short ID only when there is more than one).
     func senderName(_ id: UUID, role: Role?) -> String {
+        if let n = names[id], !n.isEmpty { return n }
         let base = role == .provider ? "Patient" : "Care team"
         guard contacts.contains(id) else { return role == .provider ? "Patient" : "Clinic" }
         return contacts.count > 1 ? "\(base) · \(Self.shortID(id))" : base

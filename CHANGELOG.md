@@ -71,6 +71,25 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Provider devices (#69): one WeHelp app, with the role set by pairing.
+  - On the staff web UI, **My devices** shows a staff member's phones and
+    iPads, with **Pair my phone or iPad** and Revoke.
+  - `POST /pairing/invites` takes `user_id` for any account: a provider for
+    linked patients or themselves; an admin for anyone in the practice.
+    Redeem issues a device-bound session with the account's own role.
+  - The app opens on a provider **Today** view (today's visits with patient
+    names, what's coming up, and unread messages) alongside Messages,
+    Schedule and Settings.
+  - `/links` now carries `provider_name` and `patient_name`, and `/me`
+    carries `display_name`, so messages and visits show names instead of
+    "Patient" or "Care team".
+  - **The app never unpairs itself** (owner direction). Settings' Sign out
+    is replaced by **Lock now**, and the Devices screen is read-only. Only
+    the practice removes a device, from the staff page; the app clears
+    itself when the server refuses a revoked device.
+  - A paired device that can't reach its practice at launch shows "Can't
+    reach <practice>" with **Try again** and keeps the pairing. It used to
+    drop to the pair screen.
 - Staff sign-in and the LAN-only staff surface (#38).
   - Staff web UI sign-in is password + TOTP. The first sign-in walks through
     authenticator setup (QR code and key). Codes work once, and five failures
@@ -102,9 +121,9 @@ All notable changes to WeHelp are documented here. Format follows
     minutes. Patient tokens without a device are refused.
   - Staff web UI: each patient's device count opens their devices, with
     Revoke.
-  - iOS: Settings → Devices lists this account's devices and offers
-    "Sign out other devices". If the server ends this device's session, the
-    app signs out.
+  - iOS: Settings → Devices lists this account's devices (read-only since
+    #69: only the practice revokes). If the server ends this device's
+    session, the app clears it.
 - QR pairing; patients have no password (#37).
   - Staff web UI: a new **Patients** tab to add patients (no password) and
     **Pair phone**, which shows a QR code with the office's pairing identity

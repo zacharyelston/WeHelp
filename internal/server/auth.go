@@ -310,10 +310,13 @@ func (s *Server) authenticateStaffCookie(next http.Handler, w http.ResponseWrite
 
 func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
+	var name string
+	_ = s.pool.QueryRow(r.Context(), `select display_name from users where id = $1`, id.UserID).Scan(&name)
 	writeJSON(w, http.StatusOK, map[string]string{
-		"user_id":   id.UserID.String(),
-		"tenant_id": id.TenantID.String(),
-		"role":      id.Role,
+		"user_id":      id.UserID.String(),
+		"tenant_id":    id.TenantID.String(),
+		"role":         id.Role,
+		"display_name": name,
 	})
 }
 

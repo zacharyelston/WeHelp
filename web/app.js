@@ -169,6 +169,7 @@ function renderDashboard() {
       <h1>WeHelp</h1>
       <div>
         <span class="user">${esc(who)} · ${esc(role)}</span>
+        <button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
     </div>
@@ -554,14 +555,14 @@ async function startPairing(patientId) {
   stopPairing();
   let inv;
   try {
-    inv = await api("POST", "/pairing/invites", { patient_id: patientId });
+    inv = await api("POST", "/pairing/invites", { user_id: patientId });
   } catch (err) {
     showAlert(err.message);
     return;
   }
   const el = document.getElementById("pairing");
   el.innerHTML = `<div class="card pairing">
-    <h2>Pair ${esc(inv.patient_name || "patient")}'s phone</h2>
+    <h2>${inv.role && inv.role !== "patient" ? "Pair your phone or iPad" : `Pair ${esc(inv.patient_name || "patient")}'s phone`}</h2>
     <div id="pairing-body">
       <img class="qr" alt="Pairing QR code" src="data:image/png;base64,${inv.qr_png}">
       <p>Ask the patient to open the WeHelp app, tap <strong>Pair with your practice</strong>, and scan this code.</p>
@@ -637,6 +638,53 @@ async function revokeDevice(patientId, deviceId, name) {
     showAlert("Device revoked", "success");
     await loadTab();
     showDevices(patientId, name);
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// Your own phones and iPads (#69). Pair one here, in the office, to use the
+// WeHelp app as a provider: it opens on your schedule and messages, through
+// the Relay, with Face ID. Revoke a lost one at once.
+async function showMyDevices() {
+  if (activeTab !== "patients") {
+    activeTab = "patients";
+    render();
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  stopPairing();
+  let data;
+  try {
+    data = await api("GET", "/devices");
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  const el = document.getElementById("pairing");
+  let html = `<div class="card"><h2>My devices</h2>
+    <p class="hint">Pair a phone or iPad to use the WeHelp app as ${esc(session.role)}. It works in the office and remotely, with Face ID; no password on the device.</p>
+    <button class="btn" onclick="startPairing('${esc(session.user_id)}')">Pair my phone or iPad</button>`;
+  if (data.devices.length > 0) {
+    html += "<table><thead><tr><th>Device</th><th>Paired</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>";
+    const when = (t) => (t ? new Date(t).toLocaleString() : "—");
+    for (const d of data.devices) {
+      html += `<tr><td>${esc(d.name || "Unnamed device")}</td><td>${when(d.created_at)}</td><td>${when(d.last_seen_at)}</td>
+        <td><span class="badge badge-${d.status === "active" ? "active" : "revoked"}">${esc(d.status)}</span></td>
+        <td>${d.status === "active" ? `<button class="btn btn-sm btn-danger" onclick="revokeMyDevice('${esc(d.id)}')">Revoke</button>` : ""}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += `<button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button></div>`;
+  el.innerHTML = html;
+  el.scrollIntoView({ behavior: "smooth" });
+}
+
+async function revokeMyDevice(deviceId) {
+  if (!confirm("Revoke this device? It is signed out at once and must be paired again in the office.")) return;
+  try {
+    await api("DELETE", `/devices/${deviceId}`);
+    showAlert("Device revoked", "success");
+    showMyDevices();
   } catch (err) {
     showAlert(err.message);
   }
