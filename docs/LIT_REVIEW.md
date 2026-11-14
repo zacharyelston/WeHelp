@@ -127,6 +127,34 @@ ARCHITECTURE.md, "Connections".
 | Grafana Cloud | **evaluate** in the Cloud Dashboards PoC against a self-run VPS stack: cost per office, tenancy, retention, BAA availability |
 | Docker Compose profiles and resource limits | **adopt**: dashboards are an opt-in profile with CPU and memory caps |
 
+## Local model runtimes (post-V1 agent, #83)
+
+Requirement: run a language model on the Back Office (Apple silicon, macOS)
+with no network path, no telemetry, a local socket API, and structured
+output, so patient data never leaves the box. See
+[LOCAL_AGENT.md](LOCAL_AGENT.md). Verdicts are provisional until #83.
+
+| Candidate | Verdict |
+|---|---|
+| llama.cpp (`llama-server`) | **evaluate first**: C/C++, MIT, Metal acceleration, GGUF quantised models, an HTTP server that can bind to a Unix socket or loopback, and grammar or JSON-schema constrained output for typed tool calls. Few dependencies, so it is easy to pin and audit. Fast-moving: pin a release and update on a schedule |
+| MLX / `mlx-lm` (Apple) | **evaluate**: MIT, built for Apple silicon's unified memory, often the fastest on Macs. Python runtime and dependencies to pin; its server is simpler than llama.cpp's |
+| Ollama | **reference, likely skip**: convenient wrapper around llama.cpp, but by default it listens on TCP and pulls models from its own registry. Usable only with both locked down, which removes most of its value |
+| Apple Foundation Models framework | **evaluate for small tasks**: Apple's on-device model, no network, Swift API. Small model, so suited to classification and short drafts, not long reasoning; needs a Swift helper beside `wehelpd` |
+| LM Studio | **skip**: desktop GUI app, closed source |
+| vLLM, TGI | **skip**: built for NVIDIA GPU servers, not Apple silicon |
+| llamafile | **reference**: single-file packaging of llama.cpp and weights; an option for shipping a pinned runtime |
+| Open-weight models (Llama, Qwen, Mistral, Gemma families) | **evaluate in #83**: pick by quality at a size that fits the box, and by licence terms for a commercial clinical setting. Pin by file hash |
+| Hosted model APIs | **skip**: sending PHI to a third party is what this design exists to avoid |
+
+## Questionnaires and kiosk content (post-V1, #82)
+
+| Candidate | Verdict |
+|---|---|
+| Interventionaire (in-house, AdonisJS + MySQL + AngularJS) | **adopt as the authoring tool only**: booklets, sections, pages and branches exported as a signed JSON bundle. Not run in the practice; its `eval` branching and answer storage are not carried over. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
+| FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **evaluate in #82**: the standard shape; `enableWhen` covers simple branching. Maps onto #26 later |
+| SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
+| Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all

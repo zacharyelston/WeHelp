@@ -71,6 +71,23 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Practice onboarding plan and training material (`docs/onboarding/`):
+  - an onboarding runbook, practice side first: Registry setup, Back Office
+    install and Relay connection, the provider app, a day-by-day training
+    week on a separate demo kit, roles and RACI, checklists, go-live
+    criteria, hypercare and rollback;
+  - a video training outline: 13 modules with scripts and a shot list per
+    screen, each marked as existing today or waiting on its issue;
+  - Interventionaire (questionnaire and intervention tooling for the
+    post-V1 kiosk): what it does, why it is used for authoring only, how
+    bundles plug into the Back Office, and the demo script.
+- Design note `docs/LOCAL_AGENT.md`: a Mac Pro Back Office running a local
+  AI agent for daily routines and approved outreach, with inference and all
+  patient data on the box and every agent action audited. Lit-review
+  entries for local model runtimes and questionnaire formats.
+- Issues: self-registration decision (#79), training seed (#80),
+  `wehelpd doctor` (#81), kiosk questionnaires (#82), local agent (#83) and
+  training videos (#84).
 - WeHelp Relay (#4): the new `wehelp-relay` binary and the office tunnel.
   - Offices connect out over SSH with their office key. The Relay accepts
     only keys on the Registry's signed office list for its own relay ID, and
