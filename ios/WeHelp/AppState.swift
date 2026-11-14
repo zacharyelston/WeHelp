@@ -281,7 +281,7 @@ final class AppState {
         switch error {
         case APIError.unauthorized:
             "This pairing code has expired or was already used. Ask the front desk for a new one."
-        case APIError.http(409, _):
+        case APIError.http(409, _, _):
             "This device is already paired for that account."
         default:
             error.localizedDescription

@@ -269,7 +269,7 @@ A 1:1 video visit between a patient and their provider (#6). Media goes phone to
 
 **Signals**
 - Send: `POST /api/v1/visits/{visit_id}/signals` with `{"type": "offer"|"answer", "sdp"}`, `{"type": "candidate", "candidate": {candidate, sdpMid, sdpMLineIndex}}`, or (patient) `{"type": "restart"}`.
-- Receive: `GET /api/v1/visits/{visit_id}/signals?after={seq}` returns at once when there is something newer, otherwise after about 25 seconds. Poll again at once with the highest `seq` you got.
+- Receive: `GET /api/v1/visits/{visit_id}/signals?after={seq}` returns at once when there is something newer, otherwise after about 15 seconds, so use a request timeout of at least 20 seconds. Poll again at once with the highest `seq` you got.
   - Only while the call screen is open.
   - The other side's `joined`, `left`, `offer`, `answer`, `candidate`, `restart`, and the Back Office's `ended` and `replaced`.
 - `ended: true` or `ended`: the visit is over; show it and close the call.

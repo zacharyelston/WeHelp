@@ -83,6 +83,14 @@ struct AppointmentsView: View {
                 .task {
                     await appState.refreshPeople()
                     await model.refresh(api: appState.api)
+                    // While a video visit's window is on, look every 15 s for
+                    // the provider starting it (the push may not arrive).
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .seconds(15))
+                        if model.appointments.contains(where: { $0.inVisitWindow() }) {
+                            await model.refresh(api: appState.api)
+                        }
+                    }
                 }
         }
     }
@@ -116,7 +124,15 @@ struct AppointmentsView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    ForEach(upcoming) { AppointmentRow(appointment: $0, with: counterpart($0)) }
+                    ForEach(upcoming) { a in
+                        VStack(alignment: .leading, spacing: 8) {
+                            AppointmentRow(appointment: a, with: counterpart(a))
+                            // Video visits (#6): inside the join window.
+                            if a.inVisitWindow() {
+                                VisitButton(appointment: a, peerName: counterpart(a) ?? (appState.isStaff ? "your patient" : "your provider"))
+                            }
+                        }
+                    }
                 } header: {
                     Text("Upcoming")
                 } footer: {

@@ -140,6 +140,9 @@ struct Appointment: Identifiable, Decodable, Sendable, Hashable {
     let endsAt: Date
     let status: Status
     let createdAt: Date
+    /// The video visit's state (#6): "open" once the provider starts it,
+    /// "ended" after; nil if none was started.
+    var visitStatus: String? = nil
 
     /// Server statuses. A future status the app doesn't know decodes as
     /// `.unknown` rather than failing the whole list.
@@ -160,6 +163,7 @@ struct Appointment: Identifiable, Decodable, Sendable, Hashable {
         case startsAt = "starts_at"
         case endsAt = "ends_at"
         case createdAt = "created_at"
+        case visitStatus = "visit_status"
     }
 }
 

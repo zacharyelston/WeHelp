@@ -5,6 +5,14 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
 
+packages:
+  # Video visits (#6): Google's libwebrtc (BSD-3), pinned exactly. Mirror the
+  # release zip and update at least quarterly, at once for a DTLS, SRTP or
+  # codec CVE (docs/spikes/S2.md).
+  WebRTC:
+    url: https://github.com/stasel/WebRTC
+    exactVersion: 157.0.0
+
 configFiles:
   Debug: Config/Debug.xcconfig
   Release: Config/Release.xcconfig
@@ -17,6 +25,8 @@ targets:
       - path: WeHelp
         excludes:
           - "Info.plist"
+    dependencies:
+      - package: WebRTC
     info:
       path: WeHelp/Info.plist
       properties:
@@ -32,7 +42,8 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         NSHealthShareUsageDescription: "WeHelp shares your health data with your care team."
         NSHealthUpdateUsageDescription: "WeHelp records check-ins and readings to your health data."
-        NSCameraUsageDescription: "WeHelp uses the camera to scan your practice's pairing code."
+        NSCameraUsageDescription: "WeHelp uses the camera to scan your practice's pairing code and for video visits."
+        NSMicrophoneUsageDescription: "WeHelp uses the microphone for video visits with your practice."
         NSFaceIDUsageDescription: "WeHelp uses Face ID to keep your health information private."
         NSBluetoothAlwaysUsageDescription: "WeHelp connects to your Bluetooth health monitors."
         # Demo setups run the Relay on the office LAN, which needs this prompt.
@@ -50,6 +61,9 @@ targets:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
               NSExceptionMinimumTLSVersion: TLSv1.3
+    scheme:
+      testTargets:
+        - WeHelpTests
     entitlements:
       path: WeHelp/WeHelp.entitlements
       properties:
@@ -65,3 +79,17 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+  # Unit tests for pure logic (#6: the call's fingerprint check).
+  WeHelpTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: WeHelpTests
+    dependencies:
+      - target: WeHelp
+    settings:
+      base:
+        DEVELOPMENT_TEAM: WZYFJ8TSWD
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES

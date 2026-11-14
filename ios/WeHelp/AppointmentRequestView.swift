@@ -102,7 +102,7 @@ struct AppointmentRequestView: View {
                                                       reason: reason.trimmingCharacters(in: .whitespacesAndNewlines))
             onSent()
             dismiss()
-        } catch APIError.http(_, let message) {
+        } catch APIError.http(_, let message, _) {
             error = message
         } catch {
             self.error = error.localizedDescription

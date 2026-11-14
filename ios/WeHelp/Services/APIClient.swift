@@ -2,7 +2,9 @@ import Foundation
 
 enum APIError: Error, LocalizedError {
     case unauthorized(String)
-    case http(Int, String)
+    /// A non-2xx answer: status, the message for people, and the stable
+    /// code when the server gives one (branch on the code, not the text).
+    case http(Int, String, code: String? = nil)
     case notEnrolled
     case noOffice
     case badEndpoint(OfficeEndpoint.Problem)
@@ -18,7 +20,7 @@ enum APIError: Error, LocalizedError {
         case .clockSkew:
             "Your practice couldn't sign you in because this iPhone's date and time look wrong. Turn on Set Automatically in Settings > General > Date & Time, then try again."
         case .unauthorized(let msg): "Not signed in: \(msg)"
-        case .http(let code, let msg): "Server error \(code): \(msg)"
+        case .http(let status, let msg, _): "Server error \(status): \(msg)"
         case .notEnrolled: "This device is not enrolled."
         case .noOffice: "Choose a practice first."
         case .badEndpoint(let p): p.errorDescription
@@ -256,6 +258,37 @@ struct APIClient: Sendable {
         }
     }
 
+    // MARK: Video visits (#6)
+
+    /// The provider starts (or rejoins) the visit for an appointment.
+    func startVisit(appointment: UUID) async throws -> VisitJoin {
+        try await authorized("POST", "api/v1/appointments/\(appointment.uuidString.lowercased())/visit/start")
+    }
+
+    /// The patient joins an open visit (409 `not_started` until the provider
+    /// starts it); the provider may also rejoin this way.
+    func joinVisit(appointment: UUID) async throws -> VisitJoin {
+        try await authorized("POST", "api/v1/appointments/\(appointment.uuidString.lowercased())/visit/join")
+    }
+
+    /// Long-polls for signals from the other side (up to about 25 s).
+    func visitSignals(_ visit: UUID, after: Int64) async throws -> VisitSignalPage {
+        try await authorized("GET", "api/v1/visits/\(visit.uuidString.lowercased())/signals",
+                             query: [URLQueryItem(name: "after", value: String(after))])
+    }
+
+    func sendVisitSignal(_ visit: UUID, _ signal: OutgoingSignal) async throws {
+        let _: Empty = try await authorized("POST", "api/v1/visits/\(visit.uuidString.lowercased())/signals", body: signal)
+    }
+
+    func leaveVisit(_ visit: UUID) async throws {
+        let _: Empty = try await authorized("POST", "api/v1/visits/\(visit.uuidString.lowercased())/leave")
+    }
+
+    func endVisit(_ visit: UUID) async throws {
+        let _: Empty = try await authorized("POST", "api/v1/visits/\(visit.uuidString.lowercased())/end")
+    }
+
     // MARK: Plumbing
 
     /// Sends with the access token; on 401 refreshes once and retries.
@@ -303,7 +336,7 @@ struct APIClient: Sendable {
             // A skewed clock is not a signed-out session (#136): keep the
             // account instead of treating it as a 401.
             if status == 401, body?["code"] == "proof_timestamp" { throw APIError.clockSkew }
-            throw status == 401 ? APIError.unauthorized(msg) : APIError.http(status, msg)
+            throw status == 401 ? APIError.unauthorized(msg) : APIError.http(status, msg, code: body?["code"])
         }
         return (data, response as? HTTPURLResponse)
     }

@@ -38,7 +38,7 @@ const (
 )
 
 // visitPollWait is how long a signal poll waits for something new (a var for tests).
-var visitPollWait = 25 * time.Second
+var visitPollWait = 15 * time.Second // under the app's 20-second request timeout
 
 // TURNKeySource gives the office's TURN key, which the Relay sends when the
 // tunnel connects. Without one, visits can't start.

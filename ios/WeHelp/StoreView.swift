@@ -68,7 +68,7 @@ final class StoreModel {
     }
 
     static func message(_ error: Error) -> String {
-        if case APIError.http(_, let msg) = error { return msg }
+        if case APIError.http(_, let msg, _) = error { return msg }
         return "Couldn't reach your practice. Try again in a moment."
     }
 }
