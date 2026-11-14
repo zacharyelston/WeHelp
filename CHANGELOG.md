@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The ecosystem diagram shows the practice side of the Relay: the Back Office
+  as a mini PC appliance, and the front desk as a laptop using the staff web
+  over the office Wi-Fi, where the pairing QR code is shown.
 - The readme opens with a hero diagram of the WeHelp ecosystem
   (`presentation/img/ecosystem.svg`): the app and the Back Office tied
   together by QR pairing, the Relay, the Registry and the practice website
