@@ -6,7 +6,8 @@ info:
     The WeHelp Registry (`wehelp-registry`, #60): the corporate control plane.
     Offices install with a single-use token; Relays fetch the signed list of
     offices they may accept. No patient data is accepted or returned.
-    The console API for WeHelp support is #61 and not part of this spec yet.
+    Relays report their status, signed with their SSH host key, and WeHelp
+    support runs practices from the console (#61, also served at /console/).
   license:
     name: AGPL-3.0
     url: https://www.gnu.org/licenses/agpl-3.0.html
@@ -97,8 +98,481 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/relay-status:
+    post:
+      summary: A Relay's signed status report (#61)
+      description: |
+        Sent by each Relay after every list sync. The body is signed with the
+        Relay's SSH host key (the key the Registry pins for it); the
+        signature is base64 of the SSH wire-format signature in
+        `X-WeHelp-Relay-Signature`. Reports more than 2 minutes off are
+        refused. Office IDs only.
+      parameters:
+        - name: X-WeHelp-Relay-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [relay_id, at, list_version, connected_offices]
+              properties:
+                relay_id: { type: string, format: uuid }
+                at: { type: integer, description: Unix seconds }
+                list_version: { type: integer }
+                connected_offices:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "204": { description: Stored }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # -------------------------------------------------------------------------
+  # Console (#61): WeHelp support staff. Cookie session (__Host-wehelp_console)
+  # plus X-CSRF-Token on every write. Roles: support, registry-admin.
+  # -------------------------------------------------------------------------
+  /v1/console/login:
+    post:
+      summary: Sign in with email, password and authenticator code
+      description: The first sign-in (no authenticator yet) returns status totp_setup.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          description: Signed in (or in authenticator setup)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConsoleMe" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/console/totp/setup:
+    post:
+      summary: Start authenticator enrolment (setup session only)
+      responses:
+        "200":
+          description: Secret, otpauth URL and a QR code PNG (base64)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret: { type: string }
+                  otpauth_url: { type: string }
+                  qr_png: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/console/totp/confirm:
+    post:
+      summary: Turn the authenticator on with a first code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200":
+          description: Fully signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConsoleMe" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/console/me:
+    get:
+      summary: The signed-in staff member
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConsoleMe" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/console/logout:
+    post:
+      summary: Sign out
+      responses:
+        "204": { description: Signed out }
+
+  /v1/console/practices:
+    get:
+      summary: List practices
+      responses:
+        "200":
+          description: Practices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  practices:
+                    type: array
+                    items: { $ref: "#/components/schemas/PracticeDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      summary: Create a practice on a Relay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, relay]
+              properties:
+                name: { type: string }
+                relay: { type: string, description: Relay name }
+                contact_name: { type: string }
+                contact_email: { type: string }
+                contact_phone: { type: string }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/console/practices/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      summary: One practice with its providers
+      responses:
+        "200":
+          description: Practice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      summary: Edit name, admin contact or subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                contact_name: { type: string }
+                contact_email: { type: string }
+                contact_phone: { type: string }
+                subscription: { type: string, enum: [trial, active, past_due, cancelled] }
+      responses:
+        "200":
+          description: Updated practice
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/console/practices/{id}/suspend:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      summary: Suspend a practice (registry-admin); publishes a list without its office
+      responses:
+        "200":
+          description: Suspended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/console/practices/{id}/reactivate:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      summary: Reactivate a practice (registry-admin)
+      responses:
+        "200":
+          description: Active again
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/console/practices/{id}/relay:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      summary: Assign the practice to another Relay (registry-admin; before install only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [relay_id]
+              properties:
+                relay_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Moved; a new office list is published
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeDetail" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/console/practices/{id}/install-token:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      summary: Issue a single-use install token (shown once)
+      responses:
+        "201":
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  install_token: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/console/practices/{id}/providers:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      summary: Add a provider or admin to a practice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderInput" }
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/console/providers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    put:
+      summary: Edit a provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Remove a provider (kept for the record)
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/console/relays:
+    get:
+      summary: Relays with capacity, practice count and latest report
+      responses:
+        "200":
+          description: Relays
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  relays:
+                    type: array
+                    items: { $ref: "#/components/schemas/RelayHealth" }
+
+  /v1/console/relays/{id}/capacity:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    put:
+      summary: Set how many practices a Relay should carry (registry-admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [capacity]
+              properties:
+                capacity: { type: integer, minimum: 1, maximum: 10000 }
+      responses:
+        "204": { description: Set }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/console/health:
+    get:
+      summary: Relay and office health from the Relays' signed reports
+      responses:
+        "200":
+          description: Health
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest_list_version: { type: integer }
+                  relays:
+                    type: array
+                    items: { $ref: "#/components/schemas/RelayHealth" }
+                  offices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        practice_id: { type: string, format: uuid }
+                        practice_name: { type: string }
+                        office_id: { type: string, format: uuid }
+                        relay: { type: string }
+                        status: { type: string }
+                        connected: { type: boolean }
+
+  /v1/console/audit:
+    get:
+      summary: Recent audit events, newest first
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        seq: { type: integer }
+                        actor: { type: string }
+                        action: { type: string }
+                        resource_type: { type: string }
+                        resource_id: { type: string }
+                        detail: { type: object }
+                        created_at: { type: string, format: date-time }
+
 components:
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Not signed in, or a bad signature
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Needs registry-admin, or a missing CSRF token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such resource
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Already in that state, a duplicate, or not allowed in this state
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    ConsoleMe:
+      type: object
+      properties:
+        status: { type: string, enum: [active, totp_setup] }
+        email: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [support, registry-admin] }
+        csrf_token: { type: string }
+    PracticeDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [active, suspended] }
+        relay: { type: string }
+        relay_id: { type: string, format: uuid }
+        office_id: { type: string, format: uuid, nullable: true }
+        installed_at: { type: string, format: date-time, nullable: true }
+        contact_name: { type: string }
+        contact_email: { type: string }
+        contact_phone: { type: string }
+        subscription: { type: string, enum: [trial, active, past_due, cancelled] }
+        created_at: { type: string, format: date-time }
+        providers:
+          type: array
+          items: { $ref: "#/components/schemas/Provider" }
+    ProviderInput:
+      type: object
+      required: [name, email, role]
+      properties:
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [provider, admin] }
+        credentials: { type: string }
+        licence_number: { type: string }
+    Provider:
+      allOf:
+        - $ref: "#/components/schemas/ProviderInput"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            practice_id: { type: string, format: uuid }
+    RelayHealth:
+      allOf:
+        - $ref: "#/components/schemas/Relay"
+        - type: object
+          properties:
+            capacity: { type: integer }
+            practices: { type: integer }
+            reported_at: { type: string, format: date-time, nullable: true }
+            list_version: { type: integer, nullable: true }
+            up: { type: boolean }
+            connected_offices: { type: integer }
     Error:
       type: object
       required: [error]

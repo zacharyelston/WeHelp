@@ -37,6 +37,10 @@ func (r *Relay) syncLoop(ctx context.Context) {
 			// Keep serving with the last good list.
 			slog.Warn("relay: office list sync failed", "err", err, "version", r.Version())
 		}
+		// Health for the Registry console (#61); best effort.
+		if err := r.Report(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("relay: status report failed", "err", err)
+		}
 		select {
 		case <-ctx.Done():
 			return

@@ -12,9 +12,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// Server is the Registry's public HTTP API: install and the office list.
-// The console API (#61) is not part of V1-M2; WeHelp support uses the
-// wehelp-registry CLI on the Registry host instead.
+// Server is the Registry's HTTP API: install, the office list, Relay status
+// reports, and the support console (#61).
 type Server struct {
 	store *Store
 }
@@ -30,7 +29,11 @@ func (s *Server) Router() chi.Router {
 	r.Route("/v1", func(r chi.Router) {
 		r.Post("/install", s.install)
 		r.Get("/office-list", s.officeList)
+		r.Post("/relay-status", s.relayStatus)
+		r.Route("/console", s.consoleRoutes)
 	})
+	r.Get("/console", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/console/", http.StatusFound) })
+	r.Handle("/console/*", consoleUI())
 	return r
 }
 

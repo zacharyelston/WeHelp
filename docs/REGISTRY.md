@@ -6,10 +6,41 @@ each Relay may accept. It holds business data only, never patient data. See
 ARCHITECTURE.md ("Registry internals") and SECURITY.md ("Registry → Relay and
 Back Office").
 
-In V1-M2 WeHelp support runs the subcommands below on the Registry host.
-Access to that host and its database is the access control until the web
-console with password + TOTP lands (#61). Each command records who acted
-(`--actor`, default `cli:<os user>`) in the Registry's audit log.
+WeHelp support works in the **Registry console** (#61) at `/console/`. The
+subcommands below still run on the Registry host for setup and for Relays.
+Each CLI command records who acted (`--actor`, default `cli:<os user>`) in
+the Registry's audit log; console actions record `console:<email>`.
+
+## The console (#61)
+
+```bash
+bin/wehelp-registry staff add --email you@wehelp.example --name "Your Name" --role registry-admin
+# password from the terminal, or WEHELP_CONSOLE_PASSWORD
+```
+
+Open `https://<registry>/console/` and sign in. On the first sign-in, scan
+the QR code with an authenticator app. After that every sign-in needs a code,
+and each code works once. Five wrong attempts lock the account for 15
+minutes. Sessions end after 30 idle minutes or 12 hours.
+
+| Role | Can |
+|---|---|
+| `support` | create and edit practices: name, admin contact, subscription (trial, active, past due, cancelled); add, edit and remove providers and admins (name, email, credentials, licence number); issue install tokens; see Relays, health and the audit log |
+| `registry-admin` | also suspend and reactivate practices, move a practice that isn't installed yet to another Relay, and set Relay capacity |
+
+- **Moving an installed office** to another Relay isn't supported yet. The
+  office and its paired phones learned their Relay at install and pairing.
+- **Health** comes from the Relays themselves. After each list sync (every
+  minute) a Relay posts which list version it uses and which offices are
+  connected to `/v1/relay-status`. The report is signed with its SSH host key
+  (the key the Registry pins), and a report more than 2 minutes old is
+  refused. A Relay that hasn't reported for 3 minutes shows as not
+  reporting. It holds office IDs only, with no addresses and no patient data.
+  The dashboards stack (#55) will add metrics.
+- **Browsers:** the console sets a `__Host-` Secure cookie, so it needs HTTPS
+  (`registry_tls_cert` and `registry_tls_key`). For a laptop demo,
+  `http://localhost:8090/console/` works in Chrome, which treats localhost
+  as secure.
 
 ## Set up (dev laptop)
 

@@ -48,7 +48,7 @@ func main() {
 	})
 	root.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ./wehelp.yaml or /etc/wehelp/wehelp.yaml)")
 	root.PersistentFlags().StringVar(&actor, "actor", defaultActor(), "who is acting, recorded in the audit log")
-	root.AddCommand(serveCmd(), migrateCmd(), keygenCmd(), pubkeyCmd(), relayCmd(), practiceCmd(), tokenCmd(), auditCmd())
+	root.AddCommand(serveCmd(), migrateCmd(), keygenCmd(), pubkeyCmd(), relayCmd(), practiceCmd(), tokenCmd(), auditCmd(), staffCmd())
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
