@@ -25,7 +25,7 @@ func init() {
 		}
 	})
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ./wehelp.yaml or /etc/wehelp/wehelp.yaml)")
-	rootCmd.AddCommand(serveCmd, migrateCmd, seedCmd, initCmd)
+	rootCmd.AddCommand(serveCmd, migrateCmd, seedCmd, initCmd, staffCmd)
 }
 
 func main() {

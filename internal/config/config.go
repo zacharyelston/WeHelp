@@ -34,6 +34,10 @@ type Config struct {
 	RelayTunnel          bool   `mapstructure:"relay_tunnel"`
 	RelayAddressOverride string `mapstructure:"relay_address_override"` // demos only
 
+	// Staff web UI over HTTPS on the office LAN (#38).
+	StaffTLSAddr string `mapstructure:"staff_tls_addr"` // empty = no HTTPS listener
+	StaffHosts   string `mapstructure:"staff_hosts"`    // comma-separated names and IPs for the certificate
+
 	// WeHelp Relay (wehelp-relay, #4). WEHELP_RELAY_* env vars.
 	RelayDir          string        `mapstructure:"relay_dir"` // host key, TLS key, list cache; mode 700
 	RelayID           string        `mapstructure:"relay_id"`  // from wehelp-registry relay add
@@ -94,6 +98,8 @@ func Load(cfgFile string) error {
 	viper.SetDefault("registry_url", "http://localhost:8090")
 	viper.SetDefault("relay_tunnel", true)
 	viper.SetDefault("relay_address_override", "")
+	viper.SetDefault("staff_tls_addr", ":8443")
+	viper.SetDefault("staff_hosts", "")
 
 	viper.SetDefault("relay_dir", defaultRelayDir())
 	viper.SetDefault("relay_id", "")

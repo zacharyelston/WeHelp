@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -42,6 +44,9 @@ var serveCmd = &cobra.Command{
 				srv.SetPairing(p) // QR pairing (#37)
 			}
 			startTunnel(ctx, cfg, id, srv.Router())
+			if err := startStaffTLS(ctx, cfg, id, srv); err != nil {
+				return err
+			}
 		}
 		return srv.ListenAndServe(ctx)
 	},
@@ -70,4 +75,34 @@ func startTunnel(ctx context.Context, cfg config.Config, id *office.Identity, ha
 		}
 	}()
 	slog.Info("relay tunnel starting", "office", id.Registration.OfficeID, "relay", id.Registration.Relay.Name)
+}
+
+// startStaffTLS serves the staff web UI over HTTPS with a certificate from
+// the office's local CA (#38). Outside dev, plain HTTP then only answers
+// health checks and redirects to HTTPS, so staff never sign in in the clear.
+func startStaffTLS(ctx context.Context, cfg config.Config, id *office.Identity, srv *server.Server) error {
+	if cfg.StaffTLSAddr == "" {
+		return nil
+	}
+	hosts := strings.Split(cfg.StaffHosts, ",")
+	if h, err := os.Hostname(); err == nil {
+		hosts = append(hosts, h)
+	}
+	cert, err := id.StaffCert(hosts)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := srv.ServeStaffTLS(ctx, cfg.StaffTLSAddr, cert); err != nil {
+			slog.Error("staff HTTPS listener stopped", "err", err)
+		}
+	}()
+	if cfg.Env != "dev" {
+		_, port, err := net.SplitHostPort(cfg.StaffTLSAddr)
+		if err != nil {
+			return err
+		}
+		srv.RedirectHTTPTo(port)
+	}
+	return nil
 }

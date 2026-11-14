@@ -1,13 +1,17 @@
-// WeHelp web client — vanilla JS SPA, no framework, no build step.
-// Embedded in the Go binary via embed.FS; served at / by the chi router.
+// WeHelp staff web UI — vanilla JS SPA, no framework, no build step.
+// Embedded in the Go binary via embed.FS; served on the office LAN only.
+//
+// Sign-in (#38): password + TOTP. The session lives in a server-side cookie
+// (Secure, HttpOnly, SameSite=Strict) that this script never sees; changes
+// carry the session's CSRF token in a header. Nothing is kept in
+// localStorage.
 
 const API = "/api/v1";
-const STORAGE_KEY = "wehelp_session";
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let session = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+let session = null; // { status, user_id, role, display_name, practice, csrf_token }
 let activeTab = "patients";
 
 // ---------------------------------------------------------------------------
@@ -16,17 +20,17 @@ let activeTab = "patients";
 async function api(method, path, body) {
   const opts = {
     method,
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
   };
-  if (session?.access_token) {
-    opts.headers["authorization"] = "Bearer " + session.access_token;
-  }
+  if (session?.csrf_token) opts.headers["x-csrf-token"] = session.csrf_token;
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401) {
-    logout();
-    throw new Error("session expired");
+  if (res.status === 401 && session?.status === "active") {
+    session = null;
+    render();
+    throw new Error("Your session ended. Please sign in again.");
   }
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
@@ -35,41 +39,18 @@ async function api(method, path, body) {
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
-async function login(tenant, email, password) {
-  const data = await api("POST", "/auth/login", { tenant, email, password });
-  session = data;
-  await fetchIdentity();
-  // Staff only: patients use the mobile app (docs/ARCHITECTURE.md). Drop the
-  // session before anything is stored or rendered.
-  if (session.role === "patient") {
-    session = null;
-    localStorage.removeItem(STORAGE_KEY);
-    renderPatientNotice();
-    return;
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+async function login(tenant, email, password, code) {
+  session = await api("POST", "/staff/login", { tenant, email, password, code });
   render();
 }
 
-function renderPatientNotice() {
-  document.getElementById("app").innerHTML = `
-    <div class="card login-card">
-      <h1>WeHelp</h1>
-      <p>This page is for practice staff.</p>
-      <p>Patients, please use the <strong>WeHelp app</strong> on your phone to see
-        your appointments and messages. Ask the front desk to pair your phone.</p>
-      <button class="btn" style="width:100%" onclick="render()">Back to sign in</button>
-    </div>`;
-}
-
-async function fetchIdentity() {
-  const me = await api("GET", "/me");
-  session = { ...session, ...me };
-}
-
-function logout() {
+async function logout() {
+  try {
+    await api("POST", "/staff/logout");
+  } catch (_) {
+    // The cookie is cleared either way.
+  }
   session = null;
-  localStorage.removeItem(STORAGE_KEY);
   render();
 }
 
@@ -78,14 +59,13 @@ function logout() {
 // ---------------------------------------------------------------------------
 function render() {
   const app = document.getElementById("app");
-  if (session && session.role === "patient") {
-    // A patient session restored from an older build: discard it.
-    session = null;
-    localStorage.removeItem(STORAGE_KEY);
-  }
   if (!session) {
     app.innerHTML = renderLogin();
     bindLogin();
+    return;
+  }
+  if (session.status === "totp_setup") {
+    renderTOTPSetup(app);
     return;
   }
   app.innerHTML = renderDashboard();
@@ -97,21 +77,27 @@ function renderLogin() {
   return `
     <div class="card login-card">
       <h1>WeHelp</h1>
+      <p class="hint">Staff sign-in. This page works only on the office network.</p>
       <div id="login-error"></div>
       <form id="login-form">
         <div class="form-group">
-          <label>Tenant</label>
+          <label>Practice</label>
           <input type="text" id="login-tenant" value="Demo Clinic" required>
         </div>
         <div class="form-group">
           <label>Email</label>
-          <input type="email" id="login-email" placeholder="you@demo.wehelp" required>
+          <input type="email" id="login-email" placeholder="you@demo.wehelp" autocomplete="username" required>
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input type="password" id="login-password" required>
+          <input type="password" id="login-password" autocomplete="current-password" required>
         </div>
-        <button type="submit" class="btn" style="width:100%">Log in</button>
+        <div class="form-group">
+          <label>Authenticator code</label>
+          <input type="text" id="login-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="7"
+            placeholder="6 digits (leave empty the first time)">
+        </div>
+        <button type="submit" class="btn" style="width:100%">Sign in</button>
       </form>
       <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
         Demo: dr.ada.shaw@demo.wehelp / wehelp-demo-provider
@@ -123,11 +109,13 @@ function bindLogin() {
   const form = document.getElementById("login-form");
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const tenant = document.getElementById("login-tenant").value;
-    const email = document.getElementById("login-email").value;
-    const password = document.getElementById("login-password").value;
     try {
-      await login(tenant, email, password);
+      await login(
+        document.getElementById("login-tenant").value,
+        document.getElementById("login-email").value,
+        document.getElementById("login-password").value,
+        document.getElementById("login-code").value,
+      );
     } catch (err) {
       document.getElementById("login-error").innerHTML =
         `<div class="alert alert-error">${esc(err.message)}</div>`;
@@ -135,14 +123,52 @@ function bindLogin() {
   };
 }
 
+// First sign-in: set up the authenticator app.
+async function renderTOTPSetup(app) {
+  app.innerHTML = `<div class="card login-card"><h1>Set up two-step sign-in</h1><div class="loading">Loading…</div></div>`;
+  let setup;
+  try {
+    setup = await api("POST", "/staff/totp/setup");
+  } catch (err) {
+    session = null;
+    app.innerHTML = `<div class="card login-card"><div class="alert alert-error">${esc(err.message)}</div>
+      <button class="btn" onclick="render()">Back to sign in</button></div>`;
+    return;
+  }
+  app.innerHTML = `
+    <div class="card login-card pairing">
+      <h1>Set up two-step sign-in</h1>
+      <p>Scan this with an authenticator app (for example Google Authenticator, 1Password or Microsoft Authenticator).</p>
+      <img class="qr" alt="Authenticator QR code" src="data:image/png;base64,${setup.qr_png}">
+      <p class="hint">Or enter this key: <code>${esc(setup.secret.replace(/(.{4})/g, "$1 ").trim())}</code></p>
+      <div id="setup-error"></div>
+      <form id="setup-form">
+        <div class="form-group">
+          <label>Code from the app</label>
+          <input type="text" id="setup-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required>
+        </div>
+        <button type="submit" class="btn" style="width:100%">Turn on two-step sign-in</button>
+      </form>
+    </div>`;
+  document.getElementById("setup-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      session = await api("POST", "/staff/totp/confirm", { code: document.getElementById("setup-code").value });
+      render();
+    } catch (err) {
+      document.getElementById("setup-error").innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    }
+  };
+}
+
 function renderDashboard() {
   const role = session.role || "";
-  const userId = session.user_id || "";
+  const who = session.display_name || (session.user_id || "").slice(0, 8);
   return `
     <div class="header">
       <h1>WeHelp</h1>
       <div>
-        <span class="user">${role} · ${userId.slice(0, 8)}</span>
+        <span class="user">${esc(who)} · ${esc(role)}</span>
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
     </div>
@@ -628,4 +654,9 @@ function esc(s) {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
-render();
+// Resume a session from the cookie, if there is one.
+api("GET", "/staff/me")
+  .then((me) => { session = me; })
+  .catch(() => { session = null; })
+  .finally(render);
+

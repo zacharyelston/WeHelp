@@ -5,6 +5,7 @@
 #   appliance.sh init-env         create deploy/.env with a random secret (if missing)
 #   appliance.sh init-office      create the office keys; with WEHELP_INSTALL_TOKEN set,
 #                                 also install with the Registry (WEHELP_REGISTRY_URL)
+#   appliance.sh export-ca        print the office CA certificate (install on staff machines)
 #   appliance.sh up               build and start the stack
 #   appliance.sh down             stop and remove the containers (data volume kept)
 #   appliance.sh boot             login-time job: wait for Docker, start, check health
@@ -79,6 +80,11 @@ case "$cmd" in
       -e WEHELP_REGISTRY_URL="${WEHELP_REGISTRY_URL:-http://localhost:8090}" \
       server init
     ;;
+  export-ca)
+    # Staff browsers trust the staff HTTPS page through this CA (#38).
+    # The server image is distroless (no shell), so read the volume with alpine.
+    docker run --rm -v "$(basename "$DEPLOY_DIR")_officekeys:/k:ro" alpine:3 cat /k/ca.crt
+    ;;
   up)
     init_env
     compose up -d --build
@@ -121,7 +127,7 @@ case "$cmd" in
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,14p' "$0"
+    sed -n '2,15p' "$0"
     exit 2
     ;;
 esac

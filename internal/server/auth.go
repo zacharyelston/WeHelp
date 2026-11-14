@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/auth"
+	"github.com/zacharyelston/wehelp/internal/tunnel"
 )
 
 type ctxKey int
@@ -36,7 +38,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := r.Header.Get("Authorization")
 		if !strings.HasPrefix(h, "Bearer ") {
-			writeErr(w, http.StatusUnauthorized, "missing bearer token")
+			s.authenticateStaffCookie(next, w, r)
 			return
 		}
 		claims, err := auth.ParseAccessToken(strings.TrimPrefix(h, "Bearer "), s.jwtSecret)
@@ -114,6 +116,12 @@ type registerRequest struct {
 // Register creates a tenant (if new) and user. Self-serve registration is
 // restricted to provider and patient roles; admins are seeded out of band.
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
+	// Self-registration is for development only (#38). On a real Back
+	// Office, staff accounts are created on the host: wehelpd staff add.
+	if s.cfg.Env != "dev" {
+		writeErr(w, http.StatusForbidden, "registration is closed; staff accounts are created on the Back Office with: wehelpd staff add")
+		return
+	}
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")
@@ -200,6 +208,7 @@ type loginRequest struct {
 	Tenant   string `json:"tenant"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Code     string `json:"code"` // TOTP, required for staff (#38)
 }
 
 // dummyHash lets Login spend the same time on accounts with no password.
@@ -226,51 +235,42 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
-	var userID, tenantID uuid.UUID
-	var hash *string
-	var role string
-	err = tx.QueryRow(ctx, `
-		select u.id, u.tenant_id, u.password_hash, u.role
-		from users u join tenants t on t.id = u.tenant_id
-		where t.name = $1 and u.email = $2`, req.Tenant, req.Email).
-		Scan(&userID, &tenantID, &hash, &role)
-	if errors.Is(err, pgx.ErrNoRows) {
-		_, _ = auth.VerifyPassword(req.Password, dummyHash)
-		writeErr(w, http.StatusUnauthorized, "invalid credentials")
-		return
+	// Same checks as staff web sign-in: lockout, no patients (they pair
+	// their phone, #37), and TOTP for every staff account (#38).
+	u, err := checkStaffPassword(ctx, tx, req.Tenant, req.Email, req.Password)
+	if errors.Is(err, errBadPassword) {
+		tx.Rollback(ctx)
+		s.recordFailure(ctx, u, "password")
 	}
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "lookup failed")
-		return
-	}
-
-	if hash == nil {
-		// No password (patients): run a dummy check so timing doesn't reveal it.
-		_, _ = auth.VerifyPassword(req.Password, dummyHash)
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	ok, err := auth.VerifyPassword(req.Password, *hash)
-	if err != nil || !ok {
+	if !u.TOTPEnabled {
+		writeErr(w, http.StatusUnauthorized, "set up two-step sign-in in the staff web UI first")
+		return
+	}
+	step, ok := checkTOTP(deref(u.TOTPSecret), req.Code, u.TOTPLastStep, time.Now())
+	if !ok {
+		tx.Rollback(ctx)
+		s.recordFailure(ctx, u, "code")
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	// Patients never sign in with a password, even one left from before
-	// pairing existed (#37).
-	if role == "patient" {
-		writeErr(w, http.StatusUnauthorized, "patients sign in by pairing their phone at the practice")
+	if _, err := tx.Exec(ctx, `update users set totp_last_step = $2, failed_logins = 0, locked_until = null where id = $1`,
+		u.ID, step); err != nil {
+		writeErr(w, http.StatusInternalServerError, "login failed")
 		return
 	}
-
 	if err := audit.Record(ctx, tx, audit.Event{
-		TenantID: tenantID, ActorID: &userID,
-		Action: "auth.login", ResourceType: "user", ResourceID: userID.String(),
+		TenantID: u.TenantID, ActorID: &u.ID,
+		Action: "auth.login", ResourceType: "user", ResourceID: u.ID.String(),
 	}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
 	}
 
-	resp, err := s.issueTokens(ctx, tx, userID, tenantID, role, nil)
+	resp, err := s.issueTokens(ctx, tx, u.ID, u.TenantID, u.Role, nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "token failed")
 		return
@@ -282,7 +282,32 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// Me returns the authenticated identity — the smoke test for the middleware.
+// authenticateStaffCookie authenticates a staff browser session (#38): an
+// active session cookie, on the office LAN, with the CSRF header on any
+// change.
+func (s *Server) authenticateStaffCookie(next http.Handler, w http.ResponseWriter, r *http.Request) {
+	if tunnel.ViaRelay(r.Context()) {
+		writeErr(w, http.StatusUnauthorized, "missing bearer token")
+		return
+	}
+	sess, ok := s.lookupSession(r.Context(), r)
+	if !ok || sess.State != "active" {
+		writeErr(w, http.StatusUnauthorized, "missing bearer token")
+		return
+	}
+	if !csrfOK(r, sess) {
+		writeErr(w, http.StatusForbidden, "missing or invalid CSRF token")
+		return
+	}
+	var role string
+	if err := s.pool.QueryRow(r.Context(), `select role::text from users where id = $1`, sess.UserID).Scan(&role); err != nil {
+		writeErr(w, http.StatusUnauthorized, "missing bearer token")
+		return
+	}
+	ctx := context.WithValue(r.Context(), ctxIdentity, Identity{UserID: sess.UserID, TenantID: sess.TenantID, Role: role})
+	next.ServeHTTP(w, r.WithContext(ctx))
+}
+
 func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	writeJSON(w, http.StatusOK, map[string]string{
