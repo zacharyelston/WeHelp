@@ -97,6 +97,24 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Encrypted backups with a tested restore (#41). Runbook:
+  `docs/BACKUPS.md`.
+  - **Backup:** `appliance.sh backup` streams `pg_dump`, the office keys
+    volume and `.env` straight into `age`, encrypted to the practice
+    owner's public key, with a SHA-256 manifest. It keeps 30, copies to
+    `WEHELP_BACKUP_COPY_TO` (a mounted drive or rsync target), and records
+    each run in `backup_runs` (migration `V22`).
+  - **Nightly:** `appliance.sh install-backup` runs it at 02:30.
+  - **Restore:** `appliance.sh restore` checks the manifest, proves the key,
+    replaces the database, keys and `.env`, and waits for health.
+  - **Alerts:** the staff web warns admins when the last backup failed or
+    the last good one is over 36 hours old.
+  - **A second stack:** the appliance compose file takes
+    `WEHELP_DB_PORT`, `WEHELP_HTTP_PORT`, `WEHELP_HTTPS_PORT` and
+    `WEHELP_RELAY_TUNNEL`, so a restore test can run beside another stack.
+  - **Tested:** Barnacle's backup was restored on a laptop from its
+    external-drive copy. The chain verified, counts and office CA matched,
+    and the restored copy never connected to the Relay.
 - Logging hygiene (#42).
   - **Back Office:** the seed command no longer logs emails, only user IDs.
     `TestNoPHIInLogs` runs a full flow (seeding, pairing, messages,

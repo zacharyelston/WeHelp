@@ -12,6 +12,9 @@
 #   appliance.sh stop-for-reboot  stop the stack and Colima cleanly before a reboot
 #   appliance.sh install-login    install the login-time job (macOS launchd)
 #   appliance.sh status           show containers and /healthz
+#   appliance.sh backup           encrypted backup now (nightly job: install-backup)
+#   appliance.sh restore DIR ID   restore a backup with an age identity (docs/BACKUPS.md)
+#   appliance.sh install-backup   install the nightly backup job (macOS launchd, 02:30)
 set -euo pipefail
 
 # launchd starts jobs with a minimal PATH.
@@ -113,7 +116,7 @@ case "$cmd" in
   export-ca)
     # Staff browsers trust the staff HTTPS page through this CA (#38).
     # The server image is distroless (no shell), so read the volume with alpine.
-    docker run --rm -v "$(basename "$DEPLOY_DIR")_officekeys:/k:ro" alpine:3 cat /k/ca.crt
+    docker run --rm -v "${COMPOSE_PROJECT_NAME:-$(basename "$DEPLOY_DIR")}_officekeys:/k:ro" alpine:3 cat /k/ca.crt
     ;;
   up)
     init_env
@@ -152,12 +155,16 @@ case "$cmd" in
     launchctl bootstrap "gui/$(id -u)" "$plist"
     log "installed $plist (runs 'appliance.sh boot' at login; log: ~/Library/Logs/wehelp-appliance.log)"
     ;;
+  backup|restore|install-backup)
+    # Encrypted backups and restore (#41): deploy/backup.sh.
+    exec /bin/bash "$DEPLOY_DIR/backup.sh" "$@"
+    ;;
   status)
     compose ps
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,15p' "$0"
+    sed -n '2,18p' "$0"
     exit 2
     ;;
 esac

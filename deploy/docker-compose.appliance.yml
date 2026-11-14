@@ -6,8 +6,10 @@ services:
   db:
     restart: unless-stopped
     # Postgres is reachable only from this host, never from the office LAN.
+    # The port is overridable for a second stack on one machine, such as a
+    # restore test (docs/BACKUPS.md).
     ports: !override
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${WEHELP_DB_PORT:-5432}:5432"
 
   server:
     restart: unless-stopped
@@ -19,6 +21,9 @@ services:
     environment:
       WEHELP_ENV: appliance
       WEHELP_OFFICE_DIR: /var/lib/wehelp/office
+      # A restore test turns the tunnel off, so a copy of an office never
+      # takes over the real one's Relay connection (docs/BACKUPS.md).
+      WEHELP_RELAY_TUNNEL: "${WEHELP_RELAY_TUNNEL:-true}"
     # Office keys, local CA and Registry registration (#35). Created by
     # `appliance.sh init-office`; see docs/OFFICE_KEYS.md.
     volumes:
@@ -28,8 +33,8 @@ services:
     # e.g. barnacle.local,192.168.1.55. Plain HTTP on 8080 then only answers
     # health checks and redirects to HTTPS.
     ports: !override
-      - "8080:8080"
-      - "8443:8443"
+      - "${WEHELP_HTTP_PORT:-8080}:8080"
+      - "${WEHELP_HTTPS_PORT:-8443}:8443"
 
 volumes:
   officekeys:

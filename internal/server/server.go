@@ -102,6 +102,8 @@ func (s *Server) Router() chi.Router {
 			r.With(s.authenticate).Post("/roster/{registryID}/invite", s.InviteFromRoster)
 			// Audit chain check (#24): admins, their own practice.
 			r.With(s.authenticate).Get("/audit/verify", s.VerifyAuditChain)
+			// Backups (#41): recent runs and a warning, admins only.
+			r.With(s.authenticate).Get("/backups", s.GetBackups)
 			// Your own profile (#102), used for the website bios.
 			r.With(s.authenticate).Get("/profile", s.GetStaffProfile)
 			r.With(s.authenticate).Put("/profile", s.PutStaffProfile)

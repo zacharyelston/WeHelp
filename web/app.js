@@ -203,6 +203,7 @@ function renderDashboard() {
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
     </div>
+    <div id="backup-banner"></div>
     <div id="alert-area"></div>
     <div class="tabs">
       <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">${Word("patients")}</div>
@@ -219,6 +220,7 @@ function renderDashboard() {
 }
 
 function bindDashboard() {
+  if (session.role === "admin") showBackupWarning();
   document.querySelectorAll(".tab").forEach((t) => {
     t.onclick = () => {
       activeTab = t.dataset.tab;
@@ -227,6 +229,19 @@ function bindDashboard() {
       loadTab();
     };
   });
+}
+
+// showBackupWarning tells admins when the last backup failed or is too old
+// (#41). It stays until the next good backup.
+async function showBackupWarning() {
+  const el = document.getElementById("backup-banner");
+  if (!el) return;
+  try {
+    const st = await api("GET", "/staff/backups");
+    el.innerHTML = st.warning ? `<div class="alert alert-error"><b>Backups:</b> ${esc(st.warning)}</div>` : "";
+  } catch (_) {
+    el.innerHTML = "";
+  }
 }
 
 function showAlert(msg, type = "error") {
