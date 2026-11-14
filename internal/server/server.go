@@ -13,12 +13,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zacharyelston/wehelp/internal/config"
+	"github.com/zacharyelston/wehelp/internal/office"
 )
 
 type Server struct {
 	cfg       config.Config
 	pool      *pgxpool.Pool
 	jwtSecret []byte
+	pairing   *office.Pairing // nil until the office is installed (#35)
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -69,6 +71,9 @@ func (s *Server) Router() chi.Router {
 			r.Post("/logout", s.Logout)
 		})
 
+		// Phones pair through the Relay (#37); no session yet.
+		r.Post("/pairing/redeem", s.RedeemInvite)
+
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me", s.Me)
@@ -82,6 +87,14 @@ func (s *Server) Router() chi.Router {
 			r.Post("/appointments", s.CreateAppointment)
 			r.Get("/appointments", s.ListAppointments)
 			r.Patch("/appointments/{appointmentID}", s.UpdateAppointment)
+			r.Get("/devices", s.ListMyDevices)
+			r.Delete("/devices/{deviceID}", s.RevokeMyDevice)
+			r.Get("/patients/{patientID}/devices", s.ListPatientDevices)
+			r.Delete("/patients/{patientID}/devices/{deviceID}", s.RevokePatientDevice)
+			r.Get("/patients", s.ListPatients)
+			r.Post("/patients", s.CreatePatient)
+			r.Post("/pairing/invites", s.CreateInvite)
+			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
 		})
 	})
 

@@ -8,7 +8,7 @@ const STORAGE_KEY = "wehelp_session";
 // State
 // ---------------------------------------------------------------------------
 let session = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-let activeTab = "messages";
+let activeTab = "patients";
 
 // ---------------------------------------------------------------------------
 // API helpers
@@ -148,6 +148,7 @@ function renderDashboard() {
     </div>
     <div id="alert-area"></div>
     <div class="tabs">
+      <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">Patients</div>
       <div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
@@ -177,7 +178,8 @@ async function loadTab() {
   const content = document.getElementById("tab-content");
   content.innerHTML = '<div class="loading">Loading…</div>';
   try {
-    if (activeTab === "messages") await loadMessages(content);
+    if (activeTab === "patients") await loadPatients(content);
+    else if (activeTab === "messages") await loadMessages(content);
     else if (activeTab === "appointments") await loadAppointments(content);
     else if (activeTab === "links") await loadLinks(content);
   } catch (err) {
@@ -462,6 +464,153 @@ async function revokeLink(otherId) {
     await api("POST", `/links/${otherId}/revoke`);
     showAlert("Link revoked", "success");
     loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Patients tab and QR pairing (#37)
+// ---------------------------------------------------------------------------
+// Patients have no password. Staff add them here and press Pair phone: the
+// QR code holds the office's pairing identity and a single-use invite that
+// expires in 10 minutes. Works on the office network only (the server refuses
+// it through the Relay).
+let pairingTimer = null;
+
+async function loadPatients(container) {
+  stopPairing();
+  const data = await api("GET", "/patients");
+  let html = `<div class="card"><h2>Add patient</h2>
+    <form id="patient-form" class="inline-form">
+      <input id="patient-name" placeholder="Full name" required>
+      <input id="patient-email" type="email" placeholder="email@example.com" required>
+      <button type="submit" class="btn">Add</button>
+    </form>
+    <p class="hint">Patients don't get a password. Pair their phone here, in the office.</p></div>`;
+  html += '<div id="pairing"></div><div class="card"><h2>Patients</h2>';
+  if (data.patients.length === 0) {
+    html += '<p class="empty">No patients yet.</p>';
+  } else {
+    html += "<table><thead><tr><th>Name</th><th>Email</th><th>Devices</th><th></th></tr></thead><tbody>";
+    for (const p of data.patients) {
+      html += `<tr><td>${esc(p.display_name || "—")}</td><td>${esc(p.email)}</td>
+        <td><button class="btn btn-sm btn-outline" onclick="showDevices('${esc(p.id)}', '${esc(p.display_name || p.email)}')">${p.devices} active</button></td>
+        <td><button class="btn btn-sm" onclick="startPairing('${esc(p.id)}')">Pair phone</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += "</div>";
+  container.innerHTML = html;
+  document.getElementById("patient-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/patients", {
+        display_name: document.getElementById("patient-name").value,
+        email: document.getElementById("patient-email").value,
+      });
+      showAlert("Patient added", "success");
+      loadTab();
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+}
+
+function stopPairing() {
+  if (pairingTimer) clearInterval(pairingTimer);
+  pairingTimer = null;
+  const el = document.getElementById("pairing");
+  if (el) el.innerHTML = "";
+}
+
+async function startPairing(patientId) {
+  stopPairing();
+  let inv;
+  try {
+    inv = await api("POST", "/pairing/invites", { patient_id: patientId });
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  const el = document.getElementById("pairing");
+  el.innerHTML = `<div class="card pairing">
+    <h2>Pair ${esc(inv.patient_name || "patient")}'s phone</h2>
+    <div id="pairing-body">
+      <img class="qr" alt="Pairing QR code" src="data:image/png;base64,${inv.qr_png}">
+      <p>Ask the patient to open the WeHelp app, tap <strong>Pair with your practice</strong>, and scan this code.</p>
+      <p class="hint">Single use. Expires <span id="pairing-expiry"></span>.</p>
+    </div>
+    <button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button>
+  </div>`;
+  el.scrollIntoView({ behavior: "smooth" });
+  const expires = new Date(inv.expires_at);
+  const tick = async () => {
+    const left = Math.max(0, Math.round((expires - Date.now()) / 1000));
+    const exp = document.getElementById("pairing-expiry");
+    if (exp) exp.textContent = `in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    try {
+      renderPairingStatus(inv.id, await api("GET", `/pairing/invites/${inv.id}`));
+    } catch (err) {
+      showAlert(err.message);
+      stopPairing();
+    }
+  };
+  await tick();
+  pairingTimer = setInterval(tick, 2000);
+}
+
+function renderPairingStatus(inviteId, st) {
+  const body = document.getElementById("pairing-body");
+  if (!body || st.status === "issued") return;
+  clearInterval(pairingTimer);
+  pairingTimer = null;
+  body.innerHTML = st.status === "paired"
+    ? `<p><strong>Paired.</strong> ${esc(st.device_name || "The phone")} is signed in.</p>`
+    : "<p>The code expired. Start again.</p>";
+  if (st.status === "paired") setTimeout(loadTab, 1500); // refresh the phone counts
+}
+
+// A patient's paired devices (#10). Revoke a lost or replaced phone; it is
+// locked out at once. Office network only.
+async function showDevices(patientId, name) {
+  stopPairing();
+  let data;
+  try {
+    data = await api("GET", `/patients/${patientId}/devices`);
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  const el = document.getElementById("pairing");
+  let html = `<div class="card"><h2>${esc(name)}'s devices</h2>`;
+  if (data.devices.length === 0) {
+    html += '<p class="empty">No devices yet. Use Pair phone.</p>';
+  } else {
+    html += "<table><thead><tr><th>Device</th><th>Paired</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>";
+    for (const d of data.devices) {
+      const when = (t) => (t ? new Date(t).toLocaleString() : "—");
+      html += `<tr><td>${esc(d.name || "Unnamed device")}</td><td>${when(d.created_at)}</td>
+        <td>${when(d.last_seen_at)}</td>
+        <td><span class="badge badge-${d.status === "active" ? "active" : "revoked"}">${esc(d.status)}</span></td>
+        <td>${d.status === "active"
+          ? `<button class="btn btn-sm btn-danger" onclick="revokeDevice('${esc(patientId)}', '${esc(d.id)}', '${esc(name)}')">Revoke</button>`
+          : ""}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += `<button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button></div>`;
+  el.innerHTML = html;
+  el.scrollIntoView({ behavior: "smooth" });
+}
+
+async function revokeDevice(patientId, deviceId, name) {
+  if (!confirm("Revoke this device? It will be signed out immediately and must be paired again in the office.")) return;
+  try {
+    await api("DELETE", `/patients/${patientId}/devices/${deviceId}`);
+    showAlert("Device revoked", "success");
+    await loadTab();
+    showDevices(patientId, name);
   } catch (err) {
     showAlert(err.message);
   }

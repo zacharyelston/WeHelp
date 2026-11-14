@@ -35,13 +35,12 @@ const (
 	ProviderPassword = "wehelp-demo-provider"
 	ProviderName     = "Dr. Ada Shaw"
 
-	Patient1Email    = "jordan.lee@demo.wehelp"
-	Patient1Password = "wehelp-demo-patient"
-	Patient1Name     = "Jordan Lee"
+	// Patients have no password: they pair a phone in the office (#37).
+	Patient1Email = "jordan.lee@demo.wehelp"
+	Patient1Name  = "Jordan Lee"
 
-	Patient2Email    = "sam.rivera@demo.wehelp"
-	Patient2Password = "wehelp-demo-patient"
-	Patient2Name     = "Sam Rivera"
+	Patient2Email = "sam.rivera@demo.wehelp"
+	Patient2Name  = "Sam Rivera"
 )
 
 // Result captures the IDs and creation state of a seed run, for callers that
@@ -90,11 +89,11 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 	if err != nil {
 		return nil, err
 	}
-	patient1, err := ensureUser(ctx, tx, tenantID, Patient1Email, Patient1Password, "patient", Patient1Name)
+	patient1, err := ensureUser(ctx, tx, tenantID, Patient1Email, "", "patient", Patient1Name)
 	if err != nil {
 		return nil, err
 	}
-	patient2, err := ensureUser(ctx, tx, tenantID, Patient2Email, Patient2Password, "patient", Patient2Name)
+	patient2, err := ensureUser(ctx, tx, tenantID, Patient2Email, "", "patient", Patient2Name)
 	if err != nil {
 		return nil, err
 	}
@@ -158,9 +157,13 @@ func ensureUser(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, email, passw
 		return nil, fmt.Errorf("seed: lookup user %s: %w", email, err)
 	}
 
-	hash, err := auth.HashPassword(password)
-	if err != nil {
-		return nil, fmt.Errorf("seed: hash password: %w", err)
+	var hash *string // patients: no password
+	if password != "" {
+		h, err := auth.HashPassword(password)
+		if err != nil {
+			return nil, fmt.Errorf("seed: hash password: %w", err)
+		}
+		hash = &h
 	}
 	err = tx.QueryRow(ctx,
 		`insert into users (tenant_id, email, password_hash, role, display_name)
@@ -302,15 +305,15 @@ func printCredentials(out io.Writer, r *Result) {
 	fmt.Fprintln(out, "  password: ", ProviderPassword)
 	fmt.Fprintln(out, "  role:     ", r.Provider.Role)
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Patient 1 (login with these):")
+	fmt.Fprintln(out, "Patient 1 (no password):")
 	fmt.Fprintln(out, "  email:    ", Patient1Email)
-	fmt.Fprintln(out, "  password: ", Patient1Password)
+	fmt.Fprintln(out, "  sign-in:   pair a phone (staff web UI, Patients → Pair phone)")
 	fmt.Fprintln(out, "  role:     ", r.Patient1.Role)
 	fmt.Fprintln(out, "  link:     ", r.Link1)
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Patient 2 (login with these):")
+	fmt.Fprintln(out, "Patient 2 (no password):")
 	fmt.Fprintln(out, "  email:    ", Patient2Email)
-	fmt.Fprintln(out, "  password: ", Patient2Password)
+	fmt.Fprintln(out, "  sign-in:   pair a phone (staff web UI, Patients → Pair phone)")
 	fmt.Fprintln(out, "  role:     ", r.Patient2.Role)
 	fmt.Fprintln(out, "  link:     ", r.Link2)
 	fmt.Fprintln(out)

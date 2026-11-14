@@ -70,6 +70,46 @@ struct APIClient: Sendable {
         return try await send("POST", "api/v1/auth/enroll", body: AnyEncodable(body))
     }
 
+    // MARK: Devices (#10)
+
+    func devices() async throws -> [Device] {
+        struct List: Decodable { let devices: [Device] }
+        let list: List = try await authorized("GET", "api/v1/devices")
+        return list.devices
+    }
+
+    func revokeDevice(_ id: String) async throws {
+        let _: Empty = try await authorized("DELETE", "api/v1/devices/\(id)")
+    }
+
+    // MARK: Pairing (#37)
+
+    struct PairResult: Decodable, Sendable {
+        let practice: String
+        let patientName: String
+        let accessToken: String
+        let refreshToken: String
+        var tokens: TokenPair { TokenPair(accessToken: accessToken, refreshToken: refreshToken) }
+        enum CodingKeys: String, CodingKey {
+            case practice, patientName = "patient_name"
+            case accessToken = "access_token", refreshToken = "refresh_token"
+        }
+    }
+
+    /// Redeems a scanned invite with this phone's new device key. The office
+    /// enrolls the key for the invite's patient and returns the session.
+    func redeemInvite(_ invite: String, key: DeviceKey, name: String) async throws -> PairResult {
+        let proof = try key.proof(purpose: "pair", refreshToken: invite)
+        let body: [String: any Sendable & Encodable] = [
+            "invite": invite,
+            "public_key": try key.publicKeyDER.base64EncodedString(),
+            "name": name,
+            "timestamp": proof.timestamp,
+            "signature": proof.signature,
+        ]
+        return try await send("POST", "api/v1/pairing/redeem", body: AnyEncodable(body))
+    }
+
     /// Rotates the stored refresh token using the device key.
     @discardableResult
     func refresh() async throws -> TokenPair {
@@ -145,7 +185,14 @@ struct APIClient: Sendable {
         do {
             return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         } catch APIError.unauthorized {
-            try await refresh()
+            do {
+                try await refresh()
+            } catch APIError.unauthorized {
+                // The session is gone for good (this device was revoked, #10,
+                // or the refresh token expired). Let AppState sign out.
+                NotificationCenter.default.post(name: .weHelpSessionEnded, object: nil)
+                throw APIError.unauthorized("This device was signed out.")
+            }
             return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         }
     }
@@ -191,6 +238,11 @@ struct APIClient: Sendable {
 }
 
 struct Empty: Decodable, Sendable {}
+
+extension Notification.Name {
+    /// Posted when the server refuses this device's session for good.
+    static let weHelpSessionEnded = Notification.Name("WeHelpSessionEnded")
+}
 
 /// Encodes a heterogeneous [String: Encodable] dictionary as a JSON object.
 struct AnyEncodable: Encodable, Sendable {

@@ -23,6 +23,7 @@ type Identity struct {
 	UserID   uuid.UUID
 	TenantID uuid.UUID
 	Role     string
+	DeviceID *uuid.UUID // the enrolled device, for device-bound sessions
 }
 
 func identityFrom(ctx context.Context) (Identity, bool) {
@@ -44,10 +45,27 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 			return
 		}
 		uid, _ := uuid.Parse(claims.Subject)
+		// Device-bound sessions stop working the moment the device is revoked
+		// (#10), not when the access token expires. Patient sessions are always
+		// device-bound.
+		if claims.DeviceID == nil && claims.Role == "patient" {
+			writeErr(w, http.StatusUnauthorized, "patient sessions must be device-bound")
+			return
+		}
+		if claims.DeviceID != nil {
+			var active bool
+			err := s.pool.QueryRow(r.Context(),
+				`select revoked_at is null from devices where id = $1 and user_id = $2`, claims.DeviceID, uid).Scan(&active)
+			if err != nil || !active {
+				writeErr(w, http.StatusUnauthorized, "device revoked")
+				return
+			}
+		}
 		ctx := context.WithValue(r.Context(), ctxIdentity, Identity{
 			UserID:   uid,
 			TenantID: claims.TenantID,
 			Role:     claims.Role,
+			DeviceID: claims.DeviceID,
 		})
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -73,7 +91,7 @@ func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uu
 	if err != nil {
 		return tokenResponse{}, err
 	}
-	access, err := auth.IssueAccessToken(userID, tenantID, role, s.jwtSecret, s.cfg.AccessTTL)
+	access, err := auth.IssueAccessToken(userID, tenantID, role, deviceID, s.jwtSecret, s.cfg.AccessTTL)
 	if err != nil {
 		return tokenResponse{}, err
 	}
@@ -111,8 +129,10 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "password must be at least 12 characters")
 		return
 	}
-	if req.Role != "provider" && req.Role != "patient" {
-		writeErr(w, http.StatusBadRequest, "role must be provider or patient")
+	// Patients have no password: staff add them and they pair a phone in
+	// the office (#37).
+	if req.Role != "provider" {
+		writeErr(w, http.StatusBadRequest, "role must be provider; patients are added by staff and pair their phone in the office")
 		return
 	}
 
@@ -182,6 +202,15 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// dummyHash lets Login spend the same time on accounts with no password.
+var dummyHash = func() string {
+	h, err := auth.HashPassword("wehelp-no-password-dummy")
+	if err != nil {
+		panic(err)
+	}
+	return h
+}()
+
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -198,13 +227,15 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 
 	var userID, tenantID uuid.UUID
-	var hash, role string
+	var hash *string
+	var role string
 	err = tx.QueryRow(ctx, `
 		select u.id, u.tenant_id, u.password_hash, u.role
 		from users u join tenants t on t.id = u.tenant_id
 		where t.name = $1 and u.email = $2`, req.Tenant, req.Email).
 		Scan(&userID, &tenantID, &hash, &role)
 	if errors.Is(err, pgx.ErrNoRows) {
+		_, _ = auth.VerifyPassword(req.Password, dummyHash)
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
@@ -213,9 +244,21 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := auth.VerifyPassword(req.Password, hash)
+	if hash == nil {
+		// No password (patients): run a dummy check so timing doesn't reveal it.
+		_, _ = auth.VerifyPassword(req.Password, dummyHash)
+		writeErr(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	ok, err := auth.VerifyPassword(req.Password, *hash)
 	if err != nil || !ok {
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	// Patients never sign in with a password, even one left from before
+	// pairing existed (#37).
+	if role == "patient" {
+		writeErr(w, http.StatusUnauthorized, "patients sign in by pairing their phone at the practice")
 		return
 	}
 

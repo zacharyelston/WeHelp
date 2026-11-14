@@ -129,6 +129,13 @@ final class AppState {
         api = APIClient(office: stored, session: session)
         defaults.removeObject(forKey: "serverURL") // pre-Relay setting (#36)
         loadConnections(bundle: bundle)
+        // A revoked device (#10) is signed out as soon as the server says so.
+        NotificationCenter.default.addObserver(forName: .weHelpSessionEnded, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.phase == .signedIn else { return }
+                Task { await self.wipeLocalSession() }
+            }
+        }
     }
 
     // MARK: Session
@@ -176,6 +183,64 @@ final class AppState {
         DeviceKey.delete()
         me = nil
         phase = .signedOut
+    }
+
+    // MARK: Pairing (#37)
+
+    enum Pairing: Equatable {
+        case idle
+        case connecting
+        case failed(String)
+    }
+
+    private(set) var pairing: Pairing = .idle
+    private var pairingTask: Task<Void, Never>?
+
+    /// Pairs this phone from a scanned QR code: a new device key, then redeem
+    /// the invite through the Relay with both pins checked. Success signs in.
+    func pair(with payload: PairingPayload) {
+        pairingTask?.cancel()
+        pairingTask = Task { await runPairing(payload) }
+    }
+
+    func cancelPairing() {
+        pairingTask?.cancel()
+        pairingTask = nil
+        pairing = .idle
+    }
+
+    private func runPairing(_ p: PairingPayload) async {
+        pairing = .connecting
+        do {
+            DeviceKey.delete()
+            let key = try DeviceKey.create()
+            let r = try await APIClient(office: p.office, session: session)
+                .redeemInvite(p.invite, key: key, name: UIDevice.current.name)
+            try await session.store(r.tokens)
+            setOffice(p.office)
+            lastTenant = r.practice
+            rememberConnection(tenant: r.practice, email: "")
+            me = try await api.me()
+            pairing = .idle
+            phase = .signedIn
+        } catch is CancellationError {
+            DeviceKey.delete()
+        } catch {
+            DeviceKey.delete()
+            await session.clear()
+            pairing = .failed(Self.pairingMessage(error))
+        }
+    }
+
+    private static func pairingMessage(_ error: Error) -> String {
+        switch error {
+        case APIError.unauthorized:
+            "This pairing code has expired or was already used. Ask the front desk for a new one."
+        case APIError.http(409, _):
+            "This phone is already paired. Ask the front desk to remove the old pairing first."
+        default:
+            error.localizedDescription
+        }
     }
 
     // MARK: Office

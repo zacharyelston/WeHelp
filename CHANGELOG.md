@@ -71,6 +71,45 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Device management (#10).
+  - `GET /api/v1/devices` lists your own devices, marking the current one,
+    and `DELETE /api/v1/devices/{id}` revokes one.
+  - Staff on the office LAN can list and revoke a linked patient's devices
+    with `GET` and `DELETE /api/v1/patients/{id}/devices[/{deviceID}]`.
+  - A revoke also ends that device's refresh tokens and is audited
+    (`device.revoke`).
+  - Access tokens now carry the device ID (`did`), and every request checks
+    it, so a revoked device is locked out at once rather than after up to 15
+    minutes. Patient tokens without a device are refused.
+  - Staff web UI: each patient's device count opens their devices, with
+    Revoke.
+  - iOS: Settings → Devices lists this account's devices and offers
+    "Sign out other devices". If the server ends this device's session, the
+    app signs out.
+- QR pairing; patients have no password (#37).
+  - Staff web UI: a new **Patients** tab to add patients (no password) and
+    **Pair phone**, which shows a QR code with the office's pairing identity
+    and a single-use invite (10 minutes, bound to one patient, only its hash
+    stored). It reports when the phone has paired.
+  - API: `POST/GET /api/v1/patients`, `POST /api/v1/pairing/invites`,
+    `GET /api/v1/pairing/invites/{id}`, and `POST /api/v1/pairing/redeem`.
+    Redeem takes a proof from the phone's new key, enrolls the device and
+    returns the device-bound session. Every step is audited. Staff routes are
+    refused through the Relay.
+  - Patient password login and patient self-registration are refused.
+    Migration V4 makes `users.password_hash` nullable, and the seed creates
+    patients with no password.
+  - iOS:
+    - signed-out phones open on **Pair with your practice**, with a VisionKit
+      QR scanner and a paste fallback;
+    - the app locks with Face ID, Touch ID or the passcode whenever it goes
+      to the background;
+    - the saved-practices and password screens are Debug-only, for staff
+      demos.
+  - First Back Office database tests (`internal/server/pairing_db_test.go`).
+    They apply all migrations and the seed to a fresh database and cover:
+    pairing, single use, expiry, the wrong key, unlinked patients, refusals
+    through the Relay, and no patient passwords.
 - Practice onboarding plan and training material (`docs/onboarding/`):
   - an onboarding runbook, practice side first: Registry setup, Back Office
     install and Relay connection, the provider app, a day-by-day training

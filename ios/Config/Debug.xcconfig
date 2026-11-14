@@ -4,11 +4,12 @@
 // (#36). Demo practices are listed below; set your own in Local.xcconfig
 // (gitignored; copy Local.xcconfig.example).
 
-// Demo account shown on the sign-in screen (seed data from `make seed`,
-// already public in the README). Release builds leave these empty.
+// Demo staff account for the Debug-only password sign-in (seed data from
+// `make seed`, already public in the README). Patients have no password:
+// they pair by QR (#37). Release builds leave these empty.
 WEHELP_DEV_TENANT = Demo Clinic
-WEHELP_DEV_EMAIL = jordan.lee@demo.wehelp
-WEHELP_DEV_PASSWORD = wehelp-demo-patient
+WEHELP_DEV_EMAIL = dr.ada.shaw@demo.wehelp
+WEHELP_DEV_PASSWORD = wehelp-demo-provider
 
 // Demo practices, comma-separated, each
 //   Label|relay host:port|relay pin|office ID|office pin

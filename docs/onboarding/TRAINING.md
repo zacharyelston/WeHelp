@@ -35,12 +35,12 @@ Recording is tracked in #84.
 |---|---|---|---|---|
 | 1 | Privacy rules: where patient data lives | All staff | 6 min | No screens (slides) |
 | 2 | Signing in to the staff UI | All staff | 4 min | Partial (#38) |
-| 3 | Patients and the patient record | Front desk, admin | 6 min | Not yet |
+| 3 | Patients and the patient record | Front desk, admin | 6 min | Partial (Patients tab; no search or record page yet) |
 | 4 | Appointments | Front desk, admin, providers | 8 min | Partial (#68) |
 | 5 | Messages | All staff | 7 min | Partial (#67) |
-| 6 | The patient app tour | All staff | 6 min | Partial (#37, #39) |
-| 7 | Pairing a patient's phone | Front desk, admin | 6 min | Not yet (#37) |
-| 8 | Lost phone, new phone, can't scan | Front desk, admin | 5 min | Not yet (#10) |
+| 6 | The patient app tour | All staff | 6 min | Partial (#39) |
+| 7 | Pairing a patient's phone | Front desk, admin | 6 min | Exists (#37) |
+| 8 | Lost phone, new phone, can't scan | Front desk, admin | 5 min | Exists (#10); P-53 to check |
 | 9 | The provider app | Providers | 8 min | Not yet (#69) |
 | 10 | Video visits | Providers, front desk | 8 min | Not yet (#6) |
 | 11 | Admin tasks: accounts, devices, daily checks | Admin | 8 min | Partial |
@@ -110,25 +110,28 @@ at the shot lists below. Keep each to the stated length.
 4. "Messages is their thread with the practice." **[P-30]**
 5. "The app locks with Face ID or the phone's passcode. Patients have no
    password to forget." **[P-02]**
-6. "If the app switcher is open, patient screens are blurred." **[P-03]**
+6. "If the app switcher is open, patient screens are hidden." **[P-03]**
 
 ### Module 7: Pairing a patient's phone
 1. "Pairing happens at the desk, with the patient in front of you."
 2. "Open the patient and press Pair phone. A QR code appears; it works for
    10 minutes, once." **[W-40]**
 3. "The patient opens the WeHelp app and scans it." **[P-50]**
-4. "The app confirms it's talking to this practice, and asks the patient to
-   turn on Face ID." **[P-51]** **[P-52]**
-5. "The device now appears on the patient's record." **[W-41]**
+4. "The app checks it's talking to this practice and signs the patient in.
+   From now on it locks whenever it goes to the background, and the patient
+   unlocks it with Face ID, Touch ID or their passcode." **[P-51]** **[P-52]**
+5. "The phone now appears in the patient's devices." **[W-41]**
 
 ### Module 8: Lost phone, new phone, can't scan
-1. "Lost or replaced phone: open the patient, find the device, Revoke. It's
-   locked out within 15 minutes." **[W-42]**
-2. "Then pair the new phone the same way as Module 7."
-3. "Patient can't scan (camera broken, no smartphone): they can still be
+1. "Lost or replaced phone: open the patient's devices and press Revoke.
+   The phone is locked out at once." **[W-42]**
+2. "A patient who still has one of their phones can do the same from the
+   app: Settings, then Devices." **[P-55]**
+3. "Then pair the new phone the same way as Module 7."
+4. "Patient can't scan (camera broken, no smartphone): they can still be
    seen and booked; they just don't use the app. Never pair a phone that
    isn't theirs."
-4. "Revoked phones show this screen." **[P-53]**
+5. "Revoked phones show this screen." **[P-53]**
 
 ### Module 9: The provider app
 1. "Providers have their own app, separate from the patient app." **[R-01]**
@@ -186,10 +189,10 @@ training seed, #80).
 | W-04 | Browser certificate warning (what to stop at) | Not yet (#38) | — | Show it, then the trusted state |
 | W-05 | Header with role and Log out | Exists | front desk role | |
 | W-06 | "This page is for practice staff" notice for patients | Exists | — | Used in Module 6 voice-over |
-| W-10 | Patients list | Not yet (V1-M3 staff UI) | 25 training patients | |
+| W-10 | Patients list | Exists (#37): Patients tab with name, email, device count, Pair phone | 25 training patients | |
 | W-11 | Patient search | Not yet | search "Rivera" | |
-| W-12 | Patient record | Not yet | Sam Rivera (demo) | Must show the devices section |
-| W-13 | New patient form | Not yet | a new fictional patient | |
+| W-12 | Patient record | Partial: no record page yet; devices open from the Patients tab (#10) | Sam Rivera (demo) | Must show the devices section |
+| W-13 | Add patient (no password) | Exists (#37) | a new fictional patient | |
 | W-20 | Schedule by provider (day) | Partial: Appointments tab lists appointments, with Schedule, Cancel, Complete | Monday of the demo week | |
 | W-21 | Book an appointment | Partial: Schedule form exists | Jordan Lee (demo) with Dr. Ada Shaw (demo) | |
 | W-22 | Appointment requests queue | Not yet (#68) | 3 pending requests | |
@@ -198,12 +201,12 @@ training seed, #80).
 | W-31 | Thread and reply | Partial: Send Message form, no threads (#67) | Jordan Lee thread | |
 | W-32 | Assign thread to a provider | Not yet (#67) | | |
 | W-33 | Links tab: patient–provider links (invite, accept, revoke) | Exists | | May be folded into the patient record in V1 |
-| W-40 | Pair phone QR | Not yet (#37) | Sam Rivera (demo) | Pair on camera so the code is used |
-| W-41 | Devices on the patient record | Not yet (#10) | | |
-| W-42 | Revoke device | Not yet (#10) | | |
+| W-40 | Pair phone QR, then "paired" | Exists (#37) | Sam Rivera (demo) | Pair on camera so the code is used |
+| W-41 | A patient's devices | Exists (#10) | | |
+| W-42 | Revoke device (immediate) | Exists (#10) | | |
 | W-50 | Staff accounts list | Not yet (#38, #62) | 5 training staff | |
 | W-51 | Invite / disable staff | Not yet (#38, #62) | | |
-| W-52 | Practice device list | Not yet (#10) | | |
+| W-52 | Practice-wide device list | Not yet (#10 built per-patient lists only) | | |
 | W-53 | Health page | Not yet (#81 for the checks) | | Or use T-01 |
 | W-54 | Audit log view | Not yet (CLI verify only, #24) | | |
 
@@ -212,20 +215,21 @@ training seed, #80).
 | Shot | Screen | Status | Demo data | Notes |
 |---|---|---|---|---|
 | P-01 | App icon and launch | Exists | — | |
-| P-02 | Face ID / passcode unlock | Not yet (#37) | — | |
-| P-03 | App switcher with PHI hidden | Not yet (V1-M6) | — | |
-| P-04 | Sign-in with password and server list | Exists, **Debug only**, being removed (#37) | — | **Do not record.** Patients will never see it |
+| P-02 | "WeHelp is locked" and Unlock (Face ID, Touch ID or passcode) | Exists (#37) | — | |
+| P-03 | App switcher with PHI hidden | Exists (#37, privacy cover) | — | |
+| P-04 | Developer: saved practices and password sign-in | **Debug only** (#37) | — | **Do not record.** Patients will never see it |
 | P-10 | Today | Exists | Jordan Lee (demo) | |
 | P-20 | Schedule (upcoming) | Exists | 2 upcoming visits | |
 | P-21 | Request an appointment | Not yet (#39, #68). Today the app says to message the care team | | |
 | P-30 | Messages | Exists | Jordan Lee thread | Threads: #67 |
 | P-31 | Compose / reply | Partial | | |
 | P-40 | Notification "Appointment update" (no details) | Not yet (#7) | | Lock screen shot |
-| P-50 | Scan QR to pair | Not yet (#37) | | |
-| P-51 | "Connected to Demo Naturopathy" pin confirmation | Not yet (#37; the pins are checked since #36) | | |
-| P-52 | Turn on Face ID | Not yet (#37) | | |
-| P-53 | Device revoked / not connected | Not yet (#10) | | |
-| P-54 | Settings and sign-out | Exists; wording changes with #37 | | Re-record after #37 |
+| P-50 | "Pair with your practice", then the scanner | Exists (#37) | | Paste-code fallback exists; don't show it to patients |
+| P-51 | Paired and signed in (or "Couldn't pair this phone") | Exists (#37) | | |
+| P-52 | First lock after going to the background | Exists (#37) | | |
+| P-53 | Revoked: the app signs out and returns to pairing | Exists (#10); check the exact screen when recording | | |
+| P-54 | Settings and sign-out | Exists |  | |
+| P-55 | Settings → Devices, "Sign out other devices" | Exists (#10) | Jordan Lee (demo) with two loaner phones | |
 | P-60 | Notification "Visit starting" | Not yet (#7, #6) | | |
 | P-61 | In-call screen (patient) | Not yet (#6) | | Two demo phones |
 
@@ -234,7 +238,7 @@ training seed, #80).
 | Shot | Screen | Status | Demo data | Notes |
 |---|---|---|---|---|
 | R-01 | App icon and launch (separate app or role switch, decided in #69) | Not yet (#69) | | |
-| R-02 | Pairing with the provider role | Not yet (#37, #69) | Dr. Ada Shaw (demo) | |
+| R-02 | Pairing with the provider role | Not yet (#69; #37 pairs patients only) | Dr. Ada Shaw (demo) | |
 | R-10 | Today's schedule | Not yet (#69) | Monday of the demo week | |
 | R-11 | Same screen with Wi-Fi off (cellular indicator visible) | Not yet (#69) | | Proves the Relay path |
 | R-20 | Patient messages | Not yet (#69) | | |
@@ -264,7 +268,7 @@ training seed, #80).
 
 ## Recording order
 
-Record what exists now as drafts (W-05, W-20, W-21, W-30, W-33, P-10, P-20,
-P-30, T-02, T-03), so the format and voice are settled. Re-record each
+Record what exists now as drafts (W-05, W-10, W-13, W-20, W-21, W-30, W-33,
+W-40 to W-42, P-02, P-10, P-20, P-30, P-50 to P-55, T-02, T-03), so the format and voice are settled. Re-record each
 module once all its screens reach **Exists**. Modules 1 and 12 are slides
 and can be final now.

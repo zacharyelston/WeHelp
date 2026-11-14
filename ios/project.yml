@@ -25,6 +25,8 @@ targets:
           - UIInterfaceOrientationPortrait
         NSHealthShareUsageDescription: "WeHelp shares your health data with your care team."
         NSHealthUpdateUsageDescription: "WeHelp records check-ins and readings to your health data."
+        NSCameraUsageDescription: "WeHelp uses the camera to scan your practice's pairing code."
+        NSFaceIDUsageDescription: "WeHelp uses Face ID to keep your health information private."
         NSBluetoothAlwaysUsageDescription: "WeHelp connects to your Bluetooth health monitors."
         # Demo setups run the Relay on the office LAN, which needs this prompt.
         NSLocalNetworkUsageDescription: "WeHelp connects to your practice's relay, which may be on your local network."

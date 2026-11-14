@@ -73,10 +73,11 @@ haven't landed. Until they do, the step runs in its interim form, shown here.
 | Provider roster to Back Office | Pulled from the Registry | Staff accounts created by hand | #62 |
 | Back Office install | `appliance.sh init-office` | Works (Barnacle installed 2026-11-14) | — |
 | Relay connection | Automatic from `wehelpd serve` | Works on the Demo topology | — |
-| Phones through the Relay | Pinned, through the Relay | Works (#36); practices entered by hand in Debug builds until QR pairing | #37 |
+| Phones through the Relay | Pinned, through the Relay | Works (#36) | — |
 | Staff sign-in | Password + TOTP, HTTPS on the LAN | Password only, plain HTTP | #38 |
-| Patient and provider pairing | QR in the staff UI | Not built (Debug-build sign-in only) | #37 |
-| Device list and revoke | Staff UI | Not built | #10 |
+| Patient pairing | QR in the staff UI | Works (#37): Patients tab → Pair phone | — |
+| Provider pairing | QR with the provider role | Not built (#37 pairs patients only) | #69 |
+| Device list and revoke | Staff UI and app | Works (#10) per patient in the staff UI and per account in the app; no practice-wide list yet | — |
 | Provider app | Schedule, messages, visits | Not built | #69 |
 | Telehealth | 1:1 video | Not built | #6 |
 | Encrypted backups | Nightly, `age`, tested restore | Not built | #41 |
@@ -237,8 +238,9 @@ Relay, has staff accounts, and has a tested backup. It holds no patients.
 
 The provider app (#69) is how providers reach their schedule, messages and
 visits in and out of the office. Providers pair the same way patients do:
-QR from the staff UI, with the provider role (#37). Their device key, held
-in the Secure Enclave, is their credential on the phone.
+QR from the staff UI, with the provider role. Patient pairing landed in #37;
+the provider role comes with #69. Their device key, held in the Secure
+Enclave, is their credential on the phone.
 
 For each provider:
 1. [ ] Install the provider app (TestFlight during the pilot, App Store
@@ -250,8 +252,7 @@ For each provider:
 5. [ ] **Remote check:** with Wi-Fi off, on cellular, the provider sees
        today's schedule. This proves the Relay path; there is no VPN.
 6. [ ] **Revoke check (once, with the admin):** the admin revokes a test
-       device in the staff UI (#10), and it is locked out within one access
-       token lifetime (15 minutes).
+       device in the staff UI (#10), and it is locked out at once.
 
 The admin's own phone, if they want one, pairs the same way. Admin
 functions (users, pairing, devices, settings) stay in the staff UI on the

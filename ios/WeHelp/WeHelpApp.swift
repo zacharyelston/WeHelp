@@ -12,24 +12,31 @@ struct WeHelpApp: App {
     }
 }
 
-/// Unauthenticated users land on sign-in; a stored device-bound session
-/// resumes on launch.
+/// Unpaired phones land on the welcome screen to pair by QR; a stored
+/// device-bound session resumes on launch behind the app lock.
 struct RootView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
+    @State private var lock = AppLock()
 
     var body: some View {
         switch appState.phase {
         case .launching:
             ProgressView().task { await appState.bootstrap() }
         case .signedOut:
-            ConnectionsView()
+            WelcomeView()
         case .signedIn:
             ContentView()
                 // Signed-in screens show PHI: cover them whenever the app is
-                // not active so the app-switcher snapshot shows nothing.
+                // not active so the app-switcher snapshot shows nothing, and
+                // require Face ID or the passcode to see them (#37).
                 .overlay {
-                    if scenePhase != .active { PrivacyCover() }
+                    if lock.locked { LockView(lock: lock) } else if scenePhase != .active { PrivacyCover() }
+                }
+                .task { await lock.unlock() }
+                .onChange(of: scenePhase) { _, phase in
+                    if phase == .background { lock.lock() }
+                    if phase == .active { Task { await lock.unlock() } }
                 }
         }
     }

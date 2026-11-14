@@ -14,17 +14,20 @@ import (
 
 // Claims is the access-token payload. RegisteredClaims.Subject is the user ID.
 type Claims struct {
-	TenantID uuid.UUID `json:"tid"`
-	Role     string    `json:"role"`
+	TenantID uuid.UUID  `json:"tid"`
+	Role     string     `json:"role"`
+	DeviceID *uuid.UUID `json:"did,omitempty"` // set for device-bound sessions (#10)
 	jwt.RegisteredClaims
 }
 
-// IssueAccessToken signs a short-lived JWT for the user.
-func IssueAccessToken(userID, tenantID uuid.UUID, role string, secret []byte, ttl time.Duration) (string, error) {
+// IssueAccessToken signs a short-lived JWT for the user. deviceID is the
+// enrolled device for device-bound sessions, or nil.
+func IssueAccessToken(userID, tenantID uuid.UUID, role string, deviceID *uuid.UUID, secret []byte, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		TenantID: tenantID,
 		Role:     role,
+		DeviceID: deviceID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),

@@ -125,8 +125,11 @@ components:
           description: Must be at least 12 characters.
         role:
           type: string
-          enum: [provider, patient]
-          description: Self-serve registration is restricted to these roles.
+          enum: [provider]
+          description: >
+            Self-serve registration is for providers only. Patients have no
+            password: staff add them (POST /api/v1/patients) and they pair a
+            phone in the office (#37).
         display_name:
           type: string
           example: Dr. Ada Shaw
@@ -371,6 +374,99 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AppointmentView"
+
+    PatientView:
+      type: object
+      required: [id, display_name, email, devices]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        email: { type: string, format: email }
+        link_status: { type: string, enum: [pending, active] }
+        devices: { type: integer, description: Paired phones that are not revoked. }
+        last_seen_at: { type: string, format: date-time }
+
+    CreatePatientRequest:
+      type: object
+      required: [display_name, email]
+      properties:
+        display_name: { type: string, example: Jordan Lee }
+        email: { type: string, format: email }
+
+    CreateInviteRequest:
+      type: object
+      required: [patient_id]
+      properties:
+        patient_id: { type: string, format: uuid }
+
+    InviteResponse:
+      type: object
+      required: [id, patient_id, patient_name, expires_at, qr_payload, qr_png]
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        expires_at: { type: string, format: date-time, description: Redeem deadline (10 minutes). }
+        qr_payload:
+          type: string
+          description: >
+            The JSON in the QR code: v (1), relay, relay_pin, office, key_pin
+            and the single-use invite code. Shown once; only its hash is stored.
+        qr_png: { type: string, format: byte, description: Base64 PNG of the QR code. }
+
+    InviteStatus:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [issued, paired, expired]
+        device_name: { type: string, description: Set once a phone has paired. }
+
+    RedeemRequest:
+      type: object
+      required: [invite, public_key, timestamp, signature]
+      properties:
+        invite: { type: string }
+        public_key: { type: string, format: byte, description: "Base64 DER SubjectPublicKeyInfo, P-256." }
+        name: { type: string, maxLength: 100 }
+        timestamp: { type: integer, format: int64 }
+        signature:
+          type: string
+          format: byte
+          description: DER ECDSA-SHA256 over "wehelp-device-v1\npair\n{invite}\n{timestamp}".
+
+    RedeemResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnrollResponse"
+        - type: object
+          required: [practice, patient_name]
+          properties:
+            practice: { type: string }
+            patient_name: { type: string }
+
+
+    DeviceView:
+      type: object
+      required: [id, name, created_at, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "Jordan's iPhone" }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, revoked] }
+        current: { type: boolean, description: True for the device making the request. }
+
+    DeviceList:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceView"
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -921,6 +1017,250 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Reschedule would overlap an existing appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/patients:
+    get:
+      tags: [pairing]
+      summary: List your patients and their paired phones (staff)
+      responses:
+        "200":
+          description: Patients.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [patients]
+                properties:
+                  patients:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PatientView"
+        "403":
+          description: Not staff.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [pairing]
+      summary: Add a patient with no password (staff, office LAN only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePatientRequest"
+      responses:
+        "201":
+          description: Created; a provider is linked to the new patient.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientView"
+        "400":
+          description: Missing name or email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Email already used in this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/pairing/invites:
+    post:
+      tags: [pairing]
+      summary: Issue a QR pairing invite for one patient (staff, office LAN only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequest"
+      responses:
+        "201":
+          description: Invite issued; show the QR code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteResponse"
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient for this staff member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: The office is not installed with the Registry yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/pairing/invites/{inviteID}:
+    get:
+      tags: [pairing]
+      summary: Whether an invite has been used (staff, office LAN only)
+      parameters:
+        - { name: inviteID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteStatus"
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/pairing/redeem:
+    post:
+      tags: [pairing]
+      summary: Redeem a scanned invite; enrolls this phone and signs it in
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemRequest"
+      responses:
+        "200":
+          description: Paired; the device-bound session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemResponse"
+        "400":
+          description: Malformed body or key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Invalid or expired invite, or a failed device proof.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: This key is already enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/devices:
+    get:
+      tags: [devices]
+      summary: List your own devices
+      responses:
+        "200":
+          description: Devices, active first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        "401":
+          description: Not signed in, or this device was revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/devices/{deviceID}:
+    delete:
+      tags: [devices]
+      summary: Revoke one of your own devices
+      description: >
+        Revokes the device and all its refresh tokens; its access tokens stop
+        working at once. Revoking the current device signs it out. Revoking an
+        already revoked device succeeds.
+      parameters:
+        - { name: deviceID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Revoked.
+        "404":
+          description: Not one of your devices.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/patients/{patientID}/devices:
+    get:
+      tags: [devices]
+      summary: List a patient's devices (staff, office LAN only)
+      parameters:
+        - { name: patientID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Devices, active first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient for this staff member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/patients/{patientID}/devices/{deviceID}:
+    delete:
+      tags: [devices]
+      summary: Revoke a patient's device (staff, office LAN only)
+      parameters:
+        - { name: patientID, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: deviceID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Revoked; the device is locked out at once.
+        "403":
+          description: Not staff, or the request came through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient for this staff member, or not that patient's device.
           content:
             application/json:
               schema:
