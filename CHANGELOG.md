@@ -38,6 +38,14 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- iOS Messages tab (#17): inbox from `GET /api/v1/messages`, newest first,
+  with kind badges, unread dots and cursor pagination. Opening a message
+  marks it read. Compose sends kind `message` to the patient's active linked
+  provider (from `GET /api/v1/links`). Pull to refresh plus a 60-second poll
+  while the tab is open, and loading, empty and error states. Messages stay
+  in memory only. Signed-in screens are covered when the app is inactive, so
+  the app-switcher snapshot shows no PHI. `APIClient` gains query
+  parameters and RFC 3339 date decoding.
 - Messages API (#14): send, paginated inbox (`?unread`, `?limit`,
   opaque `?cursor`), and mark-read. Sending requires an active
   provider-patient link; creates and read-receipts are audit-chained in the
