@@ -183,9 +183,17 @@ practice's record; changes go through WeHelp support in V1.
 
 ### Staff accounts
 
-Staff sign in to the staff UI with a password plus TOTP. Roles: `admin`
-(office settings, users, pairing) and `provider` (patients, schedule,
-messages, visits). Provider accounts are invited from the Registry roster;
+Staff sign in to the staff UI with a password plus TOTP. Three fixed roles
+(#106), not configurable groups:
+- `provider`: their own patients, schedule, messages and visits.
+- `office` (front desk): every patient and every provider's schedule and
+  appointment requests (book, change, confirm), orders, the store, the
+  website, adding patients and pairing their phones. No message threads
+  (minimum necessary) and no staff management.
+- `admin`: everything `office` has, plus setup: staff accounts and office
+  settings.
+
+ Provider accounts are invited from the Registry roster;
 the Back Office holds the accounts and credentials.
 
 As built (#38):

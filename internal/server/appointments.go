@@ -37,19 +37,57 @@ func lockProviderSchedule(ctx context.Context, tx pgx.Tx, providerID uuid.UUID) 
 }
 
 type appointmentView struct {
-	ID         uuid.UUID `json:"id"`
-	ProviderID uuid.UUID `json:"provider_id"`
-	PatientID  uuid.UUID `json:"patient_id"`
-	StartsAt   time.Time `json:"starts_at"`
-	EndsAt     time.Time `json:"ends_at"`
-	Status     string    `json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID           uuid.UUID `json:"id"`
+	ProviderID   uuid.UUID `json:"provider_id"`
+	PatientID    uuid.UUID `json:"patient_id"`
+	StartsAt     time.Time `json:"starts_at"`
+	EndsAt       time.Time `json:"ends_at"`
+	Status       string    `json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	ProviderName string    `json:"provider_name,omitempty"` // in lists (#106)
+	PatientName  string    `json:"patient_name,omitempty"`
 }
 
 type createAppointmentRequest struct {
 	PatientID uuid.UUID `json:"patient_id"`
 	StartsAt  string    `json:"starts_at"`
 	EndsAt    string    `json:"ends_at"`
+	// ProviderID is required when the front desk or an admin books (#106);
+	// a provider always books for themself.
+	ProviderID *uuid.UUID `json:"provider_id"`
+}
+
+// bookingProvider returns whose schedule the caller is booking: their own
+// for a provider, the named, enabled provider for the front desk or an
+// admin (#106). ok is false after an error has been written.
+func bookingProvider(ctx context.Context, tx pgx.Tx, w http.ResponseWriter, id Identity, requested *uuid.UUID) (uuid.UUID, bool) {
+	switch {
+	case id.Role == "provider":
+		if requested != nil && *requested != id.UserID {
+			writeErr(w, http.StatusForbidden, "providers book only their own schedule")
+			return uuid.Nil, false
+		}
+		return id.UserID, true
+	case practiceWide(id.Role):
+		if requested == nil {
+			writeErr(w, http.StatusBadRequest, "provider_id is required")
+			return uuid.Nil, false
+		}
+		var ok bool
+		err := tx.QueryRow(ctx, `select exists (select 1 from users where id = $1 and tenant_id = $2
+			and role = 'provider' and disabled_at is null)`, *requested, id.TenantID).Scan(&ok)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "provider check failed")
+			return uuid.Nil, false
+		}
+		if !ok {
+			writeErr(w, http.StatusBadRequest, "no such provider in this practice")
+			return uuid.Nil, false
+		}
+		return *requested, true
+	}
+	writeErr(w, http.StatusForbidden, "only staff can book appointments")
+	return uuid.Nil, false
 }
 
 type updateAppointmentRequest struct {
@@ -64,8 +102,8 @@ type updateAppointmentRequest struct {
 // Route: POST /api/v1/appointments
 func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	if id.Role != "provider" {
-		writeErr(w, http.StatusForbidden, "only providers can create appointments")
+	if !isStaffRole(id.Role) {
+		writeErr(w, http.StatusForbidden, "only staff can create appointments")
 		return
 	}
 
@@ -101,21 +139,25 @@ func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 
-	linked, err := HasActiveLink(ctx, tx, id.TenantID, id.UserID, req.PatientID)
+	providerID, ok := bookingProvider(ctx, tx, w, id, req.ProviderID)
+	if !ok {
+		return
+	}
+	linked, err := HasActiveLink(ctx, tx, id.TenantID, providerID, req.PatientID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "link check failed")
 		return
 	}
 	if !linked {
-		writeErr(w, http.StatusForbidden, "no active link with that patient")
+		writeErr(w, http.StatusForbidden, "no active link between that provider and patient")
 		return
 	}
 
-	if err := lockProviderSchedule(ctx, tx, id.UserID); err != nil {
+	if err := lockProviderSchedule(ctx, tx, providerID); err != nil {
 		writeErr(w, http.StatusInternalServerError, "lock failed")
 		return
 	}
-	overlap, err := checkOverlap(ctx, tx, id.TenantID, id.UserID, startsAt, endsAt, uuid.Nil)
+	overlap, err := checkOverlap(ctx, tx, id.TenantID, providerID, startsAt, endsAt, uuid.Nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "overlap check failed")
 		return
@@ -130,7 +172,7 @@ func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 		insert into appointments (tenant_id, provider_id, patient_id, starts_at, ends_at)
 		values ($1, $2, $3, $4, $5)
 		returning id, provider_id, patient_id, starts_at, ends_at, status, created_at`,
-		id.TenantID, id.UserID, req.PatientID, startsAt, endsAt).
+		id.TenantID, providerID, req.PatientID, startsAt, endsAt).
 		Scan(&appt.ID, &appt.ProviderID, &appt.PatientID, &appt.StartsAt, &appt.EndsAt, &appt.Status, &appt.CreatedAt)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "insert failed")
@@ -138,8 +180,9 @@ func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	detail, _ := json.Marshal(map[string]string{
-		"patient_id": req.PatientID.String(),
-		"starts_at":  startsAt.Format(time.RFC3339),
+		"patient_id":  req.PatientID.String(),
+		"provider_id": providerID.String(),
+		"starts_at":   startsAt.Format(time.RFC3339),
 	})
 	if err := audit.Record(ctx, tx, audit.Event{
 		TenantID: id.TenantID, ActorID: &id.UserID,
@@ -163,18 +206,37 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
 	q := r.URL.Query()
 
+	// The front desk and admins see the whole practice (#106), optionally
+	// one provider's day with ?provider_id=.
 	base := `
-		select id, provider_id, patient_id, starts_at, ends_at, status, created_at
-		from appointments
-		where tenant_id = $1 and (provider_id = $2 or patient_id = $2)`
-	args := []any{id.TenantID, id.UserID}
+		select a.id, a.provider_id, a.patient_id, a.starts_at, a.ends_at, a.status, a.created_at,
+		       pr.display_name, pa.display_name
+		from appointments a
+		join users pr on pr.id = a.provider_id
+		join users pa on pa.id = a.patient_id
+		where a.tenant_id = $1`
+	args := []any{id.TenantID}
+	if practiceWide(id.Role) {
+		if v := q.Get("provider_id"); v != "" {
+			pid, err := uuid.Parse(v)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, "provider_id must be a UUID")
+				return
+			}
+			base += ` and a.provider_id = $2`
+			args = append(args, pid)
+		}
+	} else {
+		base += ` and (a.provider_id = $2 or a.patient_id = $2)`
+		args = append(args, id.UserID)
+	}
 	if v := q.Get("from"); v != "" {
 		from, err := time.Parse(time.RFC3339Nano, v)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, "from must be RFC3339")
 			return
 		}
-		base += fmt.Sprintf(` and starts_at >= $%d`, len(args)+1)
+		base += fmt.Sprintf(` and a.starts_at >= $%d`, len(args)+1)
 		args = append(args, from)
 	}
 	if v := q.Get("to"); v != "" {
@@ -183,10 +245,10 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "to must be RFC3339")
 			return
 		}
-		base += fmt.Sprintf(` and starts_at < $%d`, len(args)+1)
+		base += fmt.Sprintf(` and a.starts_at < $%d`, len(args)+1)
 		args = append(args, to)
 	}
-	base += ` order by starts_at asc`
+	base += ` order by a.starts_at asc`
 
 	rows, err := s.pool.Query(r.Context(), base, args...)
 	if err != nil {
@@ -198,7 +260,7 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 	appts := []appointmentView{}
 	for rows.Next() {
 		var a appointmentView
-		if err := rows.Scan(&a.ID, &a.ProviderID, &a.PatientID, &a.StartsAt, &a.EndsAt, &a.Status, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.ProviderID, &a.PatientID, &a.StartsAt, &a.EndsAt, &a.Status, &a.CreatedAt, &a.ProviderName, &a.PatientName); err != nil {
 			writeErr(w, http.StatusInternalServerError, "scan failed")
 			return
 		}
@@ -216,8 +278,8 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 // Route: PATCH /api/v1/appointments/{appointmentID}
 func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	if id.Role != "provider" {
-		writeErr(w, http.StatusForbidden, "only providers can update appointments")
+	if id.Role != "provider" && !practiceWide(id.Role) {
+		writeErr(w, http.StatusForbidden, "only staff can update appointments")
 		return
 	}
 	apptID, err := uuid.Parse(chi.URLParam(r, "appointmentID"))
@@ -263,7 +325,7 @@ func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "query failed")
 		return
 	}
-	if appt.ProviderID != id.UserID {
+	if appt.ProviderID != id.UserID && !practiceWide(id.Role) {
 		writeErr(w, http.StatusForbidden, "not the provider for this appointment")
 		return
 	}
@@ -304,11 +366,11 @@ func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rescheduling {
-		if err := lockProviderSchedule(ctx, tx, id.UserID); err != nil {
+		if err := lockProviderSchedule(ctx, tx, appt.ProviderID); err != nil {
 			writeErr(w, http.StatusInternalServerError, "lock failed")
 			return
 		}
-		overlap, err := checkOverlap(ctx, tx, id.TenantID, id.UserID, newStarts, newEnds, apptID)
+		overlap, err := checkOverlap(ctx, tx, id.TenantID, appt.ProviderID, newStarts, newEnds, apptID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "overlap check failed")
 			return

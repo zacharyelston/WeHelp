@@ -58,7 +58,7 @@ func scanProduct(row pgx.Row) (productView, error) {
 
 // isStaffOnLAN reports a staff caller on the office LAN.
 func isStaffOnLAN(r *http.Request, id Identity) bool {
-	return (id.Role == "provider" || id.Role == "admin") && !tunnel.ViaRelay(r.Context())
+	return isStaffRole(id.Role) && !tunnel.ViaRelay(r.Context())
 }
 
 // ListProducts returns the catalogue: active products for patients and
@@ -392,7 +392,7 @@ func (s *Server) CreateOrder(w http.ResponseWriter, r *http.Request) {
 // Route: GET /api/v1/orders
 func (s *Server) ListOrders(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
-	staff := id.Role == "provider" || id.Role == "admin"
+	staff := isStaffRole(id.Role)
 	if staff && tunnel.ViaRelay(r.Context()) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return

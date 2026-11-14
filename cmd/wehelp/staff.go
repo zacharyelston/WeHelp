@@ -27,8 +27,8 @@ var staffCmd = func() *cobra.Command {
 		Use:   "add",
 		Short: "Create a staff account; the password is read from the terminal or WEHELP_STAFF_PASSWORD",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if role != "provider" && role != "admin" {
-				return errors.New("--role must be provider or admin")
+			if role != "provider" && role != "office" && role != "admin" {
+				return errors.New("--role must be provider, office or admin")
 			}
 			if tenant == "" || !strings.Contains(email, "@") {
 				return errors.New("--tenant and a valid --email are required")
@@ -79,7 +79,7 @@ var staffCmd = func() *cobra.Command {
 	add.Flags().StringVar(&tenant, "tenant", "", "practice name")
 	add.Flags().StringVar(&email, "email", "", "staff email (sign-in name)")
 	add.Flags().StringVar(&name, "name", "", "display name")
-	add.Flags().StringVar(&role, "role", "provider", "provider or admin")
+	add.Flags().StringVar(&role, "role", "provider", "provider, office (front desk) or admin")
 	cmd.AddCommand(add)
 	return cmd
 }()

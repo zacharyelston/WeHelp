@@ -251,7 +251,7 @@ components:
           format: uuid
         role:
           type: string
-          enum: [provider, patient, admin]
+          enum: [provider, patient, admin, office]
         display_name: { type: string }
 
     LinkView:
@@ -369,6 +369,8 @@ components:
         created_at:
           type: string
           format: date-time
+        provider_name: { type: string, description: "In lists (#106)." }
+        patient_name: { type: string, description: "In lists (#106)." }
 
     PreferredTime:
       type: object
@@ -423,6 +425,10 @@ components:
       type: object
       required: [patient_id, starts_at, ends_at]
       properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: Required when the front desk or an admin books (#106); a provider always books for themself.
         patient_id:
           type: string
           format: uuid
@@ -576,7 +582,7 @@ components:
           enum: [active, totp_setup]
           description: totp_setup means the session can only set up TOTP.
         user_id: { type: string, format: uuid }
-        role: { type: string, enum: [provider, admin] }
+        role: { type: string, enum: [provider, office, admin] }
         display_name: { type: string }
         practice: { type: string }
         csrf_token: { type: string, description: Send as X-CSRF-Token on every change. }
@@ -599,6 +605,7 @@ components:
       type: object
       required: [display_name, email]
       properties:
+        role: { type: string, enum: [provider, office], default: provider, description: "office = front desk (#106)." }
         display_name: { type: string, maxLength: 200 }
         email: { type: string, format: email, description: Their sign-in name. }
     ProviderAccount:
@@ -608,6 +615,7 @@ components:
         id: { type: string, format: uuid }
         display_name: { type: string }
         email: { type: string }
+        role: { type: string, enum: [provider, office] }
         status:
           type: string
           enum: [invited, invite_expired, totp_pending, active, disabled]
@@ -711,7 +719,7 @@ components:
         bio: { type: string }
         show_on_website: { type: boolean }
         has_photo: { type: boolean }
-        role: { type: string, enum: [provider, admin] }
+        role: { type: string, enum: [provider, office, admin] }
         updated_at: { type: string, format: date-time }
     StaffProfileUpdate:
       type: object
@@ -1345,8 +1353,10 @@ paths:
   /api/v1/appointments:
     post:
       tags: [appointments]
-      summary: Create an appointment (provider only)
+      summary: Create an appointment (staff)
       description: |
+        A provider books their own schedule; the front desk (office) and
+        admins book for the provider named in provider_id (#106).
         Requires an active provider-patient link. The provider cannot
         double-book — overlapping appointments are rejected with 409.
       requestBody:
@@ -1389,6 +1399,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/FromParam"
         - $ref: "#/components/parameters/ToParam"
+        - name: provider_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Front desk and admins only (#106), who otherwise see the whole practice.
       responses:
         "200":
           description: OK
