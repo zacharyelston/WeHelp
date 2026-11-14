@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- Proposal for other kinds of practice (docs/PRACTICE_TYPES.md, epic #112):
+  presets with their own words for therapy, allied health and salons; switches
+  so a practice or a provider can turn messaging off; a practice inbox; and
+  care teams, where a patient approves the providers who share their thread.
 - AGENTS.md and CONTRIBUTING.md brought up to date (#13):
   - issues and PRs live in zacharyelston/WeHelp;
   - V1 milestones and the docs to read first;
