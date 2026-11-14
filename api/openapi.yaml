@@ -253,6 +253,10 @@ components:
           enum: [pending, active, revoked]
         provider_name: { type: string }
         patient_name: { type: string }
+        checkin_every_days:
+          type: integer
+          nullable: true
+          description: Check-in reminder cadence in days; null when off.
 
     CreateLinkRequest:
       type: object
@@ -885,6 +889,65 @@ paths:
                     example: revoked
         "404":
           description: No link with that user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/links/{userID}/checkin:
+    put:
+      tags: [links]
+      summary: Set a patient's check-in reminder cadence (provider only)
+      description: |
+        `{userID}` is the patient. The Back Office's reminder worker sends a
+        kind=reminder message every `every_days` days, counted from now,
+        during the day in the office's time zone, unless the patient already
+        checked in during the last period. `null` turns it off.
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [every_days]
+              properties:
+                every_days:
+                  type: integer
+                  minimum: 1
+                  maximum: 90
+                  nullable: true
+      responses:
+        "200":
+          description: Cadence set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  every_days:
+                    type: integer
+                    nullable: true
+        "400":
+          description: every_days out of range
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Caller is not a provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No active link with that patient
           content:
             application/json:
               schema:

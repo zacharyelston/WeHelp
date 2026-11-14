@@ -208,7 +208,7 @@ As built (#38):
 |---|---|---|
 | Appointments | Back Office | Patients see and request; staff and providers manage |
 | Messages | Back Office | Patient ↔ practice threads; no attachments in V1 |
-| Reminders | Back Office → Relay push | Scheduled jobs (River); push payloads carry no PHI |
+| Reminders | Back Office → Relay push | A one-minute polling worker; `reminders_sent` keys make each reminder send once; push payloads carry no PHI |
 | Telehealth video | App ↔ app, media via Relay TURN | 1:1 visits; see below |
 | Practice website | Relay (static files) | Published by the Back Office; no logins, forms or PHI |
 | Staff web UI | Back Office, LAN only | Schedule, messages, patients, pairing, devices |

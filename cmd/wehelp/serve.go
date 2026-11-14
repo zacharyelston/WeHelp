@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	_ "time/tzdata" // WEHELP_TIMEZONE works in slim containers (#19)
 
 	"github.com/spf13/cobra"
 	"github.com/zacharyelston/wehelp/internal/config"
@@ -50,6 +51,7 @@ var serveCmd = &cobra.Command{
 				return err
 			}
 		}
+		go srv.RunReminders(ctx, cfg.ReminderInterval) // stops with ctx (#19)
 		return srv.ListenAndServe(ctx)
 	},
 }

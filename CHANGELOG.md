@@ -71,6 +71,24 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Reminders (#19), sent by the Back Office as reminder messages from the
+  provider, with a push through the Relay.
+  - Appointment reminders at each `reminder_offsets` offset (default 24h
+    and 1h). Only the closest one that has come due is sent, so late
+    bookings and restarts don't send a burst. Rescheduling moves them;
+    cancelled appointments and revoked links get none.
+  - Check-in reminders on a cadence the provider sets per patient
+    (`PUT /api/v1/links/{id}/checkin`, 1–90 days, or off), shown as a
+    "Check-in reminders" choice on the web Links tab. They're skipped if
+    the patient already checked in during the last period, and wait for
+    08:00–20:00 office time (`WEHELP_TIMEZONE`).
+  - A worker in `wehelpd serve` checks every `reminder_interval` (1m; 0
+    turns it off) and stops with the server. Each reminder is recorded
+    in `reminders_sent` under a key naming it, in the same transaction as
+    the message and its audit event, so nothing is sent twice.
+  - A minute's poll replaces the River jobs the plan named: same
+    guarantees at this scale, with no second migration system next to
+    Flyway.
 - Push notifications through the Relay (#7).
   - The Relay sends Apple pushes with a hand-rolled HTTP/2 + ES256 client;
     the APNs key never leaves the Relay. Only three categories exist

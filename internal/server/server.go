@@ -96,6 +96,7 @@ func (s *Server) Router() chi.Router {
 			r.Get("/links", s.ListLinks)
 			r.Post("/links/{userID}/accept", s.AcceptLink)
 			r.Post("/links/{userID}/revoke", s.RevokeLink)
+			r.Put("/links/{userID}/checkin", s.SetCheckinCadence)
 			r.Post("/messages", s.CreateMessage)
 			r.Get("/messages", s.ListMessages)
 			r.Get("/conversations", s.ListConversations)

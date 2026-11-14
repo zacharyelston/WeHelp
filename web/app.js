@@ -430,13 +430,14 @@ async function loadLinks(container) {
   if (links.length === 0) {
     html += '<p class="empty">No links.</p>';
   } else {
-    html += "<table><thead><tr><th>Provider</th><th>Patient</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Provider</th><th>Patient</th><th>Status</th><th>Check-in reminders</th><th>Actions</th></tr></thead><tbody>";
     for (const l of links) {
       const provider = l.provider_id === session.user_id ? "You" : l.provider_id.slice(0, 8);
       const patient = l.patient_id === session.user_id ? "You" : l.patient_id.slice(0, 8);
       html += `<tr>
         <td>${provider}</td><td>${patient}</td>
         <td><span class="badge badge-${l.status}">${l.status}</span></td>
+        <td>${checkinCell(l)}</td>
         <td>`;
       if (l.status === "pending" && session.role === "patient" && l.patient_id === session.user_id) {
         html += `<button class="btn btn-sm" onclick="acceptLink('${l.provider_id}')">Accept</button>`;
@@ -463,6 +464,30 @@ async function loadLinks(container) {
         showAlert(err.message);
       }
     };
+  }
+}
+
+// Check-in reminder cadence (#19): the provider picks how often the patient
+// is reminded to check in; the Back Office sends them as reminder messages.
+const CHECKIN_CHOICES = [["", "Off"], [1, "Daily"], [3, "Every 3 days"], [7, "Weekly"], [14, "Every 2 weeks"], [30, "Monthly"]];
+
+function checkinCell(l) {
+  const every = l.checkin_every_days ?? "";
+  if (l.status !== "active" || l.provider_id !== session.user_id) {
+    return every === "" ? "Off" : `Every ${every} days`;
+  }
+  const choices = CHECKIN_CHOICES.some(([v]) => v === every) ? CHECKIN_CHOICES : [...CHECKIN_CHOICES, [every, `Every ${every} days`]];
+  const opts = choices.map(([v, label]) => `<option value="${v}" ${v === every ? "selected" : ""}>${label}</option>`).join("");
+  return `<select onchange="setCheckin('${l.patient_id}', this.value)">${opts}</select>`;
+}
+
+async function setCheckin(patientId, value) {
+  try {
+    await api("PUT", `/links/${patientId}/checkin`, { every_days: value === "" ? null : Number(value) });
+    showAlert(value === "" ? "Check-in reminders off" : "Check-in reminders set", "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
   }
 }
 
