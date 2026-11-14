@@ -20,6 +20,10 @@ patient data as PHI whether or not the practice is a HIPAA covered entity.
 | Staff credentials (password + TOTP) | Staff, hashed in Back Office | Staff-level access from the LAN |
 | Audit chain | Back Office Postgres | Undetected tampering |
 | Backups | Encrypted, off the Mac mini | Same as patient records |
+| Registry signing key | Registry host | Forged office lists: a rogue "office" accepted by Relays (phones still pin the real office key, so no PHI exposure, but service hijack and phishing risk) |
+| Install tokens | Registry, shown once to support | Enrolling an attacker's server as a practice |
+| Practice and provider records | Registry Postgres | Disclosure of business and workforce data (not PHI) |
+| Registry console credentials | WeHelp support staff | Suspending or re-pointing practices |
 
 ## Who we defend against
 
@@ -30,11 +34,28 @@ patient data as PHI whether or not the practice is a HIPAA covered entity.
 3. **Someone with a patient's unlocked phone**, or a lost or stolen phone.
 4. **A malicious or careless staff member** inside the practice.
 5. **An attacker holding a stolen Mac mini** or a stolen backup.
+6. **An attacker or insider at WeHelp** with access to the Registry. The
+   Registry can stop a practice from connecting, but it can never read
+   patient data, because it holds none and phones pin the office key.
 
 Out of scope for V1: a fully compromised Back Office host OS, a nation-state
 attacker, and jailbroken devices with root on the patient's own phone.
 
 ## Trust boundaries and controls
+
+### Registry → Relay and Back Office
+
+- Office lists are signed with the Registry's ed25519 key. Relays pin that
+  key at install, verify every list, and reject older versions (no rollback).
+- Install tokens are single-use, expire in 24 hours, are bound to one
+  practice, and are shown once.
+- The roster API is authenticated with the office key and returns only that
+  practice's providers.
+- **Console:** password + TOTP, staff roles, and every action audited in the
+  Registry's hash-chained log. Suspending a practice or re-pointing it to
+  another Relay needs the `registry-admin` role.
+- The Registry has no API that accepts or returns patient data, and an
+  import-boundary test keeps Back Office data packages out of it.
 
 ### Phone ↔ Back Office (through the Relay)
 
@@ -151,7 +172,8 @@ Before the audit:
    - the iOS app (static and dynamic);
    - pairing and enrollment;
    - telehealth signaling and TURN;
-   - the staff web UI.
+   - the staff web UI;
+   - the Registry (install, office list, roster APIs, and the console).
 
    The pen test runs against the Demo topology with synthetic data.
 5. **Findings:** fixed or formally accepted before field deployment, and a

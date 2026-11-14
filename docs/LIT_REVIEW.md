@@ -78,6 +78,16 @@ ARCHITECTURE.md, "Connections".
 | Cloudflare Tunnel, ngrok default edges | **skip**: they terminate TLS at a third party, which would see PHI |
 | modernc.org/sqlite | **adopt**: the Relay's registry and push tokens, pure Go, single file |
 
+## Registry: control plane for practices and Relays (V1-M2, V1-M3)
+
+| Candidate | Verdict |
+|---|---|
+| Tailscale coordination server | **reference**: a control plane that hands out signed peer lists while the data plane never depends on it being up. That's the same split as Registry and Relay |
+| The Update Framework (TUF) | **reference**: signed metadata with version numbers to block rollback and freeze attacks. We borrow the rules (signature, monotonic version, cache last good), not the full framework |
+| `crypto/ed25519` (Go standard library) | **adopt**: signs office lists; no dependency |
+| SSH certificates (Registry as an SSH CA for office keys) | **evaluate later**: would replace key lists with signed certs, but revocation still needs a list, so V1 keeps the signed list |
+| Hardware-backed signing (cloud KMS or a YubiHSM) | **evaluate before multi-practice field use**: keeps the signing key off disk |
+
 ## V1 identity and staff auth (V1-M2)
 
 | Candidate | Verdict |
