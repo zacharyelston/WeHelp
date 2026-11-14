@@ -99,6 +99,7 @@ ARCHITECTURE.md, "Connections".
 | pquerna/otp | **adopt**: TOTP for staff sign-in. Small, widely used |
 | Apple App Attest | **evaluate** (#11): proves the genuine app at enrollment |
 | A local breached-password list (HIBP-style hashes) | **evaluate**: staff password screening without an outbound call |
+| Staff invites (#100): admin issues a set-up link, the person sets their own password | **adopt, built in-house**. This is the usual pattern (GitLab, Grafana and Keycloak "required actions"; OWASP ASVS V2.5 and NIST SP 800-63B §6 on initial secrets): a random, single-use, short-lived token, stored hashed, never a password the admin chooses. Our own: 32 random bytes in the URL fragment (kept out of logs and Referer), SHA-256 stored, 24 h, one live invite per account. It leads into the existing TOTP enrollment (#38). A library (Keycloak, Ory Kratos) would be new infrastructure for one form |
 
 ## V1 telehealth (V1-M4)
 

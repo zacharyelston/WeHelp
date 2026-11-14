@@ -42,6 +42,14 @@ components:
   # Reusable parameters
   # -------------------------------------------------------------------------
   parameters:
+    ProviderUserID:
+      name: userID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: A provider account in the admin's practice (#100).
     RequestID:
       name: requestID
       in: path
@@ -580,6 +588,46 @@ components:
         secret: { type: string, description: "Base32, for manual entry." }
         otpauth_url: { type: string }
         qr_png: { type: string, format: byte }
+
+    StaffSetupRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string, description: The token from the set-up link's URL fragment. }
+        password: { type: string, minLength: 12, maxLength: 1024 }
+    CreateProviderRequest:
+      type: object
+      required: [display_name, email]
+      properties:
+        display_name: { type: string, maxLength: 200 }
+        email: { type: string, format: email, description: Their sign-in name. }
+    ProviderAccount:
+      type: object
+      required: [id, display_name, email, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        display_name: { type: string }
+        email: { type: string }
+        status:
+          type: string
+          enum: [invited, invite_expired, totp_pending, active, disabled]
+          description: >
+            invited = a set-up link is open; invite_expired = it expired or
+            was cancelled; totp_pending = password set, authenticator not yet;
+            active = fully set up; disabled = cannot sign in.
+        created_at: { type: string, format: date-time }
+        disabled_at: { type: string, format: date-time }
+        invite_expires_at: { type: string, format: date-time }
+    ProviderInvite:
+      type: object
+      required: [provider, setup_url, expires_at]
+      properties:
+        provider:
+          $ref: "#/components/schemas/ProviderAccount"
+        setup_url:
+          type: string
+          description: Shown once. The single-use token is in the URL fragment.
+        expires_at: { type: string, format: date-time }
 
     ConversationView:
       type: object
@@ -1943,6 +1991,238 @@ paths:
           description: Signed out; the cookie is cleared.
         "403":
           description: Missing or invalid CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/setup:
+    post:
+      tags: [staff]
+      summary: Redeem a set-up link; set a password and start TOTP setup (#100)
+      description: >
+        The token comes from the set-up link an admin made (its URL
+        fragment). It works once, for 24 hours, on the office LAN. Sets a
+        session cookie that can only set up TOTP, as at a first sign-in.
+        Through the Relay this route is a 404.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffSetupRequest"
+      responses:
+        "200":
+          description: Password set; status totp_setup.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMe"
+        "400":
+          description: Password too short, or the link is invalid, used, replaced or expired (one answer for all).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers:
+    get:
+      tags: [staff]
+      summary: The practice's provider accounts (admins only, #100)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Provider accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProviderAccount"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [staff]
+      summary: Add a provider and get a single-use set-up link (admins only, #100)
+      description: >
+        Creates a provider account with no password. The set-up link is
+        returned only here; only its hash is stored. The provider sets their
+        own password and enrolls TOTP from it. Audited as staff.invite.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProviderRequest"
+      responses:
+        "201":
+          description: Provider added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderInvite"
+        "400":
+          description: Missing name or invalid email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Not signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: That email already has an account in this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/invite:
+    post:
+      tags: [staff]
+      summary: Replace a provider's set-up link (admins only, #100)
+      description: >
+        For a link that expired or was lost. Cancels the old link. Only for
+        an account that hasn't set a password. Audited as staff.invite.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: New link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderInvite"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already set up, or disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/disable:
+    post:
+      tags: [staff]
+      summary: Disable a provider account (admins only, #100)
+      description: >
+        Ends their staff web sessions, revokes refresh tokens and cancels
+        open set-up links; sign-in and API calls are refused until enabled.
+        Nothing is deleted and paired devices stay paired. Audited as
+        staff.disable.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: Disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderAccount"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/providers/{userID}/enable:
+    post:
+      tags: [staff]
+      summary: Enable a disabled provider account (admins only, #100)
+      description: Audited as staff.enable. A provider who never set up their account needs a new set-up link.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ProviderUserID"
+      responses:
+        "200":
+          description: Enabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderAccount"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such provider in this practice, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Not disabled.
           content:
             application/json:
               schema:

@@ -80,15 +80,11 @@ func TestStaffPairingScope(t *testing.T) {
 		values ($1, 'dr.other@demo.wehelp', $2, 'provider', 'Dr. Other') returning id::text`, tenant, hash).Scan(&other); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `insert into users (tenant_id, email, password_hash, role, display_name)
-		values ($1, 'admin@demo.wehelp', $2, 'admin', 'Office Admin')`, tenant, hash); err != nil {
-		t.Fatal(err)
-	}
 	provider := &client{t: t, h: h, token: login(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)}
 	if code, _ := provider.do("POST", "/pairing/invites", map[string]string{"user_id": other}); code != http.StatusNotFound {
 		t.Errorf("provider pairing another provider: %d", code)
 	}
-	admin := &client{t: t, h: h, token: login(t, h, pool, "admin@demo.wehelp", "other-provider-password")}
+	admin := &client{t: t, h: h, token: login(t, h, pool, seed.AdminEmail, seed.AdminPassword)}
 	if code, out := admin.do("POST", "/pairing/invites", map[string]string{"user_id": other}); code != http.StatusCreated || out["role"] != "provider" {
 		t.Errorf("admin pairing a provider: %d %v", code, out)
 	}

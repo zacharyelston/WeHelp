@@ -24,6 +24,9 @@ func (s *Server) webRoutes(r chi.Router) {
 	r.Get("/app.js", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "app.js")
 	})
+	r.Get("/staff.js", func(w http.ResponseWriter, r *http.Request) {
+		serveStatic(w, r, static, "staff.js")
+	})
 	r.Get("/styles.css", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "styles.css")
 	})
@@ -59,7 +62,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string
 	switch name {
 	case "index.html":
 		w.Header().Set("content-type", "text/html; charset=utf-8")
-	case "app.js":
+	case "app.js", "staff.js":
 		w.Header().Set("content-type", "application/javascript")
 	case "styles.css":
 		w.Header().Set("content-type", "text/css")

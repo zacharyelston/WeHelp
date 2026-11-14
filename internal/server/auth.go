@@ -63,6 +63,16 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 				return
 			}
 		}
+		// A disabled staff account (#100) stops working at once, whatever
+		// tokens it still holds.
+		if claims.Role != "patient" {
+			var enabled bool
+			err := s.pool.QueryRow(r.Context(), `select disabled_at is null from users where id = $1`, uid).Scan(&enabled)
+			if err != nil || !enabled {
+				writeErr(w, http.StatusUnauthorized, "account disabled")
+				return
+			}
+		}
 		ctx := context.WithValue(r.Context(), ctxIdentity, Identity{
 			UserID:   uid,
 			TenantID: claims.TenantID,
@@ -300,7 +310,7 @@ func (s *Server) authenticateStaffCookie(next http.Handler, w http.ResponseWrite
 		return
 	}
 	var role string
-	if err := s.pool.QueryRow(r.Context(), `select role::text from users where id = $1`, sess.UserID).Scan(&role); err != nil {
+	if err := s.pool.QueryRow(r.Context(), `select role::text from users where id = $1 and disabled_at is null`, sess.UserID).Scan(&role); err != nil {
 		writeErr(w, http.StatusUnauthorized, "missing bearer token")
 		return
 	}

@@ -49,15 +49,21 @@ func (p *Pusher) PublishSite(ctx context.Context, bundle []byte) (SiteResult, er
 		}
 		go ssh.DiscardRequests(reqs)
 		defer ch.Close()
-		if _, o.err = ch.Write(bundle); o.err != nil {
-			return
-		}
-		if o.err = ch.CloseWrite(); o.err != nil {
-			return
+		// The Relay may refuse (throttled, too big) and close before the
+		// bundle is all written, so a failed write still reads its reply.
+		_, werr := ch.Write(bundle)
+		if werr == nil {
+			werr = ch.CloseWrite()
 		}
 		raw, err := io.ReadAll(io.LimitReader(ch, 4<<10))
-		if err != nil {
-			o.err = err
+		if err != nil || len(raw) == 0 {
+			o.err = werr
+			if o.err == nil {
+				o.err = err
+			}
+			if o.err == nil {
+				o.err = errors.New("tunnel: no reply from the relay")
+			}
 			return
 		}
 		if o.err = json.Unmarshal(raw, &o.res); o.err != nil {
