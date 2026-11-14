@@ -180,6 +180,16 @@ appointments" links open the app.
 - **Logs** hold connection metadata only (office ID, byte counts, timing),
   for at most 7 days. Device IP addresses are not logged.
 
+## Observability
+
+Each Back Office and Relay runs a Grafana Alloy collector as a sidecar.
+Dashboards (Grafana, Loki, Prometheus) are an optional profile that can run
+on the same host, elsewhere, or in WeHelp Cloud Dashboards. Two streams leave
+a host: an **ops stream** with no identifiers, and an **audit stream** (the
+`audit_events` chain, IDs only) sent only to a BAA-covered destination. A load
+guard stops dashboards that starve a small host. Details are in
+[OBSERVABILITY.md](OBSERVABILITY.md).
+
 ## Test and demo topologies
 
 | Topology | Relay | Back Office | Data |
