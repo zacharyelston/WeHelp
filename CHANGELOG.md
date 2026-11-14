@@ -679,6 +679,11 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Appliance boot after a reboot (#123). Lima's `vz.pid` can survive a
+  reboot and name a process ID macOS has reused, and Colima then won't
+  start. If Docker isn't up a minute after login, the boot job clears that
+  stale state and restarts Colima. Seen on Barnacle after a macOS update;
+  the fix was checked on Barnacle against the same state.
 - Website publish (#97): when the Relay refused a publish (for example
   "publishing too often") before the whole bundle was sent, the Back Office
   reported EOF instead of the reason. It now reads the reply after a failed

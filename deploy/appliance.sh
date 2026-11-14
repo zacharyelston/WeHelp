@@ -41,16 +41,46 @@ init_env() {
 }
 
 wait_for_docker() {
-  local limit="${1:-600}" waited=0
+  local limit="${1:-600}" waited=0 recovered=0
   until docker info >/dev/null 2>&1; do
     if (( waited >= limit )); then
       log "Docker not ready after ${limit}s"
       return 1
     fi
+    # Give Colima's own login service a minute, then step in once.
+    if (( waited >= 60 && recovered == 0 )); then
+      recover_colima
+      recovered=1
+    fi
     sleep 5
     waited=$((waited + 5))
   done
   log "Docker ready after ${waited}s"
+}
+
+# recover_colima starts Colima when it isn't running, first clearing Lima
+# state left over from before a reboot. Lima keeps the VM's process ID in
+# vz.pid; after a reboot macOS can hand that ID to an unrelated process, and
+# Lima then refuses to start ("vz driver is running but host agent is not").
+# Seen on Barnacle after a macOS update on 2026-11-14. A live vz.pid points
+# at `limactl hostagent`, so anything else means the file is stale.
+recover_colima() {
+  command -v colima >/dev/null 2>&1 || return 0
+  colima status >/dev/null 2>&1 && return 0
+  local dir="$HOME/.colima/_lima/colima" pid=""
+  if [[ -f "$dir/vz.pid" ]]; then
+    pid="$(cat "$dir/vz.pid" 2>/dev/null || true)"
+    if [[ -z "$pid" ]] || ! ps -p "$pid" -o args= 2>/dev/null | grep -q "limactl"; then
+      log "removing stale Lima state (vz.pid ${pid:-empty} is not a Lima process)"
+      rm -f "$dir/vz.pid" "$dir/ha.sock"
+    fi
+  fi
+  log "Colima is not running; starting it"
+  if brew services list 2>/dev/null | grep -q '^colima '; then
+    brew services restart colima >/dev/null 2>&1 || log "brew services restart colima failed"
+  else
+    colima start >/dev/null 2>&1 || log "colima start failed"
+  fi
 }
 
 wait_for_health() {
