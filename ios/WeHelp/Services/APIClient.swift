@@ -84,21 +84,54 @@ struct APIClient: Sendable {
         try await authorized("GET", "api/v1/me")
     }
 
+    // MARK: Links
+
+    func links() async throws -> [CareLink] {
+        try await authorized("GET", "api/v1/links")
+    }
+
+    // MARK: Messages
+
+    /// The caller's inbox, newest first. Pass the previous page's
+    /// `nextCursor` to continue.
+    func messages(cursor: String? = nil, limit: Int = 50) async throws -> MessagePage {
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await authorized("GET", "api/v1/messages", query: query)
+    }
+
+    /// Idempotent on the server.
+    func markRead(messageID: UUID) async throws {
+        let _: Empty = try await authorized("POST", "api/v1/messages/\(messageID.uuidString.lowercased())/read")
+    }
+
+    @discardableResult
+    func sendMessage(to recipientID: UUID, kind: String = "message", body: String) async throws -> CreatedMessage {
+        let payload: [String: String] = [
+            "recipient_id": recipientID.uuidString.lowercased(),
+            "kind": kind,
+            "body": body,
+        ]
+        return try await authorized("POST", "api/v1/messages", body: payload)
+    }
+
     // MARK: Plumbing
 
     /// Sends with the access token; on 401 refreshes once and retries.
-    func authorized<T: Decodable>(_ method: String, _ path: String, body: (any Encodable & Sendable)? = nil) async throws -> T {
+    func authorized<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil) async throws -> T {
         if await session.accessToken == nil { try await refresh() }
         do {
-            return try await send(method, path, body: body, bearer: await session.accessToken)
+            return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         } catch APIError.unauthorized {
             try await refresh()
-            return try await send(method, path, body: body, bearer: await session.accessToken)
+            return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
         }
     }
 
-    func send<T: Decodable>(_ method: String, _ path: String, body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> T {
-        var req = URLRequest(url: baseURL.appending(path: path))
+    func send<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> T {
+        var url = baseURL.appending(path: path)
+        if !query.isEmpty { url.append(queryItems: query) }
+        var req = URLRequest(url: url)
         req.httpMethod = method
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -113,7 +146,24 @@ struct APIClient: Sendable {
             throw status == 401 ? APIError.unauthorized(msg) : APIError.http(status, msg)
         }
         if T.self == Empty.self || data.isEmpty, let empty = Empty() as? T { return empty }
-        return try JSONDecoder().decode(T.self, from: data)
+        return try Self.decoder.decode(T.self, from: data)
+    }
+
+    /// Go encodes `time.Time` as RFC 3339 with 0-9 fractional digits.
+    static var decoder: JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .custom { decoder in
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            if let date = parseRFC3339(raw) { return date }
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                                                    debugDescription: "not an RFC 3339 date"))
+        }
+        return d
+    }
+
+    static func parseRFC3339(_ raw: String) -> Date? {
+        if let d = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(raw) { return d }
+        return try? Date.ISO8601FormatStyle().parse(raw)
     }
 }
 
