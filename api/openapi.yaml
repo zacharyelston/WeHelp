@@ -652,6 +652,45 @@ components:
         created_at: { type: string, format: date-time }
         disabled_at: { type: string, format: date-time }
         invite_expires_at: { type: string, format: date-time }
+    Roster:
+      type: object
+      required: [installed, entries, need_action]
+      properties:
+        installed: { type: boolean, description: "The office is installed with the Registry, so the roster can be pulled." }
+        synced_at: { type: string, format: date-time, nullable: true, description: Last successful pull. }
+        attempted_at: { type: string, format: date-time, nullable: true }
+        error: { type: string, description: Why the last pull failed; empty when it worked. }
+        need_action: { type: integer, description: Invites to send plus accounts to disable. }
+        result:
+          type: object
+          description: Only after Sync now.
+          properties:
+            added: { type: integer }
+            removed: { type: integer }
+            changed: { type: integer }
+        entries:
+          type: array
+          items:
+            type: object
+            required: [registry_id, name, email, role, status]
+            properties:
+              registry_id: { type: string, format: uuid }
+              name: { type: string }
+              email: { type: string }
+              role: { type: string, enum: [provider, admin] }
+              credentials: { type: string }
+              licence_number: { type: string }
+              removed_at: { type: string, format: date-time, description: Removed in the Registry. }
+              status:
+                type: string
+                enum: [needs_invite, add_admin, linked, disable, removed]
+              account:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  role: { type: string }
+                  status: { type: string, enum: [invited, invite_expired, totp_pending, active, disabled] }
+                  disabled: { type: boolean }
     ProviderInvite:
       type: object
       required: [provider, setup_url, expires_at]
@@ -2479,6 +2518,123 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Not disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/roster:
+    get:
+      tags: [staff]
+      summary: The provider roster from the Registry (admins only, #62)
+      description: >
+        The practice's providers and admins as last pulled from the Registry,
+        each with the matching staff account (same email) if there is one.
+        A provider removed in the Registry whose account still works has
+        status `disable`: the admin disables it; nothing is disabled or
+        deleted automatically. LAN only.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The roster.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roster"
+        "403":
+          description: Not an admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/roster/sync:
+    post:
+      tags: [staff]
+      summary: Pull the roster from the Registry now (admins only, #62)
+      description: >
+        The Back Office also pulls it every `roster_interval` (15 minutes by
+        default). The request is signed with the office key; the answer is
+        checked against the Registry key pinned at install. Audited as
+        roster.sync.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The roster after the pull, with what changed in `result`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roster"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: The office isn't installed with the Registry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: The Registry couldn't be reached or its answer didn't verify.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/roster/{registryID}/invite:
+    post:
+      tags: [staff]
+      summary: Invite a roster provider (admins only, #62)
+      description: >
+        Creates the provider's account with no password and returns a
+        single-use set-up link, exactly as adding staff does (#100). Audited
+        as staff.invite with via roster. Admins on the roster are added on
+        the Back Office host with `wehelpd staff add`.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: registryID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The roster entry's Registry ID.
+      responses:
+        "201":
+          description: Account created; the link is shown once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderInvite"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not on this practice's roster, or through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Removed in the Registry, an admin, or the email already has an account.
           content:
             application/json:
               schema:

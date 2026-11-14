@@ -65,14 +65,14 @@ const PROVIDER_STATUS = {
 async function showProviders(invite) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
   const content = document.getElementById("tab-content");
-  let data;
+  let data, rosterData;
   try {
-    data = await api("GET", "/staff/providers");
+    [data, rosterData] = await Promise.all([api("GET", "/staff/providers"), api("GET", "/staff/roster")]);
   } catch (err) {
     content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
     return;
   }
-  let html = `<div class="card"><h2>Add staff</h2>
+  let html = rosterCard(rosterData) + `<div class="card"><h2>Add staff</h2>
     <form id="provider-form" class="inline-form">
       <input id="provider-name" placeholder="Name, for example Dr. Sam Lee" required>
       <input id="provider-email" type="email" placeholder="email (their sign-in name)" required>
@@ -123,6 +123,67 @@ async function showProviders(invite) {
       showAlert(err.message);
     }
   };
+}
+
+// ---------------------------------------------------------------------------
+// Provider roster (#62): who the Registry says works here. New providers wait
+// for an invite (the same set-up link as Add staff); anyone removed in the
+// Registry is flagged for you to disable. Nothing changes by itself.
+// ---------------------------------------------------------------------------
+const ROSTER_STATUS = {
+  needs_invite: ["pending", "Needs an invite"],
+  add_admin: ["pending", "Add on the Back Office host"],
+  linked: ["active", "Has an account"],
+  disable: ["revoked", "Removed in the Registry: disable"],
+  removed: ["scheduled", "Removed"],
+};
+
+function rosterCard(r) {
+  let html = `<div class="card"><h2>From the Registry${r.need_action ? ` <span class="badge badge-pending">${r.need_action}</span>` : ""}</h2>`;
+  if (!r.installed) {
+    return html + '<p class="hint">This office isn\'t installed with the Registry yet, so there is no roster. Add staff below.</p></div>';
+  }
+  const when = r.synced_at ? `Last pulled ${esc(new Date(r.synced_at).toLocaleString())}.` : "Not pulled yet.";
+  html += `<p class="hint">The ${esc(word("providers"))} WeHelp support lists for this practice. ${when} It is pulled every 15 minutes.
+    <button class="btn btn-sm btn-outline" onclick="syncRoster()" style="margin-left:0.5rem">Sync now</button></p>`;
+  if (r.error) html += `<div class="alert alert-error">The last pull failed: ${esc(r.error)}</div>`;
+  if (r.entries.length === 0) return html + '<p class="empty">No one on the roster yet.</p></div>';
+  html += "<table><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Credentials</th><th>Status</th><th></th></tr></thead><tbody>";
+  for (const e of r.entries) {
+    const [badge, label] = ROSTER_STATUS[e.status] || ["pending", e.status];
+    let action = "";
+    if (e.status === "needs_invite") {
+      action = `<button class="btn btn-sm" onclick="rosterInvite('${attr(e.registry_id)}')">Invite</button>`;
+    } else if (e.status === "disable" && e.account && e.account.role !== "admin") {
+      action = `<button class="btn btn-sm btn-danger" onclick="providerAction('${attr(e.account.id)}', 'disable')">Disable</button>`;
+    } else if (e.status === "disable") {
+      action = '<span class="hint">Disable on the Back Office host</span>';
+    }
+    const cred = [e.credentials, e.licence_number && "licence " + e.licence_number].filter(Boolean).join(", ");
+    html += `<tr><td>${esc(e.name)}</td><td>${e.role === "admin" ? "Admin" : Word("provider")}</td><td>${esc(e.email)}</td>
+      <td>${esc(cred)}</td><td><span class="badge badge-${badge}">${esc(label)}</span></td><td>${action}</td></tr>`;
+  }
+  return html + "</tbody></table></div>";
+}
+
+async function syncRoster() {
+  try {
+    const r = await api("POST", "/staff/roster/sync");
+    const res = r.result || {};
+    showProviders();
+    showAlert(`Roster pulled: ${res.added || 0} new, ${res.removed || 0} removed, ${res.changed || 0} changed`, "success");
+  } catch (err) {
+    showAlert(err.message);
+    showProviders();
+  }
+}
+
+async function rosterInvite(registryId) {
+  try {
+    showProviders(await api("POST", `/staff/roster/${registryId}/invite`));
+  } catch (err) {
+    showAlert(err.message);
+  }
 }
 
 async function providerAction(id, action) {

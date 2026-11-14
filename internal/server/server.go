@@ -26,6 +26,7 @@ type Server struct {
 	httpsPort string          // set: plain HTTP only redirects to HTTPS (#38)
 	pusher    Pusher          // push through the Relay (#7); nil = off
 	sitePub   SitePublisher   // website publishing through the Relay (#97); nil = off
+	roster    RosterSource    // provider roster from the Registry (#62); nil = not installed
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -93,6 +94,10 @@ func (s *Server) Router() chi.Router {
 			r.With(s.authenticate).Post("/providers/{userID}/invite", s.ReissueProviderInvite)
 			r.With(s.authenticate).Post("/providers/{userID}/disable", s.DisableProvider)
 			r.With(s.authenticate).Post("/providers/{userID}/enable", s.EnableProvider)
+			// Provider roster from the Registry (#62): admins only.
+			r.With(s.authenticate).Get("/roster", s.GetRoster)
+			r.With(s.authenticate).Post("/roster/sync", s.SyncRoster)
+			r.With(s.authenticate).Post("/roster/{registryID}/invite", s.InviteFromRoster)
 			// Your own profile (#102), used for the website bios.
 			r.With(s.authenticate).Get("/profile", s.GetStaffProfile)
 			r.With(s.authenticate).Put("/profile", s.PutStaffProfile)

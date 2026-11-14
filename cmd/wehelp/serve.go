@@ -10,11 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	_ "time/tzdata" // WEHELP_TIMEZONE works in slim containers (#19)
 
 	"github.com/spf13/cobra"
 	"github.com/zacharyelston/wehelp/internal/config"
 	"github.com/zacharyelston/wehelp/internal/office"
+	"github.com/zacharyelston/wehelp/internal/officelist"
+	"github.com/zacharyelston/wehelp/internal/roster"
 	"github.com/zacharyelston/wehelp/internal/server"
 	"github.com/zacharyelston/wehelp/internal/store"
 	"github.com/zacharyelston/wehelp/internal/tunnel"
@@ -47,12 +50,18 @@ var serveCmd = &cobra.Command{
 			pusher := &tunnel.Pusher{}
 			srv.SetPusher(pusher)        // push through the Relay (#7)
 			srv.SetSitePublisher(pusher) // website publishing (#97)
+			if src, err := rosterSource(id); err != nil {
+				slog.Warn("provider roster off", "err", err)
+			} else {
+				srv.SetRosterSource(src) // provider roster from the Registry (#62)
+			}
 			startTunnel(ctx, cfg, id, srv.Router(), pusher)
 			if err := startStaffTLS(ctx, cfg, id, srv); err != nil {
 				return err
 			}
 		}
 		go srv.RunReminders(ctx, cfg.ReminderInterval) // stops with ctx (#19)
+		go srv.RunRosterSync(ctx, cfg.RosterInterval)  // no-op before install (#62)
 		return srv.ListenAndServe(ctx)
 	},
 }
@@ -66,6 +75,23 @@ func loadOffice(cfg config.Config) (*office.Identity, error) {
 	}
 	id, _, err := office.Ensure(cfg.OfficeDir)
 	return id, err
+}
+
+// rosterSource pulls the provider roster (#62) from the Registry the office
+// installed with, signing with the office SSH key and checking the answer
+// against the Registry key pinned at install.
+func rosterSource(id *office.Identity) (*roster.Client, error) {
+	key, err := officelist.ParsePublicKey(id.Registration.RegistrySigningKey)
+	if err != nil {
+		return nil, err
+	}
+	return &roster.Client{
+		HTTP:        &http.Client{Timeout: 30 * time.Second},
+		RegistryURL: id.Registration.RegistryURL,
+		OfficeID:    id.Registration.OfficeID,
+		OfficeKey:   id.SSHKey,
+		RegistryKey: key,
+	}, nil
 }
 
 // startTunnel connects this office to its Relay (#4). With relay_tunnel off,

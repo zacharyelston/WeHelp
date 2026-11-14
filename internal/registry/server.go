@@ -30,6 +30,7 @@ func (s *Server) Router() chi.Router {
 		r.Post("/install", s.install)
 		r.Get("/office-list", s.officeList)
 		r.Post("/relay-status", s.relayStatus)
+		r.Post("/roster", s.roster) // #62
 		r.Route("/console", s.consoleRoutes)
 	})
 	r.Get("/console", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/console/", http.StatusFound) })

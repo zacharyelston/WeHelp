@@ -183,28 +183,13 @@ func (s *Server) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	var userID uuid.UUID
-	err = tx.QueryRow(ctx, `
-		insert into users (tenant_id, email, password_hash, role, display_name)
-		values ($1, $2, null, $4, $3) returning id`, id.TenantID, req.Email, req.DisplayName, req.Role).Scan(&userID)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	userID, token, expires, err := inviteStaff(ctx, tx, id, req.DisplayName, req.Email, req.Role, map[string]string{"via": "web"})
+	if errors.Is(err, errEmailTaken) {
 		writeErr(w, http.StatusConflict, "that email already has an account in this practice")
 		return
 	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "create failed")
-		return
-	}
-	token, expires, inviteID, err := issueStaffInvite(ctx, tx, id.TenantID, userID, id.UserID)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "invite failed")
-		return
-	}
-	if err := audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &id.UserID, Action: "staff.invite",
-		ResourceType: "user", ResourceID: userID.String(),
-		Detail: mustJSON(map[string]string{"role": req.Role, "email": req.Email, "invite_id": inviteID.String(), "via": "web"})}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
 	}
 	list, err := loadProviders(ctx, tx, id.TenantID, &userID)
@@ -218,6 +203,37 @@ func (s *Server) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusCreated, providerInvite{Provider: list[0], SetupURL: setupURL(r, token), ExpiresAt: expires})
+}
+
+var errEmailTaken = errors.New("that email already has an account in this practice")
+
+// inviteStaff creates a staff account with no password and a set-up invite,
+// with its staff.invite audit event, inside the caller's transaction. Both
+// Add staff (#100) and a roster invite (#62) come through here.
+func inviteStaff(ctx context.Context, tx pgx.Tx, by Identity, name, email, role string,
+	detail map[string]string) (uuid.UUID, string, time.Time, error) {
+	var userID uuid.UUID
+	err := tx.QueryRow(ctx, `
+		insert into users (tenant_id, email, password_hash, role, display_name)
+		values ($1, $2, null, $4, $3) returning id`, by.TenantID, email, name, role).Scan(&userID)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return uuid.Nil, "", time.Time{}, errEmailTaken
+	}
+	if err != nil {
+		return uuid.Nil, "", time.Time{}, err
+	}
+	token, expires, inviteID, err := issueStaffInvite(ctx, tx, by.TenantID, userID, by.UserID)
+	if err != nil {
+		return uuid.Nil, "", time.Time{}, err
+	}
+	d := map[string]string{"role": role, "email": email, "invite_id": inviteID.String()}
+	for k, v := range detail {
+		d[k] = v
+	}
+	err = audit.Record(ctx, tx, audit.Event{TenantID: by.TenantID, ActorID: &by.UserID, Action: "staff.invite",
+		ResourceType: "user", ResourceID: userID.String(), Detail: mustJSON(d)})
+	return userID, token, expires, err
 }
 
 type lockedProvider struct {

@@ -206,8 +206,15 @@ As built (#38):
 - Admins add providers in the staff web (#100). Each new provider gets a
   single-use set-up link that works for 24 hours on the LAN and is stored
   only as a hash. The provider chooses their own password and enrolls TOTP
-  from it. Admins disable and re-enable accounts; nothing is deleted. The
-  Registry roster (#62) will feed the same invite.
+  from it. Admins disable and re-enable accounts; nothing is deleted.
+- The Registry roster (#62) feeds the same invite. The Back Office pulls
+  its practice's providers every 15 minutes (`roster_interval`) and on
+  Sync now. It signs the request with the office SSH key and checks the
+  answer against the Registry key pinned at install. A new provider waits
+  on the Staff screen for the admin to invite them. One removed in the
+  Registry is flagged for the admin to disable; the sync never disables or
+  deletes an account. Admins on the roster are added with `wehelpd staff
+  add`, as at install.
 - The first sign-in enrolls TOTP. After that every sign-in needs the
   password and a code that hasn't been used before. Five failures lock the
   account for 15 minutes.

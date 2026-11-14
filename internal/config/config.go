@@ -43,6 +43,9 @@ type Config struct {
 	ReminderOffsets  string        `mapstructure:"reminder_offsets"`  // before each appointment, e.g. "24h,1h"
 	Timezone         string        `mapstructure:"timezone"`          // IANA name for reminder text; empty = host time
 
+	// Provider roster (#62): how often the Back Office pulls it from the Registry.
+	RosterInterval time.Duration `mapstructure:"roster_interval"` // 0 = only when an admin presses Sync now
+
 	// WeHelp Relay (wehelp-relay, #4). WEHELP_RELAY_* env vars.
 	RelayDir          string        `mapstructure:"relay_dir"` // host key, TLS key, list cache; mode 700
 	RelayID           string        `mapstructure:"relay_id"`  // from wehelp-registry relay add
@@ -117,6 +120,7 @@ func Load(cfgFile string) error {
 	viper.SetDefault("staff_hosts", "")
 	viper.SetDefault("reminder_interval", "1m")
 	viper.SetDefault("reminder_offsets", "24h,1h")
+	viper.SetDefault("roster_interval", "15m")
 	viper.SetDefault("timezone", "")
 
 	viper.SetDefault("relay_dir", defaultRelayDir())

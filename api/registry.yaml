@@ -131,6 +131,42 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/roster:
+    post:
+      summary: An installed office pulls its provider roster (#62)
+      description: |
+        The body is signed with the office SSH key the Registry pinned at
+        install; the signature is base64 of the SSH wire-format signature in
+        `X-WeHelp-Office-Signature`. Requests more than 2 minutes off are
+        refused. The answer holds only that office's practice's providers and
+        admins, removed ones with `removed_at`, signed with the Registry key
+        the office pinned at install. No accounts or credentials, and no
+        patient data.
+      parameters:
+        - name: X-WeHelp-Office-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [office_id, at]
+              properties:
+                office_id: { type: string, format: uuid }
+                at: { type: integer, description: Unix seconds }
+      responses:
+        "200":
+          description: The signed roster
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedRoster" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # -------------------------------------------------------------------------
   # Console (#61): WeHelp support staff. Cookie session (__Host-wehelp_console)
   # plus X-CSRF-Token on every write. Roles: support, registry-admin.
@@ -609,6 +645,21 @@ components:
           description: The Registry's office-list signing key, `ed25519:` plus base64.
           example: "ed25519:Zm9v..."
 
+    SignedRoster:
+      type: object
+      required: [payload, signature]
+      properties:
+        payload:
+          type: string
+          format: byte
+          description: |
+            Base64 of the signed JSON bytes:
+            `{"office_id", "issued_at": RFC 3339, "providers": [{"id", "name", "email", "role", "credentials", "licence_number", "removed_at"?}]}`.
+            The office checks `office_id` is its own and `issued_at` is within 2 minutes.
+        signature:
+          type: string
+          format: byte
+          description: Base64 ed25519 signature over the decoded payload bytes.
     SignedOfficeList:
       type: object
       required: [payload, signature]
