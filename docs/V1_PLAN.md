@@ -73,15 +73,22 @@ V1-M2 starts.
 
 ### V1-M2: Secure channel and identity
 
-Issues: #35 office identity, #4 Relay, #36 iOS through the Relay, #37 QR pairing, #10 devices, #38 staff sign-in.
+Issues: #60 Registry core, #35 office identity and install, #4 Relay, #36 iOS through the Relay, #37 QR pairing, #10 devices, #38 staff sign-in.
 
-- **Back Office identity:** office SSH key, office TLS key, local CA, all
-  generated at install, with a key-rotation procedure.
+- **Registry core:**
+  - `wehelp-registry` with Postgres: practices, install tokens, signed
+    office lists;
+  - a minimal console flow (register practice, issue install token,
+    suspend);
+  - an import-boundary test.
+- **Back Office identity and install:** `wehelpd init` generates the office
+  SSH key, office TLS key and local CA, then enrolls with the Registry using
+  an install token. Key-rotation procedure.
 - **Relay binary:**
-  - SSH registry, `CONNECT` listener and splice;
-  - SQLite registry;
-  - an `wehelp-relay office add` CLI;
-  - the import-boundary test (#4, rewritten for SSH).
+  - SSH listener, `CONNECT` listener and splice;
+  - pulls and verifies the Registry's signed office list and caches it in
+    SQLite;
+  - the import-boundary test (#4).
 - **App connectivity:** the app's network layer goes through the Relay with
   pinning. Remove `NSAllowsLocalNetworking`.
 - **QR pairing and invite enrollment:** staff UI "Pair phone", invite codes,
@@ -91,13 +98,17 @@ Issues: #35 office identity, #4 Relay, #36 iOS through the Relay, #37 QR pairing
 - **Staff sign-in:** password + TOTP, with the staff UI served over HTTPS on
   the LAN with the local CA. Staff routes are refused on Relay channels.
 
-**Exit:** a fresh iPhone pairs by QR with Barnacle through the laptop Relay,
-and a capture on the laptop shows only ciphertext. Revoking the device locks
-it out within one access-token lifetime.
+**Exit:**
+- Barnacle is registered through the Registry with an install token.
+- A fresh iPhone pairs by QR with Barnacle through the laptop Relay, and a
+  capture on the laptop shows only ciphertext.
+- Revoking the device locks it out within one access-token lifetime.
+- Suspending the practice in the Registry disconnects Barnacle from the
+  Relay within a minute.
 
 ### V1-M3: Practice features
 
-Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-only web, #19 reminders, #7 push.
+Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-only web, #19 reminders, #7 push, #61 Registry console, #62 provider roster.
 
 - Messages (#14) and appointments (#18) on the secure channel.
 - iOS messages inbox and compose (#17), and iOS appointments (a new issue).
@@ -105,6 +116,10 @@ Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-o
   (#9).
 - Reminders as River jobs (#19). Push via the Relay with fixed categories
   (#7, replacing #20).
+- **Registry console** (#61): practices, providers, admin
+  contacts, Relay assignment, and Relay and office health. **Provider
+  roster** (#62): the Back Office pulls its providers from the
+  Registry and invites their staff accounts.
 - The OpenAPI spec covers every V1 route and is validated in CI (#15).
 
 **Exit:** the demo script (below) runs end to end without a developer
@@ -175,7 +190,8 @@ live on its own hardware, and demos run only on demo hardware with demo data.
 Design: [OBSERVABILITY.md](OBSERVABILITY.md).
 
 Issues: #53 Alloy sidecar, #54 OTel metrics, #55 dashboards and load guard,
-#56 audit stream export, #57 Relay telemetry, #58 Cloud Dashboards PoC.
+#56 audit stream export, #57 Relay telemetry, #63 Registry telemetry,
+#58 Cloud Dashboards PoC.
 
 - **Alloy sidecar** on the Back Office; JSON logs and OTel metrics from
   `wehelpd`.
@@ -208,7 +224,9 @@ can land any time and should not wait for M6.
 
 ## The demo script (V1-M3 onward)
 
-1. Start the Relay on the laptop. Barnacle (Back Office) connects over SSH.
+1. Start the Registry and Relay on the laptop. In the Registry console,
+   register the demo practice and its provider, and show the practice's
+   Relay assignment. Barnacle (Back Office) connects to the Relay over SSH.
 2. Staff signs in to the staff UI (password + TOTP) and adds a demo patient.
 3. Staff presses **Pair phone**; the patient scans the QR and is enrolled.
 4. Patient requests an appointment; staff confirms; the patient gets a push.
