@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The presentation covers the new features: the front desk's day, the
+  practice inbox, care teams, practice types, and switches with provider
+  office hours, with an updated status slide (22 slides).
 - The readme and the presentation lead with who we are: built by providers,
   for providers, from 30 years in healthcare services technology and patient
   services, with licensed providers on the board of directors. The deck has a

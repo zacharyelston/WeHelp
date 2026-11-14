@@ -20,6 +20,7 @@ section.dark .point .dot { color: #7CC3F0; }
   font: 14px 'DM Sans', Arial, sans-serif; color: #cfe0ec; background: rgba(8, 20, 30, 0.7); padding: 6px 12px; border-radius: 999px; }
 #bar button { font: inherit; color: inherit; background: none; border: 1px solid #47657c; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
 #bar a { color: inherit; }
+#stage table { border-collapse: collapse; width: 100%; } #stage th, #stage td { text-align: left; padding: 0.35em 0.6em; border-bottom: 1px solid rgba(127,127,127,0.35); } #stage th { font-weight: 700; }
 @media print { html, body { overflow: visible; background: #fff; } #stage { position: static; transform: none !important; }
   #stage > section { position: relative; display: flex !important; page-break-after: always; } #bar { display: none; } }
 </style>
@@ -235,6 +236,24 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 
 </section>
 
+<section id="front-desk" class="white">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">The front desk</p>
+<h2>The front desk runs the whole day</h2>
+<p class="lede">Every provider’s schedule and requests in one place. The front desk books for anyone, confirms requests, works orders and pairs phones, without reading anyone’s messages.</p>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Provider</b>: their own patients, day and messages.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Front desk</b>: the whole practice’s schedule, no staff setup.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Admin</b>: everything, plus staff accounts and settings.</p></div>
+</div>
+</div>
+<img class="shot rise" src="img/n-desk-appointments.png" alt="The front desk's Appointments tab: requests for any provider, a provider picker, and every provider's visits" style="width:680px; height:764px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>9</p></div>
+
+</section>
+
 <section id="messages" class="white">
 <div class="row" style="gap:64px; align-items:center; flex:1">
 <img class="shot rise" src="img/09-provider-messages.png" alt="Staff web Messages tab: conversations list and a thread with Maya Patel including an appointment reminder" style="width:1080px; height:675px; --i:0">
@@ -245,7 +264,38 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <p class="small">Notifications say only “new message”: never a name or a word of the content.</p>
 </div>
 </div>
-<div class="foot"><p>WeHelp</p><p>9</p></div>
+<div class="foot"><p>WeHelp</p><p>10</p></div>
+
+</section>
+
+<section id="inbox" class="light">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<img class="shot rise" src="img/n-inbox.png" alt="The practice inbox: patients' questions to the practice and a reply signed by the front desk" style="width:860px; height:806px; --i:0">
+<div class="col" style="width:740px; gap:28px">
+<p class="eyebrow">Practice inbox</p>
+<h2>Patients can message the practice</h2>
+<p class="lede">Bookings, orders and directions go to a practice inbox. The front desk answers, signed with their name.</p>
+<p class="small">Providers keep their own threads, and the front desk never reads them. A salon uses the inbox as its main line to clients.</p>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>11</p></div>
+
+</section>
+
+<section id="care-teams" class="white">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">Care teams</p>
+<h2>Continuity of care, with the patient’s permission</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p>A patient chooses which providers share one thread with them. A colleague joins only when the patient approves.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>New members see earlier messages only if the patient allows it. Removing someone takes the history too.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>Every read is recorded, and the patient can see who read their thread and when.</p></div>
+</div>
+</div>
+<img class="shot rise" src="img/n-careteam.png" alt="A provider's Care teams tab: Maya Patel's team, one colleague waiting for approval, and the shared thread" style="width:800px; height:750px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>12</p></div>
 
 </section>
 
@@ -257,7 +307,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <div class="col rise" style="gap:16px; --i:1"><img class="shot" src="img/s03-site-store-sunset.png" alt="The practice website's supply store page in the sunset theme" style="width:672px; height:420px"><p class="caption">The catalogue on the practice website</p></div>
 </div>
 <p class="lede">Patients order in the app and pay at pickup or by invoice. A status change notifies their phone. The website shows the catalogue but takes no orders, so no patient data goes public.</p>
-<div class="foot"><p>WeHelp</p><p>10</p></div>
+<div class="foot"><p>WeHelp</p><p>13</p></div>
 
 </section>
 
@@ -275,7 +325,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <img class="phone rise" src="img/m02-site-team-sunset.png" alt="The team page on a phone in the sunset theme" style="position:absolute; left:820px; top:150px; width:228px; height:494px; --i:2">
 </div>
 </div>
-<div class="foot"><p>WeHelp</p><p>11</p></div>
+<div class="foot"><p>WeHelp</p><p>14</p></div>
 
 </section>
 
@@ -288,7 +338,45 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <div class="col rise" style="gap:14px; --i:2"><img class="shot" src="img/s02-site-team-ocean.png" alt="Our team page on the practice website with Dr. Ada Shaw's photo and bio" style="width:528px; height:330px"><p class="caption">3. The website shows them on the next publish</p></div>
 </div>
 <p class="lede">Admins never see a provider’s password. Every sign-in needs a password and an authenticator code. Disabling someone signs them out at once and deletes nothing.</p>
-<div class="foot"><p>WeHelp</p><p>12</p></div>
+<div class="foot"><p>WeHelp</p><p>15</p></div>
+
+</section>
+
+<section id="practice-types" class="dark">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<div class="col" style="width:760px; gap:28px">
+<p class="eyebrow">Practice types</p>
+<h2>One product for many kinds of practice</h2>
+<p class="lede">Each practice picks its type. The words, the features it starts with and the website all follow.</p>
+<table style="font-size:26px; color:#EAF1F6">
+<tr><th style="width:50%">Type</th><th style="width:50%">Says</th></tr>
+<tr><td>Naturopathic</td><td>patient · provider</td></tr>
+<tr><td>Therapy and psychology</td><td>client · therapist</td></tr>
+<tr><td>Allied health</td><td>patient · practitioner</td></tr>
+<tr><td>Salon and personal services</td><td>client · stylist</td></tr>
+</table>
+<p class="small">Security is the same for every type.</p>
+</div>
+<img class="shot rise" src="img/n-practice-types.png" alt="Settings: choosing the practice type, with the words each one uses" style="width:800px; height:750px; --i:1">
+</div>
+<div class="foot"><p>WeHelp</p><p>16</p></div>
+
+</section>
+
+<section id="switches" class="light">
+<div class="row" style="gap:64px; align-items:center; flex:1">
+<img class="shot rise" src="img/n-message-modes.png" alt="My profile, Messages: on, office hours with an automatic reply, or off" style="width:800px; height:750px; --i:0">
+<div class="col" style="width:800px; gap:28px">
+<p class="eyebrow">Switches</p>
+<h2>Providers choose when they are reachable</h2>
+<div class="points">
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Office hours</b>: messages arrive any time; outside hours the patient gets an automatic reply and the provider isn’t notified.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p><b>Off</b>: patients are pointed to the practice inbox instead.</p></div>
+<div class="point"><span class="dot" aria-hidden="true"></span><p>The practice turns off what it doesn’t use, from the store to video, and the server enforces it.</p></div>
+</div>
+</div>
+</div>
+<div class="foot"><p>WeHelp</p><p>17</p></div>
 
 </section>
 
@@ -303,7 +391,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <div class="card rise" style="--i:4"><h3>The bar we build to</h3><p class="body">HIPAA, OWASP ASVS Level 2 and MASVS Level 2, with an outside audit and pen test before launch.</p></div>
 <div class="card rise" style="--i:5"><h3>Boring by design</h3><p class="body">Go, Postgres and SwiftUI. Every change is reviewed and tested in CI before it ships.</p></div>
 </div>
-<div class="foot"><p>WeHelp</p><p>13</p></div>
+<div class="foot"><p>WeHelp</p><p>18</p></div>
 
 </section>
 
@@ -317,7 +405,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <div class="card rise" style="--i:3"><p class="num">Step 4</p><h3>Pair patients</h3><p class="body">At the front desk: the patient scans a QR code and is in.</p></div>
 </div>
 <p class="lede">No inbound firewall rules, no cloud account to configure, no passwords for patients to forget.</p>
-<div class="foot"><p>WeHelp</p><p>14</p></div>
+<div class="foot"><p>WeHelp</p><p>19</p></div>
 
 </section>
 
@@ -325,11 +413,11 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <p class="eyebrow">Where we are</p>
 <h2>Working end to end in a demo practice today</h2>
 <div class="cards">
-<div class="card rise" style="--i:0"><p class="num">Built and running</p><p class="body">Back Office appliance, Relay and Registry · QR pairing and device keys · appointments, requests and reminders · messages and notifications · staff sign-in and provider onboarding · practice website with themes · supply store and orders</p></div>
-<div class="card rise" style="--i:1"><p class="num">Next, for V1</p><p class="body">Video visits in the app · hardening, outside security audit and pen test · a field pilot in a naturopath practice</p></div>
+<div class="card rise" style="--i:0"><p class="num">Built and running</p><p class="body">Appliance, Relay and Registry · QR pairing · appointments and reminders · messages · staff roles and onboarding · website with themes · store and orders · practice types · switches and office hours · practice inbox · care teams</p></div>
+<div class="card rise" style="--i:1"><p class="num">Next, for V1</p><p class="body">Video visits and the new features in the app · hardening, outside security audit and pen test · a field pilot in a naturopath practice</p></div>
 <div class="card rise" style="--i:2"><p class="num">After V1</p><p class="body">In-office check-in iPad with intake questionnaires · an on-premises AI assistant whose model runs in the office · links to EHRs through FHIR</p></div>
 </div>
-<div class="foot"><p>WeHelp</p><p>15</p></div>
+<div class="foot"><p>WeHelp</p><p>20</p></div>
 
 </section>
 
@@ -342,7 +430,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 <div class="card rise" style="--i:2"><p class="num">Market</p><h3>Independent practices</h3><p class="body">Starting with naturopaths, then other small practices: <span class="ph">[__ practices in our first region]</span></p></div>
 </div>
 <p class="lede">The Registry already tracks practices, their providers and subscriptions, and a suspended subscription disconnects within a minute.</p>
-<div class="foot"><p>WeHelp</p><p>16</p></div>
+<div class="foot"><p>WeHelp</p><p>21</p></div>
 
 </section>
 
@@ -355,7 +443,7 @@ section.dark .box { background: #18374D; border-color: #2A4C66; }
 </div>
 <div style="flex:1"></div>
 <p class="lede"><span class="ph">[Name]</span> · <span class="ph">[email]</span> · <span class="ph">[website]</span></p>
-<div class="foot"><p>WeHelp</p><p>17</p></div>
+<div class="foot"><p>WeHelp</p><p>22</p></div>
 
 </section>
 
