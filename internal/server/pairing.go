@@ -62,7 +62,7 @@ func staffOnLAN(w http.ResponseWriter, r *http.Request) (Identity, bool) {
 		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return id, false
 	}
-	if id.Role != "provider" && id.Role != "admin" {
+	if !isStaffRole(id.Role) {
 		writeErr(w, http.StatusForbidden, "staff only")
 		return id, false
 	}
@@ -154,6 +154,12 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "no such account for you")
 		return
 	}
+	// The app has no front-desk view yet (#106): office accounts use the
+	// staff web on the office network.
+	if role == "office" {
+		writeErr(w, http.StatusConflict, "front-desk accounts use the staff web; pairing a phone for them isn't supported yet")
+		return
+	}
 
 	secret := make([]byte, inviteBytes)
 	if _, err := rand.Read(secret); err != nil {
@@ -212,7 +218,7 @@ func staffPatient(ctx context.Context, tx pgx.Tx, staff Identity, patientID uuid
 	var name string
 	q := `select u.display_name from users u where u.id = $1 and u.tenant_id = $2 and u.role = 'patient'`
 	args := []any{patientID, staff.TenantID}
-	if staff.Role != "admin" {
+	if !practiceWide(staff.Role) {
 		q += ` and exists (select 1 from provider_patients pp where pp.provider_id = $3
 			and pp.patient_id = u.id and pp.status <> 'revoked')`
 		args = append(args, staff.UserID)

@@ -101,7 +101,8 @@ function renderLogin() {
       </form>
       <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
         Demo provider: dr.ada.shaw@demo.wehelp / wehelp-demo-provider<br>
-        Demo admin: admin@demo.wehelp / wehelp-demo-admin
+        Demo admin: admin@demo.wehelp / wehelp-demo-admin<br>
+        Demo front desk: frontdesk@demo.wehelp / wehelp-demo-office
       </p>
     </div>`;
 }
@@ -169,10 +170,10 @@ function renderDashboard() {
     <div class="header">
       <h1>WeHelp</h1>
       <div>
-        <span class="user">${esc(who)} · ${esc(role)}</span>
-        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Providers</button>' : ""}
+        <span class="user">${esc(who)} · ${esc(role === "office" ? "front desk" : role)}</span>
+        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Staff</button>' : ""}
         <button class="btn btn-sm btn-outline" onclick="showMyProfile()" style="margin-left:0.5rem">My profile</button>
-        <button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>
+        ${role === "office" ? "" : '<button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>'}
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
     </div>
@@ -326,19 +327,41 @@ function localInput(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// The front desk (office) and admins see and book the whole practice (#106).
+function practiceWideRole() {
+  return session.role === "office" || session.role === "admin";
+}
+
 async function loadAppointments(container) {
   const data = await api("GET", "/appointments");
   const appts = data.appointments || [];
-  const isProvider = session.role === "provider";
-  const links = await api("GET", "/links");
-  const names = namesFrom(links);
+  const wide = practiceWideRole();
+  const isProvider = session.role === "provider" || wide; // can book and change visits
+  let names = {}, patients = [], providers = [];
+  if (wide) {
+    const [pt, pr] = await Promise.all([api("GET", "/patients"), api("GET", "/staff/providers")]);
+    providers = pr.providers.filter((p) => p.role === "provider" && p.status !== "disabled")
+      .map((p) => ({ id: p.id, label: esc(p.display_name || p.email) }));
+    patients = pt.patients.map((p) => ({ id: p.id, label: esc(p.display_name || p.email) }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    for (const p of pr.providers) names[p.id] = p.display_name;
+    for (const p of pt.patients) names[p.id] = p.display_name;
+  } else {
+    names = namesFrom(await api("GET", "/links").then((links) => { patients = links; return links; }));
+  }
+  for (const a of appts) {
+    if (a.provider_name) names[a.provider_id] = a.provider_name;
+    if (a.patient_name) names[a.patient_id] = a.patient_name;
+  }
 
   let html = "";
   if (isProvider) {
-    html += await requestsCard(names);
-    const patients = links.filter((l) => l.status === "active" && l.provider_id === session.user_id)
-      .map((l) => ({ id: l.patient_id, label: personName(names, l.patient_id) }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+    html += await requestsCard(names, wide);
+    if (!wide) {
+      patients = patients.filter((l) => l.status === "active" && l.provider_id === session.user_id)
+        .map((l) => ({ id: l.patient_id, label: personName(names, l.patient_id) }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
 
     html += '<div class="card"><h2>Schedule Appointment</h2>';
     if (patients.length === 0) {
@@ -352,6 +375,10 @@ async function loadAppointments(container) {
       const defaultEnd = localInput(new Date(start.getTime() + 30 * 60 * 1000));
       html += `<form id="appt-form">
         <div class="form-row">
+          ${wide ? `<div class="form-group">
+            <label>Provider</label>
+            <select id="appt-provider">${providers.map((p) => `<option value="${p.id}">${p.label}</option>`).join("")}</select>
+          </div>` : ""}
           <div class="form-group">
             <label>Patient</label>
             <select id="appt-patient">${patients.map((p) => `<option value="${p.id}">${p.label}</option>`).join("")}</select>
@@ -377,7 +404,9 @@ async function loadAppointments(container) {
   if (appts.length === 0) {
     html += '<p class="empty">No appointments.</p>';
   } else {
-    html += "<table><thead><tr><th>Start</th><th>End</th><th>Status</th><th>Patient</th>";
+    html += "<table><thead><tr><th>Start</th><th>End</th><th>Status</th>";
+    if (wide) html += "<th>Provider</th>";
+    html += "<th>Patient</th>";
     if (isProvider) html += "<th>Actions</th>";
     html += "</tr></thead><tbody>";
     for (const a of appts) {
@@ -387,6 +416,7 @@ async function loadAppointments(container) {
       html += `<tr>
         <td>${start}</td><td>${end}</td>
         <td><span class="badge badge-${a.status}">${a.status}</span></td>
+        ${wide ? `<td>${personName(names, a.provider_id)}</td>` : ""}
         <td>${patient}</td>`;
       if (isProvider && a.status === "scheduled") {
         html += `<td>
@@ -410,11 +440,14 @@ async function loadAppointments(container) {
       try {
         const startVal = document.getElementById("appt-start").value;
         const endVal = document.getElementById("appt-end").value;
-        await api("POST", "/appointments", {
+        const body = {
           patient_id: document.getElementById("appt-patient").value,
           starts_at: new Date(startVal).toISOString(),
           ends_at: new Date(endVal).toISOString(),
-        });
+        };
+        const prov = document.getElementById("appt-provider");
+        if (prov) body.provider_id = prov.value;
+        await api("POST", "/appointments", body);
         showAlert("Appointment scheduled", "success");
         loadTab();
       } catch (err) {
@@ -436,17 +469,18 @@ function preferredText(p) {
   return `${d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${PERIOD_LABEL[p.period] || p.period}`;
 }
 
-async function requestsCard(names) {
+async function requestsCard(names, wide = false) {
   const data = await api("GET", "/appointment-requests?status=pending");
-  const reqs = (data.requests || []).filter((r) => r.provider_id === session.user_id).reverse(); // oldest first
+  const reqs = (data.requests || []).filter((r) => wide || r.provider_id === session.user_id).reverse(); // oldest first
   let html = `<div class="card"><h2>Appointment Requests</h2>`;
   if (reqs.length === 0) return html + '<p class="empty">No requests waiting.</p></div>';
-  html += "<table><thead><tr><th>Patient</th><th>Prefers</th><th>Reason</th><th>Book at</th><th>Actions</th></tr></thead><tbody>";
+  html += `<table><thead><tr>${wide ? "<th>For</th>" : ""}<th>Patient</th><th>Prefers</th><th>Reason</th><th>Book at</th><th>Actions</th></tr></thead><tbody>`;
   for (const r of reqs) {
     const first = r.preferred[0];
     const start = new Date(first.date + "T00:00:00");
     start.setHours(PERIOD_HOUR[first.period] || 9);
     html += `<tr>
+      ${wide ? `<td>${personName(names, r.provider_id)}</td>` : ""}
       <td>${personName(names, r.patient_id)}</td>
       <td>${r.preferred.map((p) => esc(preferredText(p))).join("<br>")}</td>
       <td>${esc(r.reason || "")}</td>

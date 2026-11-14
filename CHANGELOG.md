@@ -71,6 +71,20 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Office role for the front desk (#106).
+  - A third staff role, `office`, sees every patient and every provider's
+    schedule and appointment requests. The front desk books, changes and
+    confirms visits for any provider (`provider_id` on
+    `POST /appointments`), and works orders, the store, the website,
+    patients and pairing. It cannot read message threads or manage staff.
+  - `admin` keeps everything plus setup. Its Providers screen becomes
+    **Staff** and invites providers or front-desk accounts.
+  - Appointment lists carry provider and patient names. The staff web
+    shows a Provider column and picker for the front desk and admins.
+  - The seed adds `frontdesk@demo.wehelp` / `wehelp-demo-office`, and the
+    sign-in page lists it. `wehelpd staff add --role office` also works.
+    Office accounts can't pair their own phone yet: the app has no
+    front-desk view. Migration `V12__office_role.sql`.
 - Website themes (#104).
   - The Website tab has a **Look** card with six colour schemes: sage
     green, ocean blue, sunset coral, plum, warm clay and midnight (dark).

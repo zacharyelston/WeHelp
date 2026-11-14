@@ -72,24 +72,25 @@ async function showProviders(invite) {
     content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
     return;
   }
-  let html = `<div class="card"><h2>Add provider</h2>
+  let html = `<div class="card"><h2>Add staff</h2>
     <form id="provider-form" class="inline-form">
       <input id="provider-name" placeholder="Name, for example Dr. Sam Lee" required>
       <input id="provider-email" type="email" placeholder="email (their sign-in name)" required>
+      <select id="provider-role"><option value="provider">Provider</option><option value="office">Front desk (whole schedule, no setup)</option></select>
       <button type="submit" class="btn">Add and get set-up link</button>
     </form>
-    <p class="hint">The provider chooses their own password and sets up an authenticator app from the link. You never see their password.</p></div>`;
+    <p class="hint">They choose their own password and set up an authenticator app from the link. You never see their password.</p></div>`;
   if (invite) {
     html += `<div class="card"><h2>Set-up link for ${esc(invite.provider.display_name)}</h2>
       <p>Give this link to them in person or open it on their computer in the office. It works once, on the office network, until ${esc(new Date(invite.expires_at).toLocaleString())}. It is shown only now.</p>
       <div class="inline-form"><input id="setup-link" readonly value="${esc(invite.setup_url)}" style="flex:1;min-width:20rem">
       <button class="btn" onclick="copySetupLink()">Copy</button></div></div>`;
   }
-  html += '<div class="card"><h2>Providers</h2>';
+  html += '<div class="card"><h2>Staff</h2>';
   if (data.providers.length === 0) {
     html += '<p class="empty">No providers yet.</p>';
   } else {
-    html += "<table><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    html += "<table><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
     for (const p of data.providers) {
       const [badge, label] = PROVIDER_STATUS[p.status] || ["pending", p.status];
       let note = "";
@@ -103,7 +104,7 @@ async function showProviders(invite) {
       } else {
         actions.push(`<button class="btn btn-sm btn-danger" onclick="providerAction('${esc(p.id)}', 'disable')">Disable</button>`);
       }
-      html += `<tr><td>${esc(p.display_name)}</td><td>${esc(p.email)}</td>
+      html += `<tr><td>${esc(p.display_name)}</td><td>${p.role === "office" ? "Front desk" : "Provider"}</td><td>${esc(p.email)}</td>
         <td><span class="badge badge-${badge}">${esc(label)}</span>${note}</td><td>${actions.join(" ")}</td></tr>`;
     }
     html += "</tbody></table>";
@@ -115,6 +116,7 @@ async function showProviders(invite) {
       const inv = await api("POST", "/staff/providers", {
         display_name: document.getElementById("provider-name").value,
         email: document.getElementById("provider-email").value,
+        role: document.getElementById("provider-role").value,
       });
       showProviders(inv);
     } catch (err) {
@@ -124,12 +126,12 @@ async function showProviders(invite) {
 }
 
 async function providerAction(id, action) {
-  if (action === "disable" && !confirm("Disable this provider? They are signed out at once and can't sign in until enabled again. Nothing is deleted.")) return;
+  if (action === "disable" && !confirm("Disable this account? They are signed out at once and can't sign in until enabled again. Nothing is deleted.")) return;
   try {
     const res = await api("POST", `/staff/providers/${id}/${action}`);
     if (action === "invite") showProviders(res);
     else {
-      showAlert(action === "disable" ? "Provider disabled" : "Provider enabled", "success");
+      showAlert(action === "disable" ? "Account disabled" : "Account enabled", "success");
       showProviders();
     }
   } catch (err) {

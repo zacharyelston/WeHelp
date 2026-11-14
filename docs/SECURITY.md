@@ -93,6 +93,9 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - Staff routes are refused on Relay channels: the listener decides reachability,
   not a header.
 - Admin actions (users, pairing, device revoke, settings) are audited.
+- Roles (#106): the front desk (`office`) sees the whole schedule but no
+  message threads; only `admin` manages staff accounts. Bookings record
+  the person who made them as the audit actor.
 - As built (#38):
   - TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, ±1 step), and each code works
     once (last accepted step stored).

@@ -41,6 +41,11 @@ const (
 	AdminPassword = "wehelp-demo-admin"
 	AdminName     = "Office Admin"
 
+	// The front desk (#106): the whole practice's schedule, no setup.
+	OfficeEmail    = "frontdesk@demo.wehelp"
+	OfficePassword = "wehelp-demo-office"
+	OfficeName     = "Front Desk"
+
 	// Patients have no password: they pair a phone in the office (#37).
 	Patient1Email = "jordan.lee@demo.wehelp"
 	Patient1Name  = "Jordan Lee"
@@ -94,6 +99,9 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 
 	admin, err := ensureUser(ctx, tx, tenantID, AdminEmail, AdminPassword, "admin", AdminName)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := ensureUser(ctx, tx, tenantID, OfficeEmail, OfficePassword, "office", OfficeName); err != nil {
 		return nil, err
 	}
 	provider, err := ensureUser(ctx, tx, tenantID, ProviderEmail, ProviderPassword, "provider", ProviderName)
@@ -320,6 +328,9 @@ func printCredentials(out io.Writer, r *Result) {
 	fmt.Fprintln(out, "Admin (adds providers: Providers button):")
 	fmt.Fprintln(out, "  email:    ", AdminEmail)
 	fmt.Fprintln(out, "  password: ", AdminPassword)
+	fmt.Fprintln(out, "Front desk (whole schedule, no setup):")
+	fmt.Fprintln(out, "  email:    ", OfficeEmail)
+	fmt.Fprintln(out, "  password: ", OfficePassword)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Provider (login with these):")
 	fmt.Fprintln(out, "  email:    ", ProviderEmail)

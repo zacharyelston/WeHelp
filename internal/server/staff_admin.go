@@ -46,6 +46,7 @@ type providerAccount struct {
 	ID              string     `json:"id"`
 	DisplayName     string     `json:"display_name"`
 	Email           string     `json:"email"`
+	Role            string     `json:"role"`   // provider or office (#106)
 	Status          string     `json:"status"` // invited, invite_expired, totp_pending, active, disabled
 	CreatedAt       time.Time  `json:"created_at"`
 	DisabledAt      *time.Time `json:"disabled_at,omitempty"`
@@ -63,14 +64,14 @@ func loadProviders(ctx context.Context, q interface {
 	Query(context.Context, string, ...any) (pgx.Rows, error)
 }, tenantID uuid.UUID, id *uuid.UUID) ([]providerAccount, error) {
 	rows, err := q.Query(ctx, `
-		select u.id::text, u.display_name, u.email::text, u.password_hash is not null,
+		select u.id::text, u.display_name, u.email::text, u.role::text, u.password_hash is not null,
 		       u.totp_enabled_at is not null, u.disabled_at, u.created_at, i.expires_at
 		from users u
 		left join lateral (
 			select expires_at from staff_invites
 			where user_id = u.id and used_at is null and cancelled_at is null
 			order by created_at desc limit 1) i on true
-		where u.tenant_id = $1 and u.role = 'provider' and ($2::uuid is null or u.id = $2)
+		where u.tenant_id = $1 and u.role in ('provider', 'office') and ($2::uuid is null or u.id = $2)
 		order by u.display_name, u.email`, tenantID, id)
 	if err != nil {
 		return nil, err
@@ -78,7 +79,7 @@ func loadProviders(ctx context.Context, q interface {
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (providerAccount, error) {
 		var p providerAccount
 		var hasPassword, hasTOTP bool
-		if err := row.Scan(&p.ID, &p.DisplayName, &p.Email, &hasPassword, &hasTOTP, &p.DisabledAt,
+		if err := row.Scan(&p.ID, &p.DisplayName, &p.Email, &p.Role, &hasPassword, &hasTOTP, &p.DisabledAt,
 			&p.CreatedAt, &p.InviteExpiresAt); err != nil {
 			return p, err
 		}
@@ -101,10 +102,16 @@ func loadProviders(ctx context.Context, q interface {
 	})
 }
 
-// ListProviders returns the practice's provider accounts. Admins only.
+// ListProviders returns the practice's provider and front-desk accounts.
+// Admins, and the front desk read-only so it can book for any provider
+// (#106).
 func (s *Server) ListProviders(w http.ResponseWriter, r *http.Request) {
-	id, ok := adminOnLAN(w, r)
+	id, ok := staffOnLAN(w, r)
 	if !ok {
+		return
+	}
+	if !practiceWide(id.Role) {
+		writeErr(w, http.StatusForbidden, "admins and the front desk only")
 		return
 	}
 	list, err := loadProviders(r.Context(), s.pool, id.TenantID, nil)
@@ -142,6 +149,7 @@ func setupURL(r *http.Request, token string) string {
 type createProviderRequest struct {
 	DisplayName string `json:"display_name"`
 	Email       string `json:"email"`
+	Role        string `json:"role"` // provider (default) or office (#106)
 }
 
 // CreateProvider adds a provider account with no password and returns a
@@ -157,6 +165,13 @@ func (s *Server) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.DisplayName, req.Email = strings.TrimSpace(req.DisplayName), strings.TrimSpace(req.Email)
+	if req.Role == "" {
+		req.Role = "provider"
+	}
+	if req.Role != "provider" && req.Role != "office" {
+		writeErr(w, http.StatusBadRequest, "role must be provider or office")
+		return
+	}
 	if req.DisplayName == "" || len(req.DisplayName) > 200 || !strings.Contains(req.Email, "@") || len(req.Email) > 254 {
 		writeErr(w, http.StatusBadRequest, "display_name and a valid email are required")
 		return
@@ -171,7 +186,7 @@ func (s *Server) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var userID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		insert into users (tenant_id, email, password_hash, role, display_name)
-		values ($1, $2, null, 'provider', $3) returning id`, id.TenantID, req.Email, req.DisplayName).Scan(&userID)
+		values ($1, $2, null, $4, $3) returning id`, id.TenantID, req.Email, req.DisplayName, req.Role).Scan(&userID)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		writeErr(w, http.StatusConflict, "that email already has an account in this practice")
@@ -188,7 +203,7 @@ func (s *Server) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &id.UserID, Action: "staff.invite",
 		ResourceType: "user", ResourceID: userID.String(),
-		Detail: mustJSON(map[string]string{"role": "provider", "email": req.Email, "invite_id": inviteID.String(), "via": "web"})}); err != nil {
+		Detail: mustJSON(map[string]string{"role": req.Role, "email": req.Email, "invite_id": inviteID.String(), "via": "web"})}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
 	}
@@ -220,7 +235,7 @@ func lockProvider(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, raw string
 	}
 	err = tx.QueryRow(ctx, `
 		select id, password_hash is not null, disabled_at is not null from users
-		where id = $1 and tenant_id = $2 and role = 'provider' for update`, uid, tenantID).
+		where id = $1 and tenant_id = $2 and role in ('provider', 'office') for update`, uid, tenantID).
 		Scan(&p.ID, &p.HasPassword, &p.Disabled)
 	return p, err
 }
@@ -306,7 +321,7 @@ func (s *Server) ReissueProviderInvite(w http.ResponseWriter, r *http.Request) {
 			return changeErr(http.StatusInternalServerError, "invite failed")
 		}
 		return changeResult{Action: "staff.invite", SetupURL: setupURL(r, token),
-			Detail: map[string]string{"role": "provider", "invite_id": inviteID.String(), "reissue": "true", "via": "web"}}
+			Detail: map[string]string{"invite_id": inviteID.String(), "reissue": "true", "via": "web"}}
 	})
 }
 
