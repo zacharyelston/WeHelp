@@ -21,6 +21,21 @@ var appointmentStatuses = map[string]bool{
 	"no_show":   true,
 }
 
+// validTransition reports whether an appointment may move from one status to
+// another. Only scheduled appointments change status; the others are final.
+// Staying in the same status is not a transition.
+func validTransition(from, to string) bool {
+	return from == "scheduled" && to != "scheduled" && appointmentStatuses[to]
+}
+
+// lockProviderSchedule serialises booking changes for one provider within the
+// current transaction, so two concurrent requests cannot both pass the
+// overlap check and double-book.
+func lockProviderSchedule(ctx context.Context, tx pgx.Tx, providerID uuid.UUID) error {
+	_, err := tx.Exec(ctx, `select pg_advisory_xact_lock(hashtextextended($1::text, 0))`, providerID)
+	return err
+}
+
 type appointmentView struct {
 	ID         uuid.UUID `json:"id"`
 	ProviderID uuid.UUID `json:"provider_id"`
@@ -96,6 +111,10 @@ func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := lockProviderSchedule(ctx, tx, id.UserID); err != nil {
+		writeErr(w, http.StatusInternalServerError, "lock failed")
+		return
+	}
 	overlap, err := checkOverlap(ctx, tx, id.TenantID, id.UserID, startsAt, endsAt, uuid.Nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "overlap check failed")
@@ -271,7 +290,24 @@ func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rescheduling := !newStarts.Equal(appt.StartsAt) || !newEnds.Equal(appt.EndsAt)
+	statusChange := req.Status != nil && *req.Status != appt.Status
+	if statusChange && !validTransition(appt.Status, *req.Status) {
+		writeErr(w, http.StatusConflict, fmt.Sprintf("cannot change status from %s to %s", appt.Status, *req.Status))
+		return
+	}
+	if rescheduling && appt.Status != "scheduled" {
+		writeErr(w, http.StatusConflict, "only scheduled appointments can be rescheduled")
+		return
+	}
+	if !rescheduling && !statusChange {
+		writeJSON(w, http.StatusOK, appt) // nothing changed; no write, no audit
+		return
+	}
 	if rescheduling {
+		if err := lockProviderSchedule(ctx, tx, id.UserID); err != nil {
+			writeErr(w, http.StatusInternalServerError, "lock failed")
+			return
+		}
 		overlap, err := checkOverlap(ctx, tx, id.TenantID, id.UserID, newStarts, newEnds, apptID)
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "overlap check failed")
@@ -290,7 +326,7 @@ func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 		sets = append(sets, "starts_at", "ends_at")
 		args = append(args, newStarts, newEnds)
 	}
-	if req.Status != nil && *req.Status != appt.Status {
+	if statusChange {
 		sets = append(sets, "status")
 		args = append(args, *req.Status)
 	}
@@ -329,7 +365,7 @@ func (s *Server) UpdateAppointment(w http.ResponseWriter, r *http.Request) {
 	if rescheduling {
 		actions = append(actions, "reschedule")
 	}
-	if req.Status != nil && *req.Status != appt.Status {
+	if statusChange {
 		actions = append(actions, "status:"+*req.Status)
 	}
 	detail, _ := json.Marshal(map[string]any{"changes": actions})
