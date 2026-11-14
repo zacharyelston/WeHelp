@@ -338,6 +338,7 @@ func (s *Server) DisableProvider(w http.ResponseWriter, r *http.Request) {
 			`update staff_sessions set revoked_at = now() where user_id = $1 and revoked_at is null`,
 			`update refresh_tokens set revoked_at = now() where user_id = $1 and revoked_at is null`,
 			`update staff_invites set cancelled_at = now() where user_id = $1 and used_at is null and cancelled_at is null`,
+			`update care_team_members set status = 'removed', removed_at = now() where member_id = $1 and status <> 'removed'`, // #111
 		} {
 			if _, err := tx.Exec(ctx, q, p.ID); err != nil {
 				return changeErr(http.StatusInternalServerError, "disable failed")

@@ -42,6 +42,22 @@ components:
   # Reusable parameters
   # -------------------------------------------------------------------------
   parameters:
+    TeamPatientID:
+      name: patientID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Whose care team (#111).
+    TeamMemberID:
+      name: memberID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: A provider on the care team (#111).
     ProviderUserID:
       name: userID
       in: path
@@ -820,6 +836,62 @@ components:
         last_at: { type: string, format: date-time }
         last_from_patient: { type: boolean }
         unread: { type: integer, description: "From the patient, not yet read by the practice." }
+
+    CareTeam:
+      type: object
+      required: [patient_id, patient_name, members]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        members:
+          type: array
+          items:
+            type: object
+            required: [member_id, name, status, include_history, invited_by, created_at]
+            properties:
+              member_id: { type: string, format: uuid }
+              name: { type: string }
+              status: { type: string, enum: [pending, active, removed] }
+              include_history: { type: boolean }
+              invited_by: { type: string, description: Name of who added or proposed them. }
+              created_at: { type: string, format: date-time }
+              approved_at: { type: string, format: date-time }
+              removed_at: { type: string, format: date-time }
+        reads:
+          type: array
+          description: "Patient only: who opened the thread, newest first (last 100)."
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              at: { type: string, format: date-time }
+        eligible:
+          type: array
+          description: Providers not on the team, who can be proposed or added (GET only).
+          items:
+            type: object
+            properties:
+              member_id: { type: string, format: uuid }
+              name: { type: string }
+    CareTeamSummary:
+      type: object
+      required: [patient_id, patient_name, my_status, active_members]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        my_status: { type: string, enum: [active, pending, none] }
+        active_members: { type: integer }
+        last_message_at: { type: string, format: date-time }
+    CareTeamMessage:
+      type: object
+      required: [id, author_id, author_name, from_patient, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        author_id: { type: string, format: uuid }
+        author_name: { type: string }
+        from_patient: { type: boolean }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
 
     SiteView:
       type: object
@@ -2837,6 +2909,255 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams:
+    get:
+      tags: [care-teams]
+      summary: Your care teams (#111)
+      description: >
+        A provider gets the teams they are on or invited to, and their linked
+        patients they could join (my_status none). A patient gets their own
+        team, with who has read the thread. The front desk and admins get 403.
+        409 when care teams or messages are off for the practice.
+      responses:
+        "200":
+          description: "Provider: {teams}. Patient: a CareTeam."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/CareTeam"
+                  - type: object
+                    required: [teams]
+                    properties:
+                      teams:
+                        type: array
+                        items: { $ref: "#/components/schemas/CareTeamSummary" }
+        "403":
+          description: Not a provider or patient.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}:
+    get:
+      tags: [care-teams]
+      summary: A patient's care team (#111)
+      description: The patient, a member, an invited provider, or a provider with an active link. The patient also gets the read log.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      responses:
+        "200":
+          description: The team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: No access.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members:
+    post:
+      tags: [care-teams]
+      summary: Add or propose a provider (#111)
+      description: >
+        The patient adds a provider at once (care_team.add). A member or a
+        linked provider proposes one, who waits for the patient's approval
+        (care_team.propose). include_history lets them see messages from
+        before they joined.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [member_id]
+              properties:
+                member_id: { type: string, format: uuid }
+                include_history: { type: boolean, default: false }
+      responses:
+        "201":
+          description: Added or proposed; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "400":
+          description: Not a provider of this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No access.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Already on the team or waiting, or care teams are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}/approve:
+    post:
+      tags: [care-teams]
+      summary: The patient approves a proposed provider (#111)
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Approved; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: Not the patient, or no such pending member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}/decline:
+    post:
+      tags: [care-teams]
+      summary: The patient declines a proposed provider (#111)
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Declined; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "404":
+          description: Not the patient, or no such pending member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/members/{memberID}:
+    delete:
+      tags: [care-teams]
+      summary: Remove a member, or leave (#111)
+      description: The patient removes anyone; a member can only remove themselves. A removed member sees nothing of the thread, past or future.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+        - $ref: "#/components/parameters/TeamMemberID"
+      responses:
+        "200":
+          description: Removed; the team.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeam"
+        "403":
+          description: A member removing someone else.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No access, or no such member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/care-teams/{patientID}/messages:
+    get:
+      tags: [care-teams]
+      summary: The shared thread (#111)
+      description: >
+        The patient or an active member, oldest first. A member sees messages
+        from before they joined only with include_history. Each member's read
+        is audited as care_team.read and shown to the patient.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      responses:
+        "200":
+          description: The thread.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/CareTeamMessage" }
+        "404":
+          description: Not the patient or an active member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Care teams or messages are off.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [care-teams]
+      summary: Write to the shared thread (#111)
+      description: The patient or an active member. Audited as care_team_message.create; everyone else on the team gets a generic push.
+      parameters:
+        - $ref: "#/components/parameters/TeamPatientID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareTeamMessage"
+        "400":
+          description: Empty or too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not the patient or an active member.
           content:
             application/json:
               schema:

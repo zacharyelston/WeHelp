@@ -453,3 +453,97 @@ async function showInboxThread() {
     }
   };
 }
+
+// ---------------------------------------------------------------------------
+// Care teams (#111): a patient-approved group of providers sharing one thread
+// with the patient. Providers propose; the patient approves in the app. Every
+// read of the thread is recorded, and the patient can see who read it.
+// ---------------------------------------------------------------------------
+let teamOpen = null; // patient id
+
+const TEAM_STATUS = { active: ["active", "On the team"], pending: ["pending", "Waiting for approval"], none: ["scheduled", "Not on it yet"] };
+
+async function loadCareTeams(container) {
+  const data = await api("GET", "/care-teams");
+  let html = `<div class="threads"><div class="card conv-list"><h2>Care teams</h2>
+    <p class="hint">A ${esc(word("patient"))} chooses which ${esc(word("providers"))} share one thread with them. Each person you propose joins once the ${esc(word("patient"))} approves in the app.</p>`;
+  if (data.teams.length === 0) html += `<p class="empty">No linked ${esc(word("patients"))} yet.</p>`;
+  for (const t of data.teams) {
+    const [badge, label] = TEAM_STATUS[t.my_status] || ["pending", t.my_status];
+    html += `<div class="conv ${teamOpen === t.patient_id ? "active" : ""}" data-team="${attr(t.patient_id)}">
+      <div class="conv-top"><strong>${esc(t.patient_name)}</strong><span class="badge badge-${badge}">${esc(label)}</span></div>
+      <div class="hint">${t.active_members} on the team${t.last_message_at ? " · last message " + esc(new Date(t.last_message_at).toLocaleString()) : ""}</div></div>`;
+  }
+  html += `</div><div class="card thread" id="team-pane"><p class="empty">Choose a ${esc(word("patient"))}.</p></div></div>`;
+  container.innerHTML = html;
+  container.querySelectorAll("[data-team]").forEach((el) => {
+    el.onclick = () => { teamOpen = el.dataset.team; loadCareTeams(container); };
+  });
+  if (teamOpen) showTeam(data.teams.find((t) => t.patient_id === teamOpen));
+}
+
+async function showTeam(summary) {
+  const el = document.getElementById("team-pane");
+  if (!el || !summary) return;
+  let team, msgs = null;
+  try {
+    team = await api("GET", `/care-teams/${summary.patient_id}`);
+    if (summary.my_status === "active") msgs = (await api("GET", `/care-teams/${summary.patient_id}/messages`)).messages;
+  } catch (err) {
+    el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  const live = team.members.filter((m) => m.status !== "removed");
+  let html = `<h2>${esc(team.patient_name)}</h2><table><thead><tr><th>Member</th><th>Status</th><th>Added by</th></tr></thead><tbody>`;
+  for (const m of live) {
+    html += `<tr><td>${esc(m.name)}</td><td><span class="badge badge-${m.status === "active" ? "active" : "pending"}">${m.status === "active" ? "On the team" : "Waiting for approval"}</span></td><td>${esc(m.invited_by)}</td></tr>`;
+  }
+  if (live.length === 0) html += `<tr><td colspan="3" class="empty">No one yet.</td></tr>`;
+  html += "</tbody></table>";
+  if (summary.my_status === "none") {
+    html += `<p style="margin-top:0.75rem"><button class="btn" onclick="proposeTeam(\x27${attr(summary.patient_id)}\x27, \x27${attr(session.user_id)}\x27)">Ask to join this care team</button></p>`;
+  } else if (summary.my_status === "pending") {
+    html += `<p class="hint" style="margin-top:0.75rem">Waiting for ${esc(team.patient_name)} to approve you in the WeHelp app.</p>`;
+  }
+  if (summary.my_status === "active" && (team.eligible || []).length) {
+    html += `<form class="inline-form" id="team-propose" style="margin-top:0.75rem"><select id="team-candidate">${team.eligible.map((c) => `<option value="${attr(c.member_id)}">${esc(c.name)}</option>`).join("")}</select>
+      <button type="submit" class="btn btn-outline">Propose a colleague</button></form>
+      <p class="hint">They join once ${esc(team.patient_name)} approves in the app.</p>`;
+  }
+  if (msgs) {
+    html += `<h3 style="margin-top:1rem">Shared thread</h3><p class="hint">Everyone on the team and ${esc(team.patient_name)} see this thread. Each time you open it is recorded.</p><div class="bubbles" id="team-bubbles">`;
+    for (const m of msgs) {
+      const mine = m.author_id === session.user_id;
+      html += `<div class="bubble ${mine ? "mine" : "theirs"}"><div class="kind">${esc(m.author_name)}</div><div>${esc(m.body)}</div><div class="time">${esc(new Date(m.created_at).toLocaleString())}</div></div>`;
+    }
+    if (msgs.length === 0) html += `<p class="empty">No messages yet.</p>`;
+    html += `</div><form class="reply" id="team-reply"><textarea id="team-body" rows="2" maxlength="4000" placeholder="Write to the care team" required></textarea><button type="submit" class="btn">Send</button></form>`;
+  }
+  el.innerHTML = html;
+  const propose = document.getElementById("team-propose");
+  if (propose) propose.onsubmit = (e) => { e.preventDefault(); proposeTeam(summary.patient_id, document.getElementById("team-candidate").value); };
+  const reply = document.getElementById("team-reply");
+  if (reply) {
+    const b = document.getElementById("team-bubbles");
+    b.scrollTop = b.scrollHeight;
+    reply.onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await api("POST", `/care-teams/${summary.patient_id}/messages`, { body: document.getElementById("team-body").value });
+        loadCareTeams(document.getElementById("tab-content"));
+      } catch (err) {
+        showAlert(err.message);
+      }
+    };
+  }
+}
+
+async function proposeTeam(patientId, memberId) {
+  try {
+    await api("POST", `/care-teams/${patientId}/members`, { member_id: memberId });
+    showAlert("Proposed. They join once the patient approves in the app.", "success");
+    loadCareTeams(document.getElementById("tab-content"));
+  } catch (err) {
+    showAlert(err.message);
+  }
+}

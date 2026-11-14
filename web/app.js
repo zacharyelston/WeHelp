@@ -210,6 +210,7 @@ function renderDashboard() {
       <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
       <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
       ${practiceWideRole() && feature("messages") ? `<div class="tab ${activeTab === "inbox" ? "active" : ""}" data-tab="inbox">Inbox</div>` : ""}
+      ${session.role === "provider" && feature("messages") && feature("careteam") ? `<div class="tab ${activeTab === "careteams" ? "active" : ""}" data-tab="careteams">Care teams</div>` : ""}
       ${feature("store") ? `<div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
       <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
       ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
@@ -244,6 +245,7 @@ async function loadTab() {
     else if (activeTab === "appointments") await loadAppointments(content);
     else if (activeTab === "links") await loadLinks(content);
     else if (activeTab === "inbox") await loadInbox(content);
+    else if (activeTab === "careteams") await loadCareTeams(content);
     else if (activeTab === "orders") await loadOrders(content);
     else if (activeTab === "store") await loadStore(content);
     else if (activeTab === "website") await loadWebsite(content);
