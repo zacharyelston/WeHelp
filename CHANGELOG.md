@@ -51,6 +51,13 @@ All notable changes to WeHelp are documented here. Format follows
   status transitions only from `scheduled` to `cancelled`, `completed` or
   `no_show` (409 otherwise). All mutations are audited, including the status
   change.
+- Staff web UI: a vanilla-JS SPA (`web/`) embedded in the Go binary via
+  `embed.FS` and served at `/` by the chi router. No framework, no build
+  step, no Node.js. Messaging, appointments (create, list, cancel,
+  complete) and links. Unknown non-API paths fall back to `index.html`.
+  Patient accounts get a "use the WeHelp app" notice and no data (#9).
+  Error text is HTML-escaped. Not yet done: HttpOnly sessions, refresh,
+  TOTP and security headers (#38).
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
   a P-256 key in the Secure Enclave (a software key on the simulator) and
