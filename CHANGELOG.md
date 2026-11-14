@@ -38,6 +38,10 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Messages API (#14): send, paginated inbox (`?unread`, `?limit`,
+  opaque `?cursor`), and mark-read. Sending requires an active
+  provider-patient link; creates and read-receipts are audit-chained in the
+  same transaction.
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
   a P-256 key in the Secure Enclave (a software key on the simulator) and
