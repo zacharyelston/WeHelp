@@ -1,0 +1,8 @@
+// Copy to Local.xcconfig (gitignored) to override Debug settings on this Mac.
+// Find your LAN address with: ipconfig getifaddr en0
+// The `$()` stops xcconfig from treating `//` as a comment.
+WEHELP_DEFAULT_SERVER_URL = http:/$()/192.168.1.50:8080
+
+// Demo servers shown on the Servers screen, as `Label|URL` pairs. Each uses
+// the demo practice, email and password from Debug.xcconfig.
+WEHELP_DEV_SERVERS = This Mac|http:/$()/192.168.1.50:8080, Test host|http:/$()/testhost.local:8080

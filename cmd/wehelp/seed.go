@@ -18,14 +18,11 @@ instantly. It is idempotent: re-running against an already-seeded database
 performs no writes and appends no duplicate audit events. Demo credentials
 are printed to stdout.
 
-Migrations are applied first so 'wehelp seed' works against a fresh database.`,
+Requires an already-migrated database: 'make db-migrate' or the compose
+migrate service (which runs automatically before 'server' starts).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		cfg := config.C()
-
-		if err := store.Migrate(ctx, cfg.DatabaseURL); err != nil {
-			return err
-		}
 
 		pool, err := store.NewPool(ctx, cfg.DatabaseURL)
 		if err != nil {
