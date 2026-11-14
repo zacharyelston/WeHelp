@@ -96,6 +96,9 @@ All notable changes to WeHelp are documented here. Format follows
 - The Relay writes a new office list to its cache before using it, so the
   cache is never behind the list in use. This also fixes a flaky
   `TestListRollbackAndForgeryRejected`.
+- iPad: the app turns to landscape and upside down (iPhone stays
+  portrait), for staff iPads docked with a Bluetooth keyboard. Cmd-Return
+  sends a message.
 - Push notifications through the Relay (#7).
   - The Relay sends Apple pushes with a hand-rolled HTTP/2 + ES256 client;
     the APNs key never leaves the Relay. Only three categories exist
