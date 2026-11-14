@@ -71,6 +71,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Admins register providers from the staff web (#100).
+  - A **Providers** button (admins only) lists the practice's provider
+    accounts. An admin adds one by name and email and gets a set-up link.
+  - The link works once, for 24 hours, on the office network. Its token is
+    in the URL fragment, and only its SHA-256 is stored. The provider opens
+    it, chooses their own password and enrolls TOTP as at a first sign-in.
+    Admins never see or set the password. A new link replaces the old one.
+  - Admins can disable a provider and enable them again. Disabling ends web
+    sessions, revokes refresh tokens and refuses sign-in and API calls.
+    Nothing is deleted, and paired devices stay paired.
+  - New routes: `/api/v1/staff/setup` and `/api/v1/staff/providers…`. They
+    are LAN only, return 403 for providers, and are audited (`staff.invite`,
+    `staff.setup`, `staff.disable`, `staff.enable`). Migration
+    `V10__staff_invites.sql` adds them.
+  - This is the Back Office half of #62: Registry roster entries will feed
+    the same invite. `wehelpd staff add` still works on the host.
 - Appointment requests (#68, #39).
   - Patients tap **Request** on the Schedule tab and pick a provider, 1–3
     preferred days with a time of day, and an optional reason. Up to 3 can

@@ -169,6 +169,7 @@ function renderDashboard() {
       <h1>WeHelp</h1>
       <div>
         <span class="user">${esc(who)} · ${esc(role)}</span>
+        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Providers</button>' : ""}
         <button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>
         <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
       </div>
@@ -808,9 +809,12 @@ function esc(s) {
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
-// Resume a session from the cookie, if there is one.
-api("GET", "/staff/me")
-  .then((me) => { session = me; })
-  .catch(() => { session = null; })
-  .finally(render);
+// A set-up link (#100) opens the set-up page; otherwise resume a session
+// from the cookie, if there is one.
+if (!startStaffSetup()) {
+  api("GET", "/staff/me")
+    .then((me) => { session = me; })
+    .catch(() => { session = null; })
+    .finally(render);
+}
 

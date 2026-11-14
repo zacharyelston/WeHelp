@@ -191,6 +191,11 @@ the Back Office holds the accounts and credentials.
 As built (#38):
 - Accounts are created on the Back Office host with `wehelpd staff add`.
   API self-registration is development-only.
+- Admins add providers in the staff web (#100). Each new provider gets a
+  single-use set-up link that works for 24 hours on the LAN and is stored
+  only as a hash. The provider chooses their own password and enrolls TOTP
+  from it. Admins disable and re-enable accounts; nothing is deleted. The
+  Registry roster (#62) will feed the same invite.
 - The first sign-in enrolls TOTP. After that every sign-in needs the
   password and a code that hasn't been used before. Five failures lock the
   account for 15 minutes.

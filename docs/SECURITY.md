@@ -102,6 +102,16 @@ attacker, and jailbroken devices with root on the patient's own phone.
     absolute limit. CSRF is a per-session token checked in constant time on
     every change.
   - Staff accounts are created on the host (`wehelpd staff add`).
+  - Admins add providers in the staff web (#100). A provider gets a set-up
+    link, never a password chosen by the admin.
+    - The token is 32 random bytes, kept in the URL fragment so it stays
+      out of request logs and Referer. Only its SHA-256 is stored.
+    - It works once, expires in 24 hours, and a newer link cancels it.
+    - The route is LAN only. Every failure gets the same answer.
+  - Disabling a staff account (`users.disabled_at`) ends its web sessions,
+    revokes refresh tokens and refuses password sign-in. Every bearer
+    request is checked too, so an unexpired access token stops working at
+    once. Admin changes to accounts are audited in the same transaction.
   - The breached-password check is still an open decision.
 
 ### Telehealth

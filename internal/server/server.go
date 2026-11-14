@@ -84,6 +84,14 @@ func (s *Server) Router() chi.Router {
 			r.Post("/totp/confirm", s.StaffTOTPConfirm)
 			r.Get("/me", s.StaffMe)
 			r.Post("/logout", s.StaffLogout)
+			// Provider accounts (#100): admins invite, disable and enable;
+			// the provider redeems the set-up link.
+			r.Post("/setup", s.StaffSetup)
+			r.With(s.authenticate).Get("/providers", s.ListProviders)
+			r.With(s.authenticate).Post("/providers", s.CreateProvider)
+			r.With(s.authenticate).Post("/providers/{userID}/invite", s.ReissueProviderInvite)
+			r.With(s.authenticate).Post("/providers/{userID}/disable", s.DisableProvider)
+			r.With(s.authenticate).Post("/providers/{userID}/enable", s.EnableProvider)
 		})
 
 		// Phones pair through the Relay (#37); no session yet.
