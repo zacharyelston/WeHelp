@@ -58,6 +58,12 @@ All notable changes to WeHelp are documented here. Format follows
   Patient accounts get a "use the WeHelp app" notice and no data (#9).
   Error text is HTML-escaped. Not yet done: HttpOnly sessions, refresh,
   TOTP and security headers (#38).
+- OpenAPI spec (#15): `api/openapi.yaml` is the contract between the Back
+  Office, the iOS app and agents. It covers health, auth (including device
+  enrol, signed refresh and logout), me, links, messages and appointments.
+  CI checks that the spec is valid OpenAPI, and `TestOpenAPICoversRoutes`
+  fails if any route registered on the server is missing from the spec.
+  CONTRIBUTING.md requires route changes to update the spec in the same PR.
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
   a P-256 key in the Secure Enclave (a software key on the simulator) and

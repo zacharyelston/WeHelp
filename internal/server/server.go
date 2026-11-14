@@ -33,7 +33,9 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	return &Server{cfg: cfg, pool: pool, jwtSecret: secret}
 }
 
-func (s *Server) ListenAndServe(ctx context.Context) error {
+// Router builds the HTTP handler with every route. Tests use it to check the
+// OpenAPI spec covers what the server actually serves.
+func (s *Server) Router() chi.Router {
 	r := chi.NewRouter()
 	r.Use(
 		middleware.RequestID,
@@ -86,9 +88,13 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	// Static web client (SPA) — served at root, falls back to API routes above.
 	s.webRoutes(r)
 
+	return r
+}
+
+func (s *Server) ListenAndServe(ctx context.Context) error {
 	srv := &http.Server{
 		Addr:              s.cfg.ListenAddr,
-		Handler:           r,
+		Handler:           s.Router(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
