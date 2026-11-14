@@ -70,6 +70,34 @@ struct APIClient: Sendable {
         return try await send("POST", "api/v1/auth/enroll", body: AnyEncodable(body))
     }
 
+    // MARK: Pairing (#37)
+
+    struct PairResult: Decodable, Sendable {
+        let practice: String
+        let patientName: String
+        let accessToken: String
+        let refreshToken: String
+        var tokens: TokenPair { TokenPair(accessToken: accessToken, refreshToken: refreshToken) }
+        enum CodingKeys: String, CodingKey {
+            case practice, patientName = "patient_name"
+            case accessToken = "access_token", refreshToken = "refresh_token"
+        }
+    }
+
+    /// Redeems a scanned invite with this phone's new device key. The office
+    /// enrolls the key for the invite's patient and returns the session.
+    func redeemInvite(_ invite: String, key: DeviceKey, name: String) async throws -> PairResult {
+        let proof = try key.proof(purpose: "pair", refreshToken: invite)
+        let body: [String: any Sendable & Encodable] = [
+            "invite": invite,
+            "public_key": try key.publicKeyDER.base64EncodedString(),
+            "name": name,
+            "timestamp": proof.timestamp,
+            "signature": proof.signature,
+        ]
+        return try await send("POST", "api/v1/pairing/redeem", body: AnyEncodable(body))
+    }
+
     /// Rotates the stored refresh token using the device key.
     @discardableResult
     func refresh() async throws -> TokenPair {

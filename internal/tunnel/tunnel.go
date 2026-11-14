@@ -34,6 +34,13 @@ func ViaRelay(ctx context.Context) bool {
 	return v
 }
 
+// WithViaRelay marks a context as having arrived through the Relay. Run
+// does this for every phone connection; tests use it to exercise the
+// LAN-only checks.
+func WithViaRelay(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxKey{}, true)
+}
+
 // Options configures Run.
 type Options struct {
 	// RelayAddress overrides the Relay SSH address from the registration

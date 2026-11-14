@@ -111,8 +111,10 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "password must be at least 12 characters")
 		return
 	}
-	if req.Role != "provider" && req.Role != "patient" {
-		writeErr(w, http.StatusBadRequest, "role must be provider or patient")
+	// Patients have no password: staff add them and they pair a phone in
+	// the office (#37).
+	if req.Role != "provider" {
+		writeErr(w, http.StatusBadRequest, "role must be provider; patients are added by staff and pair their phone in the office")
 		return
 	}
 
@@ -182,6 +184,15 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// dummyHash lets Login spend the same time on accounts with no password.
+var dummyHash = func() string {
+	h, err := auth.HashPassword("wehelp-no-password-dummy")
+	if err != nil {
+		panic(err)
+	}
+	return h
+}()
+
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -198,13 +209,15 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 
 	var userID, tenantID uuid.UUID
-	var hash, role string
+	var hash *string
+	var role string
 	err = tx.QueryRow(ctx, `
 		select u.id, u.tenant_id, u.password_hash, u.role
 		from users u join tenants t on t.id = u.tenant_id
 		where t.name = $1 and u.email = $2`, req.Tenant, req.Email).
 		Scan(&userID, &tenantID, &hash, &role)
 	if errors.Is(err, pgx.ErrNoRows) {
+		_, _ = auth.VerifyPassword(req.Password, dummyHash)
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
@@ -213,9 +226,21 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ok, err := auth.VerifyPassword(req.Password, hash)
+	if hash == nil {
+		// No password (patients): run a dummy check so timing doesn't reveal it.
+		_, _ = auth.VerifyPassword(req.Password, dummyHash)
+		writeErr(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	ok, err := auth.VerifyPassword(req.Password, *hash)
 	if err != nil || !ok {
 		writeErr(w, http.StatusUnauthorized, "invalid credentials")
+		return
+	}
+	// Patients never sign in with a password, even one left from before
+	// pairing existed (#37).
+	if role == "patient" {
+		writeErr(w, http.StatusUnauthorized, "patients sign in by pairing their phone at the practice")
 		return
 	}
 

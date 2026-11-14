@@ -35,6 +35,10 @@
 	</dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>WeHelp connects to your Bluetooth health monitors.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>WeHelp uses the camera to scan your practice's pairing code.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>WeHelp uses Face ID to keep your health information private.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>WeHelp shares your health data with your care team.</string>
 	<key>NSHealthUpdateUsageDescription</key>
