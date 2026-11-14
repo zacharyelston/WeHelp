@@ -76,7 +76,7 @@ ARCHITECTURE.md, "Connections".
 | Tailscale Funnel | **reference**: an edge that routes without terminating TLS. Same principle |
 | frp, yamux, SNI-passthrough routing | **superseded** by SSH + `CONNECT` (fewer moving parts; no public DNS or certificates per office) |
 | Cloudflare Tunnel, ngrok default edges | **skip**: they terminate TLS at a third party, which would see PHI |
-| modernc.org/sqlite | **adopt**: the Relay's registry and push tokens, pure Go, single file |
+| modernc.org/sqlite | **adopt** for push tokens (#7), pure Go, single file. Not needed for the office list: the Relay caches the signed envelope as one file and re-verifies it on load (#4) |
 
 ## Registry: control plane for practices and Relays (V1-M2, V1-M3)
 

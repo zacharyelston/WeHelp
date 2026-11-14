@@ -232,9 +232,11 @@ appointments" links open the app.
 
 ## Relay internals
 
-- **One Go binary** (`wehelp-relay`) and a small SQLite file for the cached
-  signed office list and push tokens. No Postgres, and no import of any Back
-  Office data package: a build-failing test enforces this.
+- **One Go binary** (`wehelp-relay`). The last good signed office list is
+  cached as the signed envelope in one file (`office-list.json`) and
+  re-verified on load. Push tokens (#7) will add a small SQLite file. No
+  Postgres, and no import of any Back Office data package: a build-failing
+  test enforces this. Runbook: [RELAY.md](RELAY.md).
 - **Listeners:** CONNECT proxy (TLS), SSH (offices), TURN (UDP and TCP),
   HTTPS (websites).
 - **Admin view:** Relay health (connected offices, tunnels, TURN load) is

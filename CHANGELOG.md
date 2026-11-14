@@ -71,6 +71,25 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- WeHelp Relay (#4): the new `wehelp-relay` binary and the office tunnel.
+  - Offices connect out over SSH with their office key. The Relay accepts
+    only keys on the Registry's signed office list for its own relay ID, and
+    offices pin the Relay host key.
+  - Phones send TLS `CONNECT <office-id>.wehelp.invalid:443`. The Relay
+    splices that onto a `wehelp-phone` SSH channel and sees only the
+    phone↔office TLS.
+  - The office list is fetched every minute and verified against the pinned
+    Registry key. Older or forged lists are rejected. The last good list is
+    cached and re-verified at start. Offices dropped from the list are
+    disconnected.
+  - `wehelpd serve` opens the tunnel by itself once the office is installed.
+    It reconnects with jittered backoff and terminates TLS 1.3 with the
+    office key. Requests that arrive this way are marked
+    (`tunnel.ViaRelay`) so staff routes can refuse them (#38).
+  - Logs carry office IDs and byte counts only.
+  - Import-boundary test for the Relay, and an in-process end-to-end test
+    that includes a no-plaintext check.
+  - Runbook: docs/RELAY.md.
 - Back Office identity (#35): `wehelpd init`.
   - It creates the office SSH key (ed25519), the office TLS key (P-256) with
     a self-signed certificate for `<office-id>.wehelp.invalid`, and a local

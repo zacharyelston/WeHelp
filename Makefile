@@ -7,6 +7,7 @@ BIN := bin/wehelpd
 build:
 	go build -o $(BIN) ./cmd/wehelp
 	go build -o bin/wehelp-registry ./cmd/wehelp-registry
+	go build -o bin/wehelp-relay ./cmd/wehelp-relay
 
 # WeHelp Registry (#60): its own Postgres on :5433, migrations in db/registry.
 registry-db:

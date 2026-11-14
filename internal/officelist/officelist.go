@@ -66,10 +66,10 @@ func Seal(payload, sig []byte) Envelope {
 	}
 }
 
-// Open verifies the envelope's signature with pub and returns the list.
-// It rejects any version not greater than lastGood (pass 0 when there is no
-// previous list). The signature is checked before the payload is parsed.
-func Open(pub ed25519.PublicKey, e Envelope, lastGood int64) (List, error) {
+// Verify checks the envelope's signature with pub and returns the list.
+// The signature is checked before the payload is parsed. It does not apply
+// the rollback rule; see Open.
+func Verify(pub ed25519.PublicKey, e Envelope) (List, error) {
 	payload, err := base64.StdEncoding.DecodeString(e.Payload)
 	if err != nil {
 		return List{}, fmt.Errorf("officelist: payload: %w", err)
@@ -84,6 +84,19 @@ func Open(pub ed25519.PublicKey, e Envelope, lastGood int64) (List, error) {
 	var l List
 	if err := json.Unmarshal(payload, &l); err != nil {
 		return List{}, fmt.Errorf("officelist: parse: %w", err)
+	}
+	if l.Version <= 0 {
+		return List{}, fmt.Errorf("officelist: version must be positive")
+	}
+	return l, nil
+}
+
+// Open verifies the envelope like Verify and also rejects any version not
+// greater than lastGood (pass 0 when there is no previous list).
+func Open(pub ed25519.PublicKey, e Envelope, lastGood int64) (List, error) {
+	l, err := Verify(pub, e)
+	if err != nil {
+		return List{}, err
 	}
 	if l.Version <= lastGood {
 		return List{}, ErrRollback

@@ -12,10 +12,8 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -177,14 +175,7 @@ func (id *Identity) SSHAuthorizedKey() string {
 func (id *Identity) KeyPin() string { return KeyPin(&id.TLSKey.PublicKey) }
 
 // KeyPin computes the pin for any P-256 public key.
-func KeyPin(pub *ecdsa.PublicKey) string {
-	raw, err := pub.Bytes()
-	if err != nil {
-		panic(err)
-	}
-	sum := sha256.Sum256(raw)
-	return base64.StdEncoding.EncodeToString(sum[:])
-}
+func KeyPin(pub *ecdsa.PublicKey) string { return keyfile.P256Pin(pub) }
 
 // Host is the name phones use for this office: "<office-id>.wehelp.invalid".
 // Empty before install.
