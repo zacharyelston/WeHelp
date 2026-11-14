@@ -42,6 +42,23 @@ minutes. Sessions end after 30 idle minutes or 12 hours.
   `http://localhost:8090/console/` works in Chrome, which treats localhost
   as secure.
 
+## Provider roster (#62)
+
+Providers and admins added to a practice in the console are its roster.
+Each installed Back Office pulls it from `POST /v1/roster` every 15 minutes
+(`roster_interval` on the Back Office) and when an admin presses **Sync now**
+on the Staff screen.
+
+- The request is signed with the office SSH key the Registry pinned at
+  install, and must be within 2 minutes of the Registry's clock. The answer
+  holds only that practice's entries and is signed with the Registry key the
+  office pinned at install. A suspended practice gets 403.
+- Removed providers stay on the roster with `removed_at`, so the Back Office
+  flags their account for the practice admin to disable. Nothing is disabled
+  or deleted automatically.
+- Accounts, passwords and TOTP stay in the Back Office. The roster carries
+  names, emails, roles, credentials and licence numbers only.
+
 ## Set up (dev laptop)
 
 ```bash

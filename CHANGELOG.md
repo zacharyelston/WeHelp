@@ -97,6 +97,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Provider roster (#62): the Back Office pulls its practice's providers
+  from the Registry.
+  - `POST /v1/roster` on the Registry. The office signs the request with
+    its office SSH key; the Registry answers with only that practice's
+    entries, signed with the Registry key the office pinned at install.
+    Suspended practices get none. Shared types in `internal/roster`.
+  - The Back Office pulls it every `roster_interval` (15 minutes) and on
+    **Sync now** in the Staff screen's new "From the Registry" card. A new
+    provider shows as needing an invite, and **Invite** sends the same
+    set-up link as Add staff (#100). Admins on the roster are added with
+    `wehelpd staff add`.
+  - A provider removed in the Registry, or dropped from the roster, is
+    flagged for the admin to disable. The sync never disables or deletes
+    an account. Accounts and credentials stay in the Back Office.
+  - Audit: `roster.sync` (on Sync now, and on scheduled pulls that changed
+    something) and `staff.invite` with `via: roster`. Migration `V19`.
 - Registry console (#61) at `/console/` for WeHelp support.
   - Sign-in is a password plus an authenticator code, with the same rules as
     the Back Office staff UI (#38): codes work once, 5 failures lock the
