@@ -1,0 +1,190 @@
+import SwiftUI
+
+/// Schedule tab state. In memory only; nothing is written to disk.
+@MainActor
+@Observable
+final class AppointmentsModel {
+    private(set) var appointments: [Appointment] = []
+    private(set) var isLoading = false
+    private(set) var hasLoaded = false
+    private(set) var error: String?
+
+    /// Not yet over, soonest first.
+    func upcoming(now: Date = .now) -> [Appointment] {
+        appointments.filter { $0.endsAt > now }.sorted { $0.startsAt < $1.startsAt }
+    }
+
+    /// Already over, most recent first.
+    func past(now: Date = .now) -> [Appointment] {
+        appointments.filter { $0.endsAt <= now }.sorted { $0.startsAt > $1.startsAt }
+    }
+
+    func refresh(api: APIClient) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            appointments = try await api.appointments()
+            error = nil
+        } catch is CancellationError {
+            return
+        } catch let err as URLError where err.code == .cancelled {
+            return
+        } catch {
+            self.error = error.localizedDescription
+        }
+        hasLoaded = true
+    }
+}
+
+struct AppointmentsView: View {
+    @Environment(AppState.self) private var appState
+    @State private var model = AppointmentsModel()
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("Schedule")
+                .refreshable { await model.refresh(api: appState.api) }
+                .task { await model.refresh(api: appState.api) }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if !model.hasLoaded && model.appointments.isEmpty {
+            ProgressView("Loading appointments…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let error = model.error, model.appointments.isEmpty {
+            ContentUnavailableView {
+                Label("Couldn't load appointments", systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(error)
+            } actions: {
+                Button("Try again") { Task { await model.refresh(api: appState.api) } }
+                    .buttonStyle(.borderedProminent)
+            }
+        } else {
+            let upcoming = model.upcoming()
+            let past = model.past()
+            List {
+                if let error = model.error {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+                Section {
+                    if upcoming.isEmpty {
+                        Text("No upcoming appointments.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(upcoming) { AppointmentRow(appointment: $0) }
+                } header: {
+                    Text("Upcoming")
+                } footer: {
+                    // Patients can't request appointments in the app yet:
+                    // the API has no patient request endpoint.
+                    Text("To ask for a new appointment, send your care team a message.")
+                }
+                if !past.isEmpty {
+                    Section("Past") {
+                        ForEach(past) { AppointmentRow(appointment: $0) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct AppointmentRow: View {
+    let appointment: Appointment
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            DateTile(date: appointment.startsAt)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(dayLabel)
+                        .font(.headline)
+                    Spacer()
+                    StatusBadge(status: appointment.status)
+                }
+                Text(timeRange)
+                    .font(.subheadline)
+                    .strikethrough(appointment.status == .cancelled)
+                Text("Visit with your care team")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
+        .privacySensitive()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var dayLabel: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(appointment.startsAt) { return "Today" }
+        if cal.isDateInTomorrow(appointment.startsAt) { return "Tomorrow" }
+        if cal.isDateInYesterday(appointment.startsAt) { return "Yesterday" }
+        return appointment.startsAt.formatted(.dateTime.weekday(.wide))
+    }
+
+    private var timeRange: String {
+        let start = appointment.startsAt.formatted(date: .omitted, time: .shortened)
+        let end = appointment.endsAt.formatted(date: .omitted, time: .shortened)
+        let minutes = Int(appointment.endsAt.timeIntervalSince(appointment.startsAt) / 60)
+        return "\(start) – \(end) · \(minutes) min"
+    }
+}
+
+struct DateTile: View {
+    let date: Date
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(date, format: .dateTime.month(.abbreviated))
+                .font(.caption2.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.red)
+            Text(date, format: .dateTime.day())
+                .font(.title2.weight(.semibold))
+        }
+        .frame(width: 48, height: 48)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct StatusBadge: View {
+    let status: Appointment.Status
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.medium))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(tint.opacity(0.15), in: Capsule())
+            .foregroundStyle(tint)
+    }
+
+    private var label: String {
+        switch status {
+        case .scheduled: "Scheduled"
+        case .cancelled: "Cancelled"
+        case .completed: "Completed"
+        case .noShow: "Missed"
+        case .unknown: "Unknown"
+        }
+    }
+
+    private var tint: Color {
+        switch status {
+        case .scheduled: .blue
+        case .cancelled: .red
+        case .completed: .green
+        case .noShow: .orange
+        case .unknown: .gray
+        }
+    }
+}

@@ -30,19 +30,6 @@ struct TodayView: View {
     }
 }
 
-struct AppointmentsView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "No upcoming appointments",
-                systemImage: "calendar",
-                description: Text("Scheduled visits and reminders appear here.")
-            )
-            .navigationTitle("Schedule")
-        }
-    }
-}
-
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var signingOut = false

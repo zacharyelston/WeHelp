@@ -46,6 +46,12 @@ All notable changes to WeHelp are documented here. Format follows
   in memory only. Signed-in screens are covered when the app is inactive, so
   the app-switcher snapshot shows no PHI. `APIClient` gains query
   parameters and RFC 3339 date decoding.
+- iOS Schedule tab (#39, list only): upcoming appointments (soonest first)
+  and past ones (most recent first) from `GET /api/v1/appointments`, with
+  status badges for scheduled, cancelled, completed and missed (`no_show`).
+  Pull to refresh, plus loading, empty and error states; nothing is cached
+  on disk. Requesting an appointment from the app waits on a patient
+  request endpoint in the API.
 - Messages API (#14): send, paginated inbox (`?unread`, `?limit`,
   opaque `?cursor`), and mark-read. Sending requires an active
   provider-patient link; creates and read-receipts are audit-chained in the
