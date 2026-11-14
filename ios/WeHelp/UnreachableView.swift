@@ -6,7 +6,6 @@ import SwiftUI
 struct UnreachableView: View {
     @Environment(AppState.self) private var appState
     let message: String
-    @State private var confirmUnpair = false
 
     private var practice: String { appState.lastTenant.isEmpty ? "your practice" : appState.lastTenant }
 
@@ -19,13 +18,6 @@ struct UnreachableView: View {
             } actions: {
                 Button("Try again") { appState.retry() }
                     .buttonStyle(.borderedProminent)
-                Button("Unpair this device…", role: .destructive) { confirmUnpair = true }
-                    .font(.footnote)
-            }
-            .confirmationDialog("Unpair this device?", isPresented: $confirmUnpair, titleVisibility: .visible) {
-                Button("Unpair", role: .destructive) { Task { await appState.signOut() } }
-            } message: {
-                Text("To use WeHelp here again, you'll need to scan a new pairing code at \(practice).")
             }
         }
     }

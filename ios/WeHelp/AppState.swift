@@ -197,11 +197,6 @@ final class AppState {
         phase = .signedIn
     }
 
-    /// Revokes the device on the server, then wipes tokens and the device key.
-    func signOut() async {
-        await api.logout()
-        await wipeLocalSession()
-    }
 
     private func wipeLocalSession() async {
         people = [:]

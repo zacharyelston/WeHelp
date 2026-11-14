@@ -29,6 +29,7 @@ struct RootView: View {
             UnreachableView(message: message)
         case .signedIn:
             ContentView()
+                .environment(lock)
                 // Signed-in screens show PHI: cover them whenever the app is
                 // not active so the app-switcher snapshot shows nothing, and
                 // require Face ID or the passcode to see them (#37).

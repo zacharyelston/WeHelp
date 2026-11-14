@@ -83,11 +83,13 @@ All notable changes to WeHelp are documented here. Format follows
   - `/links` now carries `provider_name` and `patient_name`, and `/me`
     carries `display_name`, so messages and visits show names instead of
     "Patient" or "Care team".
+  - **The app never unpairs itself** (owner direction). Settings' Sign out
+    is replaced by **Lock now**, and the Devices screen is read-only. Only
+    the practice removes a device, from the staff page; the app clears
+    itself when the server refuses a revoked device.
   - A paired device that can't reach its practice at launch shows "Can't
     reach <practice>" with **Try again** and keeps the pairing. It used to
-    drop to the pair screen. Settings' **Sign out** is now **Unpair this
-    device…**, with a confirmation, because without a password unpairing
-    means pairing again in the office.
+    drop to the pair screen.
 - Staff sign-in and the LAN-only staff surface (#38).
   - Staff web UI sign-in is password + TOTP. The first sign-in walks through
     authenticator setup (QR code and key). Codes work once, and five failures
@@ -119,9 +121,9 @@ All notable changes to WeHelp are documented here. Format follows
     minutes. Patient tokens without a device are refused.
   - Staff web UI: each patient's device count opens their devices, with
     Revoke.
-  - iOS: Settings → Devices lists this account's devices and offers
-    "Sign out other devices". If the server ends this device's session, the
-    app signs out.
+  - iOS: Settings → Devices lists this account's devices (read-only since
+    #69: only the practice revokes). If the server ends this device's
+    session, the app clears it.
 - QR pairing; patients have no password (#37).
   - Staff web UI: a new **Patients** tab to add patients (no password) and
     **Pair phone**, which shows a QR code with the office's pairing identity
