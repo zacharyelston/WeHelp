@@ -73,7 +73,7 @@ haven't landed. Until they do, the step runs in its interim form, shown here.
 | Provider roster to Back Office | Pulled from the Registry | Staff accounts created by hand | #62 |
 | Back Office install | `appliance.sh init-office` | Works (Barnacle installed 2026-11-14) | — |
 | Relay connection | Automatic from `wehelpd serve` | Works on the Demo topology | — |
-| Phones through the Relay | Pinned, through the Relay | PR #78 | #36 |
+| Phones through the Relay | Pinned, through the Relay | Works (#36); practices entered by hand in Debug builds until QR pairing | #37 |
 | Staff sign-in | Password + TOTP, HTTPS on the LAN | Password only, plain HTTP | #38 |
 | Patient and provider pairing | QR in the staff UI | Not built (Debug-build sign-in only) | #37 |
 | Device list and revoke | Staff UI | Not built | #10 |

@@ -38,7 +38,7 @@ Recording is tracked in #84.
 | 3 | Patients and the patient record | Front desk, admin | 6 min | Not yet |
 | 4 | Appointments | Front desk, admin, providers | 8 min | Partial (#68) |
 | 5 | Messages | All staff | 7 min | Partial (#67) |
-| 6 | The patient app tour | All staff | 6 min | Partial (#36, #39) |
+| 6 | The patient app tour | All staff | 6 min | Partial (#37, #39) |
 | 7 | Pairing a patient's phone | Front desk, admin | 6 min | Not yet (#37) |
 | 8 | Lost phone, new phone, can't scan | Front desk, admin | 5 min | Not yet (#10) |
 | 9 | The provider app | Providers | 8 min | Not yet (#69) |
@@ -222,7 +222,7 @@ training seed, #80).
 | P-31 | Compose / reply | Partial | | |
 | P-40 | Notification "Appointment update" (no details) | Not yet (#7) | | Lock screen shot |
 | P-50 | Scan QR to pair | Not yet (#37) | | |
-| P-51 | "Connected to Demo Naturopathy" pin confirmation | Not yet (#36, #37) | | |
+| P-51 | "Connected to Demo Naturopathy" pin confirmation | Not yet (#37; the pins are checked since #36) | | |
 | P-52 | Turn on Face ID | Not yet (#37) | | |
 | P-53 | Device revoked / not connected | Not yet (#10) | | |
 | P-54 | Settings and sign-out | Exists; wording changes with #37 | | Re-record after #37 |
