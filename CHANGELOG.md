@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- CI and `make test` run Go tests with the race detector (`-race`). `main`
+  is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
+  must be up to date before a PR merges (#30).
 - Migrations moved from embedded goose to **Flyway**: `db/migrations/
   V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
   compose `migrate` service runs before `server`; `make db-migrate` is the
