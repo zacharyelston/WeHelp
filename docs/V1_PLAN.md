@@ -30,6 +30,8 @@ laptop as Relay, Barnacle as Back Office).
 
 ### V1-M0: Consolidate (one main, CI on)
 
+Issues: #30 CI, #31 consolidation, #12 appliance deploy, #13 AGENTS.md, #14 messages, #15 OpenAPI, #16 sign-in, #18 appointments.
+
 Land the PoC into `main` properly so there is one codebase:
 - Turn on CI for the fork, and make every PR run the full pipeline.
 - Review and merge, in order:
@@ -50,6 +52,8 @@ no open PR predates V1-M0.
 
 ### V1-M1: Spikes (prove the risky parts, then throw the code away)
 
+Issues: #32 S1, #33 S2, #34 S3.
+
 Time-boxed, a few days each. Each spike ends in a written yes/no and a
 lit-review entry.
 - **S1 Secure channel:** iOS `ProxyConfiguration` `CONNECT` through a Go
@@ -66,6 +70,8 @@ lit-review entry.
 V1-M2 starts.
 
 ### V1-M2: Secure channel and identity
+
+Issues: #35 office identity, #4 Relay, #36 iOS through the Relay, #37 QR pairing, #10 devices, #38 staff sign-in.
 
 - **Back Office identity:** office SSH key, office TLS key, local CA, all
   generated at install, with a key-rotation procedure.
@@ -89,6 +95,8 @@ it out within one access-token lifetime.
 
 ### V1-M3: Practice features
 
+Issues: #14 and #18 extended, #17 iOS messages, #39 iOS appointments, #9 staff-only web, #19 reminders, #7 push.
+
 - Messages (#14) and appointments (#18) on the secure channel.
 - iOS messages inbox and compose (#17), and iOS appointments (a new issue).
 - Staff UI: schedule, threads, patients, pairing, devices. No patient web UI
@@ -102,6 +110,8 @@ touching the database.
 
 ### V1-M4: Telehealth
 
+Issue: #6.
+
 - Visit lifecycle tied to an appointment.
 - Signaling through the Back Office, and TURN credentials minted per visit.
 - iOS call UI for patients and providers (#6, rewritten for 1:1 WebRTC with
@@ -113,6 +123,8 @@ with acceptable quality.
 
 ### V1-M5: Practice website
 
+Issue: #5.
+
 - Practice profile in the staff UI, `html/template` rendering, publish over
   SSH (#5).
 - The Relay serves the site with `apple-app-site-association`.
@@ -121,6 +133,8 @@ with acceptable quality.
 open the app.
 
 ### V1-M6: Hardening and audit readiness
+
+Issues: #28 audit chain bug, #24 audit verification, #40 audit reads, #41 backups, #42 logging, #43 CI security, #44 checklists, #11 App Attest.
 
 - Fix the audit chain (#28). Run `audit.Verify` nightly with an alert. Audit
   PHI reads, not only writes.
@@ -138,6 +152,8 @@ writing, and an internal pen test of the Demo topology finds no high or
 critical issues.
 
 ### V1-M7: Demo, audit, field
+
+Issues: #45 demo kit, #46 external audit and pen test, #47 field install.
 
 - **Demo kit:**
   - synthetic demo practices with no real data;
@@ -176,6 +192,8 @@ can land any time and should not wait for M6.
 
 ## After V1 (not planned here)
 
-Patient access to their health records (visit notes, check-ins, HealthKit),
-the in-office iPad kiosk (#8), a patient web portal, the ledger API, FHIR,
-SSO, cloud-hosted Back Offices, Android, group visits and recording.
+Patient access to their health records (visit notes, check-ins #21,
+HealthKit #22), the in-office iPad kiosk (#8), a patient web portal, the
+ledger API (#23), message-body encryption (#25), FHIR (#26), SSO (#27),
+cloud-hosted Back Offices, Android, group visits and recording. These are
+tracked in the **Post-V1** milestone.
