@@ -6,8 +6,25 @@ struct WeHelpApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environment(appState)
+        }
+    }
+}
+
+/// Unauthenticated users land on sign-in; a stored device-bound session
+/// resumes on launch.
+struct RootView: View {
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        switch appState.phase {
+        case .launching:
+            ProgressView().task { await appState.bootstrap() }
+        case .signedOut:
+            ConnectionsView()
+        case .signedIn:
+            ContentView()
         }
     }
 }

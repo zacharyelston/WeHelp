@@ -2,40 +2,17 @@ package store
 
 import (
 	"context"
-	"database/sql"
-	"embed"
 	"fmt"
+	"net/url"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
 )
 
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
-
-func init() {
-	goose.SetBaseFS(migrationsFS)
-}
-
-// Migrate applies all pending migrations in migrations/.
-func Migrate(ctx context.Context, databaseURL string) error {
-	db, err := sql.Open("pgx", databaseURL)
-	if err != nil {
-		return fmt.Errorf("migrate: open: %w", err)
-	}
-	defer db.Close()
-
-	if err := goose.SetDialect("postgres"); err != nil {
-		return fmt.Errorf("migrate: dialect: %w", err)
-	}
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
-		return fmt.Errorf("migrate: up: %w", err)
-	}
-	return nil
-}
-
 // NewPool opens a pgx connection pool and verifies connectivity.
+//
+// Migrations are Flyway's job (db/migrations/, `wehelpd migrate`,
+// `make db-migrate`, or the compose `migrate` service) — the server never
+// applies them itself.
 func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -46,4 +23,21 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("pool ping: %w", err)
 	}
 	return pool, nil
+}
+
+// JDBCURL converts a postgres:// DSN into the JDBC URL Flyway expects,
+// carrying user/password as query params. DSNs must be in URL form.
+func JDBCURL(databaseURL string) (string, error) {
+	u, err := url.Parse(databaseURL)
+	if err != nil || u.Scheme != "postgres" && u.Scheme != "postgresql" {
+		return "", fmt.Errorf("database_url must be a postgres:// URL: %w", err)
+	}
+	q := u.Query()
+	if u.User != nil {
+		q.Set("user", u.User.Username())
+		if pw, ok := u.User.Password(); ok {
+			q.Set("password", pw)
+		}
+	}
+	return "jdbc:postgresql://" + u.Host + u.Path + "?" + q.Encode(), nil
 }

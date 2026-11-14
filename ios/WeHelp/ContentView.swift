@@ -58,15 +58,23 @@ struct AppointmentsView: View {
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @State private var signingOut = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Account") {
-                    LabeledContent("Role", value: appState.role?.rawValue ?? "not signed in")
+                    LabeledContent("Role", value: appState.role?.rawValue ?? "unknown")
+                    LabeledContent("Server", value: appState.api.baseURL.absoluteString)
                 }
-                Section("Server") {
-                    LabeledContent("API", value: appState.api.baseURL.absoluteString)
+                Section {
+                    Button("Sign out", role: .destructive) {
+                        signingOut = true
+                        Task { await appState.signOut() }
+                    }
+                    .disabled(signingOut)
+                } footer: {
+                    Text("Signing out removes this phone's key. You'll need your password to sign in again.")
                 }
             }
             .navigationTitle("Settings")
