@@ -749,6 +749,10 @@ components:
         id: { type: string, enum: [naturopath, therapy, allied_health, salon] }
         label: { type: string }
         clinical: { type: boolean, description: "false hides check-ins and health monitors." }
+        off:
+          type: array
+          items: { type: string }
+          description: Features this type starts with turned off (#109).
         words:
           type: object
           required: [patient, patients, provider, providers]
@@ -760,12 +764,39 @@ components:
             providers: { type: string }
     PracticeView:
       type: object
-      required: [type, types]
+      required: [type, types, features, switches]
       properties:
         type: { $ref: "#/components/schemas/PracticeType" }
         types:
           type: array
           items: { $ref: "#/components/schemas/PracticeType" }
+        features:
+          type: object
+          additionalProperties: { type: boolean }
+          description: "Effective switches (#109): the type's defaults with the admin's overrides."
+        switches:
+          type: array
+          description: The switches, in Settings order.
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: { type: string }
+              label: { type: string }
+
+    MessageSettings:
+      type: object
+      required: [mode, days, start_minute, end_minute, auto_reply]
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: ["on", hours, "off"] }
+        days:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 6 }
+          description: 0 = Sunday, office time.
+        start_minute: { type: integer, minimum: 0, maximum: 1439 }
+        end_minute: { type: integer, minimum: 1, maximum: 1440 }
+        auto_reply: { type: string, maxLength: 500, description: "Empty: a standard reply naming the hours." }
 
     SiteView:
       type: object
@@ -2509,6 +2540,114 @@ paths:
                 $ref: "#/components/schemas/Error"
         "403":
           description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice/features:
+    put:
+      tags: [practice]
+      summary: Turn practice features on or off (admins, office LAN only, #109)
+      description: >
+        Only the switches sent change. A switched-off feature is hidden in the
+        staff web and the app, and the server refuses it with 409. Audited as
+        practice.features. Check-ins stay off for a practice type that isn't
+        clinical.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [features]
+              additionalProperties: false
+              properties:
+                features:
+                  type: object
+                  additionalProperties: { type: boolean }
+                  description: "Feature id to on (true) or off (false): messages, requests, reminders, checkins, video, store, library, website."
+      responses:
+        "200":
+          description: Saved; the effective switches.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeView"
+        "400":
+          description: Unknown feature, or nothing sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not an admin, or a missing CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/staff/profile/messages:
+    get:
+      tags: [staff]
+      summary: Your own message mode (#109)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The settings (defaults if never set).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSettings"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      tags: [staff]
+      summary: Set how you take messages from patients (#109)
+      description: >
+        on: as usual. hours: messages arrive any time; outside the hours (office
+        time) the patient gets the automatic reply, at most once every 12 hours,
+        and you get no notification. off: patients can't message you (409).
+        Audited as staff.message_settings.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageSettings"
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageSettings"
+        "400":
+          description: Bad mode, days or hours, or the reply is too long.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Missing or invalid CSRF token.
           content:
             application/json:
               schema:

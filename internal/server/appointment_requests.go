@@ -101,6 +101,9 @@ func (s *Server) CreateAppointmentRequest(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusForbidden, "only patients request appointments")
 		return
 	}
+	if featureOff(w, r.Context(), s.pool, id.TenantID, "requests") {
+		return
+	}
 	var req createRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid body")

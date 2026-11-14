@@ -74,6 +74,13 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	req.Metadata = meta
 
 	ctx := r.Context()
+	// Practice switches (#109).
+	if req.Kind == "message" && featureOff(w, ctx, s.pool, id.TenantID, "messages") {
+		return
+	}
+	if req.Kind == "checkin" && featureOff(w, ctx, s.pool, id.TenantID, "checkins") {
+		return
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "tx failed")
@@ -89,6 +96,16 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 	if !linked {
 		writeErr(w, http.StatusForbidden, "no active link with that user")
 		return
+	}
+
+	// The provider's message mode (#109): off refuses, office hours replies
+	// automatically and holds the push.
+	push, autoReply := true, ""
+	if id.Role == "patient" && req.Kind == "message" {
+		var ok bool
+		if push, autoReply, ok = s.recipientMode(ctx, tx, w, id.TenantID, id.UserID, req.RecipientID, time.Now()); !ok {
+			return
+		}
 	}
 
 	var msgID uuid.UUID
@@ -115,11 +132,28 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
 	}
+	if autoReply != "" {
+		var replyID uuid.UUID
+		if err := tx.QueryRow(ctx, `
+			insert into messages (tenant_id, sender_id, recipient_id, kind, body, metadata)
+			values ($1, $2, $3, 'message', $4, '{"auto_reply": true}') returning id`,
+			id.TenantID, req.RecipientID, id.UserID, autoReply).Scan(&replyID); err != nil {
+			writeErr(w, http.StatusInternalServerError, "auto-reply failed")
+			return
+		}
+		if err := audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &req.RecipientID,
+			Action: "message.auto_reply", ResourceType: "message", ResourceID: replyID.String()}); err != nil {
+			writeErr(w, http.StatusInternalServerError, "audit failed")
+			return
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		writeErr(w, http.StatusInternalServerError, "commit failed")
 		return
 	}
-	s.notify(req.RecipientID, "new_message") // generic push to their devices (#7)
+	if push {
+		s.notify(req.RecipientID, "new_message") // generic push to their devices (#7)
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{"id": msgID, "kind": req.Kind})
 }
 

@@ -90,6 +90,9 @@ type Content struct {
 	// Words come from the practice type (#108), set by the Back Office when it
 	// renders; never saved with the content.
 	Words practice.Words `json:"-"`
+	// Off lists pages the practice has switched off (#109): "store",
+	// "library". Set by the Back Office when it renders; never saved.
+	Off map[string]bool `json:"-"`
 	Providers    []Provider `json:"providers"`
 	Services     []Service  `json:"services"`
 	Podcasts     []Podcast  `json:"podcasts"`

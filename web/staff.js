@@ -187,7 +187,9 @@ async function showMyProfile() {
         ${p.has_photo ? '<button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove photo</button>' : ""}
       </form>
       <p class="hint">A square head-and-shoulders photo works best. PNG, JPEG or WebP, at most 2 MB.</p>
-    </div>`;
+    </div>
+    <div id="message-settings"></div>`;
+  if (session.role === "provider" && feature("messages")) renderMessageSettings();
   document.getElementById("profile-form").onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -236,6 +238,54 @@ async function removeProfilePhoto() {
   } catch (err) {
     showAlert(err.message);
   }
+}
+
+// renderMessageSettings is My profile's Messages card (#109): how this
+// provider takes messages from patients.
+async function renderMessageSettings() {
+  const el = document.getElementById("message-settings");
+  let m;
+  try {
+    m = await api("GET", "/staff/profile/messages");
+  } catch (err) {
+    el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  const hm = (n) => `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const mode = (v, label, hint) => `<label style="display:flex;gap:0.5rem;align-items:flex-start;margin:0.4rem 0">
+    <input type="radio" name="msg-mode" value="${v}" ${m.mode === v ? "checked" : ""} style="width:auto;margin-top:0.3rem">
+    <span><b>${label}</b><br><span class="hint">${hint}</span></span></label>`;
+  el.innerHTML = `<div class="card"><h2>Messages</h2>
+    <p class="hint">How you take messages from ${esc(word("patients"))} in the app. You can always write to them.</p>
+    <form id="msg-form">
+      ${mode("on", "On", "Messages arrive any time, with a notification.")}
+      ${mode("hours", "Office hours", `Messages arrive any time. Outside your hours the ${esc(word("patient"))} gets an automatic reply and you get no notification.`)}
+      ${mode("off", "Off", `${esc(Word("patients"))} can't message you; the app asks them to call the practice.`)}
+      <div class="form-group" style="margin-top:0.75rem"><label>Office hours</label>
+        <div>${days.map((d, i) => `<label style="display:inline-flex;gap:0.25rem;margin-right:0.6rem"><input type="checkbox" data-day="${i}" ${m.days.includes(i) ? "checked" : ""} style="width:auto">${d}</label>`).join("")}</div>
+        <div class="inline-form" style="margin-top:0.5rem"><input type="time" id="msg-start" value="${hm(m.start_minute)}"> to <input type="time" id="msg-end" value="${hm(m.end_minute)}"></div>
+      </div>
+      <div class="form-group"><label>Automatic reply (optional)</label>
+        <textarea id="msg-reply" rows="3" maxlength="500" placeholder="Left empty, it says when you reply.">${esc(m.auto_reply)}</textarea></div>
+      <button type="submit" class="btn">Save message settings</button>
+    </form></div>`;
+  document.getElementById("msg-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const mins = (v) => { const [h, mm] = v.split(":").map(Number); return h * 60 + mm; };
+    try {
+      await api("PUT", "/staff/profile/messages", {
+        mode: document.querySelector('input[name="msg-mode"]:checked').value,
+        days: [...document.querySelectorAll("[data-day]")].filter((x) => x.checked).map((x) => Number(x.dataset.day)),
+        start_minute: mins(document.getElementById("msg-start").value),
+        end_minute: mins(document.getElementById("msg-end").value),
+        auto_reply: document.getElementById("msg-reply").value,
+      });
+      showAlert("Message settings saved", "success");
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
 }
 
 // profileBiosCard lists, on the Website tab, the bios that come from staff
@@ -304,7 +354,32 @@ async function showSettings() {
       <form id="practice-form">${rows}
         <button type="submit" class="btn">Save</button>
       </form>
+    </div>
+    <div class="card"><h2>Features</h2>
+      <p class="hint">Turn off what this practice doesn't use. It disappears from the staff web and the app, and the server refuses it, so older app versions can't use it either. Nothing is deleted. Check-in reminders need a clinical practice type.</p>
+      <form id="features-form">
+        ${(p.switches || []).map((f) => `<label style="display:flex;gap:0.5rem;align-items:center;margin:0.4rem 0">
+          <input type="checkbox" data-feature="${attr(f.id)}" ${p.features[f.id] ? "checked" : ""} style="width:auto"
+            ${f.id === "checkins" && !p.type.clinical ? "disabled" : ""}> ${esc(f.label)}</label>`).join("")}
+        <button type="submit" class="btn" style="margin-top:0.5rem">Save features</button>
+      </form>
     </div>`;
+  document.getElementById("features-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const features = {};
+    document.querySelectorAll("[data-feature]").forEach((el) => {
+      if (!el.disabled) features[el.dataset.feature] = el.checked;
+    });
+    try {
+      practiceInfo = await api("PUT", "/practice/features", { features });
+      render();
+      await new Promise((r) => setTimeout(r, 300));
+      showSettings();
+      showAlert("Features saved", "success");
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
   document.getElementById("practice-form").onsubmit = async (e) => {
     e.preventDefault();
     const chosen = document.querySelector('input[name="practice-type"]:checked');

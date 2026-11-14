@@ -15,7 +15,9 @@ import (
 //go:embed templates/*.html templates/style.css
 var templates embed.FS
 
-var pages = []struct{ File, Title, Template string }{
+type page struct{ File, Title, Template string }
+
+var pages = []page{
 	{"index.html", "Home", "index"},
 	{"team.html", "Our team", "team"},
 	{"services.html", "Services", "services"},
@@ -98,7 +100,14 @@ func Render(c Content, products []Product, files []File, now time.Time) (map[str
 	out["style.css"] = css
 
 	d := pageData{Content: c, Images: map[string]bool{}, Updated: now.Format("January 2, 2006")}
+	var shown []page
 	for _, p := range pages {
+		if (p.File == "store.html" && c.Off["store"]) || (p.File == "library.html" && c.Off["library"]) {
+			continue
+		}
+		shown = append(shown, p)
+	}
+	for _, p := range shown {
 		d.Nav = append(d.Nav, struct{ File, Title string }{p.File, p.Title})
 	}
 	for _, f := range files {
@@ -135,7 +144,7 @@ func Render(c Content, products []Product, files []File, now time.Time) (map[str
 		}
 	}
 
-	for _, p := range pages {
+	for _, p := range shown {
 		d.Page, d.Title = p.File, p.Title
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, p.Template, d); err != nil {
