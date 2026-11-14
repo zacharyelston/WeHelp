@@ -8,7 +8,8 @@ All notable changes to WeHelp are documented here. Format follows
 ### Changed
 - The ecosystem diagram shows the practice side of the Relay: the Back Office
   as a mini PC appliance, and the front desk as a laptop using the staff web
-  over the office Wi-Fi, where the pairing QR code is shown.
+  over the office Wi-Fi, where the pairing QR code is shown. The
+  presentation's "How it works" slide matches.
 - The readme opens with a hero diagram of the WeHelp ecosystem
   (`presentation/img/ecosystem.svg`): the app and the Back Office tied
   together by QR pairing, the Relay, the Registry and the practice website
@@ -700,6 +701,9 @@ All notable changes to WeHelp are documented here. Format follows
   `code` (`invalid_token`, `not_enrolled`, `device_revoked`, `proof_failed`,
   `proof_timestamp`); on `proof_timestamp` the app keeps the account and
   asks the patient to fix the phone's date and time.
+- Patients can't send memos or reminders (#137). Those are staff kinds, and
+  a patient's memo got past the practice's message switch and the
+  provider's message mode. Patients get 403 for them now.
 - Appliance boot after a reboot (#123). Lima's `vz.pid` can survive a
   reboot and name a process ID macOS has reused, and Colima then won't
   start. If Docker isn't up a minute after login, the boot job clears that
