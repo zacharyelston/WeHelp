@@ -14,18 +14,22 @@ Work is tracked on GitHub, not in this repo's docs:
 
 ## Commands
 
-- Build server: `make build` → `bin/wehelp`
+- Build server: `make build` → `bin/wehelpd`
 - Test/vet: `make test`, `make vet`
-- Run with local Postgres: `make compose-up` then `make run` (or `wehelp serve`)
-- Migrations: `wehelp migrate` (auto-applied on `serve` unless `WEHELP_AUTO_MIGRATE=false`)
-- New migration: add `NNNNN_name.sql` to `internal/store/migrations/` (goose format)
+- Run with local Postgres: `make compose-up` then `make run` (or `wehelpd serve`)
+- Migrations: Flyway. `make db-migrate` (containerized) or `wehelpd migrate`
+  (needs flyway CLI on PATH). The compose `migrate` service runs before
+  `server` starts, so `make compose-up` self-migrates.
+- New migration: add `V{N}__name.sql` to `db/migrations/` — Flyway naming,
+  forward-only, never edit an applied migration (checksums are enforced).
+  Community Flyway has no undo; put manual rollback SQL in a comment.
 - iOS: `make ios` (xcodegen + open Xcode), `make ios-build` (headless compile check)
 - Never edit `ios/WeHelp.xcodeproj` directly — it's generated from `ios/project.yml`
 
 ## Conventions
 
 - Go: cobra for CLI, viper for config (`WEHELP_*` env vars), chi for HTTP,
-  pgx/v5 for Postgres, goose for migrations, slog for logging.
+  pgx/v5 for Postgres, Flyway for migrations, slog for logging.
 - Config keys live in `internal/config/config.go` defaults — update there, not
   just in docs.
 - Financial/audit data: append-only tables only; use `ledger.Post` and

@@ -20,12 +20,6 @@ var serveCmd = &cobra.Command{
 
 		cfg := config.C()
 
-		if cfg.AutoMigrate {
-			if err := store.Migrate(ctx, cfg.DatabaseURL); err != nil {
-				return err
-			}
-		}
-
 		pool, err := store.NewPool(ctx, cfg.DatabaseURL)
 		if err != nil {
 			return err
