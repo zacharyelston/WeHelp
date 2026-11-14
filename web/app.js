@@ -215,92 +215,82 @@ async function loadTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Messages tab
-// ---------------------------------------------------------------------------
+// Messages tab (#67): conversations on the left, the open thread on the
+// right, both directions, with names.
+let openThread = null; // { id, name }
+
 async function loadMessages(container) {
-  const data = await api("GET", "/messages?limit=50");
-  const msgs = data.messages || [];
-  const links = await api("GET", "/links");
-  const contacts = links.filter((l) => l.status === "active").map((l) => {
-    const other = l.provider_id === session.user_id ? l.patient_id : l.provider_id;
-    return { id: other, label: other.slice(0, 8) };
-  });
-
-  let html = '<div class="card"><h2>Send Message</h2>';
-  if (contacts.length === 0) {
-    html += '<p class="empty">No active contacts to message.</p>';
-  } else {
-    html += `<form id="msg-form">
-      <div class="form-row">
-        <div class="form-group">
-          <label>To</label>
-          <select id="msg-recipient">${contacts.map((c) => `<option value="${c.id}">${c.label}</option>`).join("")}</select>
-        </div>
-        <div class="form-group">
-          <label>Kind</label>
-          <select id="msg-kind">
-            <option value="message">Message</option>
-            <option value="memo">Memo</option>
-            <option value="checkin">Check-in</option>
-            <option value="reminder">Reminder</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Body</label>
-        <textarea id="msg-body" required></textarea>
-      </div>
-      <button type="submit" class="btn">Send</button>
-    </form>`;
+  const data = await api("GET", "/conversations");
+  const convs = data.conversations || [];
+  let html = '<div class="threads"><div class="card conv-list"><h2>Conversations</h2>';
+  if (convs.length === 0) {
+    html += '<p class="empty">No linked patients yet.</p>';
   }
-  html += "</div>";
-
-  html += '<div class="card"><h2>Inbox</h2>';
-  if (msgs.length === 0) {
-    html += '<p class="empty">No messages.</p>';
-  } else {
-    html += '<div class="message-list">';
-    for (const m of msgs) {
-      const unread = !m.read_at;
-      const time = new Date(m.created_at).toLocaleString();
-      const from = m.sender_id === session.user_id ? "You" : m.sender_id.slice(0, 8);
-      html += `<div class="message-item ${unread ? "unread" : ""}">
-        <div class="meta"><span class="kind">${m.kind}</span> · ${from} · ${time}</div>
-        <div class="body">${esc(m.body)}</div>
-        ${unread && m.recipient_id === session.user_id ? `<button class="btn btn-sm" onclick="markRead('${m.id}')">Mark read</button>` : ""}
-      </div>`;
-    }
-    html += "</div>";
+  for (const c of convs) {
+    const when = c.last_at ? new Date(c.last_at).toLocaleString() : "";
+    const preview = c.last_body ? (c.last_from_me ? "You: " : "") + c.last_body : "No messages yet";
+    html += `<div class="conv ${openThread && openThread.id === c.user_id ? "active" : ""}" onclick="openConversation('${esc(c.user_id)}', '${esc(c.name).replace(/'/g, "&#39;")}')">
+      <div class="conv-top"><strong>${esc(c.name || "Unnamed")}</strong>
+        ${c.unread_count > 0 ? `<span class="badge badge-pending">${c.unread_count}</span>` : ""}</div>
+      <div class="conv-preview">${esc(preview)}</div><div class="hint">${esc(when)}</div></div>`;
   }
-  html += "</div>";
-
+  html += '</div><div class="card thread" id="thread"><p class="empty">Choose a conversation.</p></div></div>';
   container.innerHTML = html;
-  const form = document.getElementById("msg-form");
-  if (form) {
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      try {
-        await api("POST", "/messages", {
-          recipient_id: document.getElementById("msg-recipient").value,
-          kind: document.getElementById("msg-kind").value,
-          body: document.getElementById("msg-body").value,
-        });
-        showAlert("Message sent", "success");
-        loadTab();
-      } catch (err) {
-        showAlert(err.message);
-      }
-    };
-  }
+  if (openThread) showThread();
 }
 
-async function markRead(id) {
+function openConversation(id, name) {
+  openThread = { id, name };
+  document.querySelectorAll(".conv").forEach((el) => el.classList.remove("active"));
+  showThread();
+}
+
+async function showThread() {
+  const el = document.getElementById("thread");
+  if (!el || !openThread) return;
+  let data;
   try {
-    await api("POST", `/messages/${id}/read`);
-    loadTab();
+    data = await api("GET", `/messages?with=${openThread.id}&limit=100`);
   } catch (err) {
-    showAlert(err.message);
+    el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
   }
+  const msgs = (data.messages || []).slice().reverse(); // oldest first, like a chat
+  let html = `<h2>${esc(openThread.name)}</h2><div class="bubbles" id="bubbles">`;
+  for (const m of msgs) {
+    const mine = m.sender_id === session.user_id;
+    html += `<div class="bubble ${mine ? "mine" : "theirs"}">
+      ${m.kind !== "message" ? `<div class="kind">${esc(m.kind)}</div>` : ""}
+      <div>${esc(m.body)}</div><div class="time">${new Date(m.created_at).toLocaleString()}</div></div>`;
+  }
+  if (msgs.length === 0) html += '<p class="empty">No messages yet. Say hello.</p>';
+  html += `</div><form id="reply-form" class="reply">
+      <select id="reply-kind"><option value="message">Message</option><option value="memo">Memo</option>
+        <option value="checkin">Check-in</option><option value="reminder">Reminder</option></select>
+      <textarea id="reply-body" placeholder="Write a reply" required></textarea>
+      <button type="submit" class="btn">Send</button></form>`;
+  el.innerHTML = html;
+  const bubbles = document.getElementById("bubbles");
+  bubbles.scrollTop = bubbles.scrollHeight;
+  // Opening the thread reads their messages.
+  for (const m of data.messages || []) {
+    if (!m.read_at && m.recipient_id === session.user_id) {
+      api("POST", `/messages/${m.id}/read`).catch(() => {});
+    }
+  }
+  document.getElementById("reply-form").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/messages", {
+        recipient_id: openThread.id,
+        kind: document.getElementById("reply-kind").value,
+        body: document.getElementById("reply-body").value,
+      });
+      showThread();
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
 }
 
 // ---------------------------------------------------------------------------

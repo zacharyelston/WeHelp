@@ -132,6 +132,21 @@ struct APIClient: Sendable {
         return try await authorized("GET", "api/v1/messages", query: query)
     }
 
+    /// Everyone the caller is linked with, newest conversation first (#67).
+    func conversations() async throws -> [Conversation] {
+        struct List: Decodable { let conversations: [Conversation] }
+        let list: List = try await authorized("GET", "api/v1/conversations")
+        return list.conversations
+    }
+
+    /// The whole conversation with one linked user, newest first (#67).
+    func thread(with userID: UUID, cursor: String? = nil, limit: Int = 50) async throws -> MessagePage {
+        var query = [URLQueryItem(name: "with", value: userID.uuidString.lowercased()),
+                     URLQueryItem(name: "limit", value: String(limit))]
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await authorized("GET", "api/v1/messages", query: query)
+    }
+
     /// Idempotent on the server.
     func markRead(messageID: UUID) async throws {
         let _: Empty = try await authorized("POST", "api/v1/messages/\(messageID.uuidString.lowercased())/read")

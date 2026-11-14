@@ -151,6 +151,17 @@ func (s *Server) ListMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ?with=<user>: the whole conversation with one linked user (#67).
+	if w2 := q.Get("with"); w2 != "" {
+		with, err := uuid.Parse(w2)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "with must be a user ID")
+			return
+		}
+		s.listThread(w, r, with, limit, before, beforeID)
+		return
+	}
+
 	// Keyset pagination on (created_at, id), newest first.
 	base := `
 		select id, sender_id, recipient_id, kind, body, metadata, read_at, created_at

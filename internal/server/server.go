@@ -97,6 +97,7 @@ func (s *Server) Router() chi.Router {
 			r.Post("/links/{userID}/revoke", s.RevokeLink)
 			r.Post("/messages", s.CreateMessage)
 			r.Get("/messages", s.ListMessages)
+			r.Get("/conversations", s.ListConversations)
 			r.Post("/messages/{messageID}/read", s.MarkRead)
 			r.Post("/appointments", s.CreateAppointment)
 			r.Get("/appointments", s.ListAppointments)

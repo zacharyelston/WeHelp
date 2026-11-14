@@ -520,6 +520,19 @@ components:
         otpauth_url: { type: string }
         qr_png: { type: string, format: byte }
 
+    ConversationView:
+      type: object
+      required: [user_id, name, role, link_status, last_from_me, unread_count]
+      properties:
+        user_id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [provider, patient, admin] }
+        link_status: { type: string, enum: [pending, active] }
+        last_body: { type: string }
+        last_at: { type: string, format: date-time }
+        last_from_me: { type: boolean }
+        unread_count: { type: integer }
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -921,11 +934,19 @@ paths:
                 $ref: "#/components/schemas/Error"
     get:
       tags: [messages]
-      summary: List the caller's inbox (newest first, keyset-paginated)
+      summary: List the caller's inbox, or one conversation with ?with= (newest first, keyset-paginated)
       parameters:
         - $ref: "#/components/parameters/Unread"
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
+        - name: with
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: >
+            A linked user's ID: return the whole thread with them, both
+            directions (#67). Unread is ignored. 404 if not linked. Each
+            thread read is audited.
       responses:
         "200":
           description: OK
@@ -934,11 +955,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageListResponse"
         "400":
-          description: Invalid limit or cursor
+          description: Invalid limit, cursor or with
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "404":
+          description: No conversation with that user (not linked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/conversations:
+    get:
+      tags: [messages]
+      summary: Everyone you're linked with, with the latest message and unread count (#67)
+      responses:
+        "200":
+          description: Conversations with messages first, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [conversations]
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationView"
 
   /api/v1/messages/{messageID}/read:
     post:
