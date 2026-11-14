@@ -100,7 +100,8 @@ function renderLogin() {
         <button type="submit" class="btn" style="width:100%">Sign in</button>
       </form>
       <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
-        Demo: dr.ada.shaw@demo.wehelp / wehelp-demo-provider
+        Demo provider: dr.ada.shaw@demo.wehelp / wehelp-demo-provider<br>
+        Demo admin: admin@demo.wehelp / wehelp-demo-admin
       </p>
     </div>`;
 }

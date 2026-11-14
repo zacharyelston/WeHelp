@@ -8,25 +8,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/zacharyelston/wehelp/internal/auth"
 	"github.com/zacharyelston/wehelp/internal/seed"
 )
-
-const testAdminEmail, testAdminPassword = "admin@demo.wehelp", "wehelp-demo-admin-pw"
-
-// addAdmin creates an admin account in the demo practice.
-func addAdmin(t *testing.T, pool *pgxpool.Pool) {
-	t.Helper()
-	hash, err := auth.HashPassword(testAdminPassword)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(context.Background(), `
-		insert into users (tenant_id, email, password_hash, role, display_name)
-		select id, $1, $2, 'admin', 'Office Admin' from tenants where name = $3`, testAdminEmail, hash, seed.DemoTenant); err != nil {
-		t.Fatal(err)
-	}
-}
 
 // webSignIn signs a staff member in to the staff web (cookie + CSRF).
 func webSignIn(t *testing.T, h http.Handler, pool *pgxpool.Pool, email, password string) *client {
@@ -70,8 +53,7 @@ func TestProviderInvites(t *testing.T) {
 	s, pool := testBackOffice(t)
 	h := s.Router()
 	ctx := context.Background()
-	addAdmin(t, pool)
-	adm := webSignIn(t, h, pool, testAdminEmail, testAdminPassword)
+	adm := webSignIn(t, h, pool, seed.AdminEmail, seed.AdminPassword) // the seeded demo admin
 	ada := webSignIn(t, h, pool, seed.ProviderEmail, seed.ProviderPassword)
 	newProvider := map[string]string{"display_name": "Dr. Sam Lee", "email": "sam.lee@demo.wehelp"}
 

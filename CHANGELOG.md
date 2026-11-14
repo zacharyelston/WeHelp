@@ -87,6 +87,8 @@ All notable changes to WeHelp are documented here. Format follows
     `V10__staff_invites.sql` adds them.
   - This is the Back Office half of #62: Registry roster entries will feed
     the same invite. `wehelpd staff add` still works on the host.
+  - The demo seed adds an admin, `admin@demo.wehelp`. The staff sign-in page
+    lists it under Dr. Ada's demo login.
 
 - Practice website with a library and a supply store (#97, most of #5).
   - Staff build the site on a new staff web **Website** tab: about us,
@@ -542,6 +544,10 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Website publish (#97): when the Relay refused a publish (for example
+  "publishing too often") before the whole bundle was sent, the Back Office
+  reported EOF instead of the reason. It now reads the reply after a failed
+  write. This also fixes the flaky `TestPublishSiteThroughRelay`.
 - CI: Dockerfile and workflow pinned to Go 1.25 while go.mod requires 1.26 —
   bumped both to 1.26.
 - `audit.Record` genesis event: first event in a tenant chain now links to

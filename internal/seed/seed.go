@@ -36,6 +36,11 @@ const (
 	ProviderPassword = "wehelp-demo-provider"
 	ProviderName     = "Dr. Ada Shaw"
 
+	// The practice admin (#100): adds providers, office settings, pairing.
+	AdminEmail    = "admin@demo.wehelp"
+	AdminPassword = "wehelp-demo-admin"
+	AdminName     = "Office Admin"
+
 	// Patients have no password: they pair a phone in the office (#37).
 	Patient1Email = "jordan.lee@demo.wehelp"
 	Patient1Name  = "Jordan Lee"
@@ -48,6 +53,7 @@ const (
 // want to drive the API programmatically after seeding.
 type Result struct {
 	TenantID  uuid.UUID
+	Admin     Account
 	Provider  Account
 	Patient1  Account
 	Patient2  Account
@@ -86,6 +92,10 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 		return nil, fmt.Errorf("seed: tenant: %w", err)
 	}
 
+	admin, err := ensureUser(ctx, tx, tenantID, AdminEmail, AdminPassword, "admin", AdminName)
+	if err != nil {
+		return nil, err
+	}
 	provider, err := ensureUser(ctx, tx, tenantID, ProviderEmail, ProviderPassword, "provider", ProviderName)
 	if err != nil {
 		return nil, err
@@ -137,6 +147,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, out io.Writer) (*Result, error
 
 	res := &Result{
 		TenantID:  tenantID,
+		Admin:     *admin,
 		Provider:  *provider,
 		Patient1:  *patient1,
 		Patient2:  *patient2,
@@ -305,6 +316,10 @@ func printCredentials(out io.Writer, r *Result) {
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "=== WeHelp seed complete ===")
 	fmt.Fprintln(out, "Tenant:", DemoTenant, "("+r.TenantID.String()+")")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Admin (adds providers: Providers button):")
+	fmt.Fprintln(out, "  email:    ", AdminEmail)
+	fmt.Fprintln(out, "  password: ", AdminPassword)
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "Provider (login with these):")
 	fmt.Fprintln(out, "  email:    ", ProviderEmail)
