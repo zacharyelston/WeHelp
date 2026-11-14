@@ -13,7 +13,6 @@ type Config struct {
 	DatabaseURL string        `mapstructure:"database_url"`
 	LogLevel    string        `mapstructure:"log_level"`
 	Env         string        `mapstructure:"env"`
-	AutoMigrate bool          `mapstructure:"auto_migrate"`
 	JWTSecret   string        `mapstructure:"jwt_secret"`
 	AccessTTL   time.Duration `mapstructure:"access_ttl"`
 	RefreshTTL  time.Duration `mapstructure:"refresh_ttl"`
@@ -30,7 +29,6 @@ func Load(cfgFile string) error {
 	viper.SetDefault("database_url", "postgres://wehelp:wehelp@localhost:5432/wehelp?sslmode=disable")
 	viper.SetDefault("log_level", "info")
 	viper.SetDefault("env", "dev")
-	viper.SetDefault("auto_migrate", true)
 	viper.SetDefault("jwt_secret", "") // empty = ephemeral per-boot secret (dev only)
 	viper.SetDefault("access_ttl", "15m")
 	viper.SetDefault("refresh_ttl", "720h")

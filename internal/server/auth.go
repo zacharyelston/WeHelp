@@ -60,14 +60,16 @@ type tokenResponse struct {
 	ExpiresIn    int    `json:"expires_in"`
 }
 
-func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uuid.UUID, role string) (tokenResponse, error) {
+// issueTokens mints an access token and a refresh token. deviceID binds the
+// refresh token to an enrolled device (nil = unbound).
+func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uuid.UUID, role string, deviceID *uuid.UUID) (tokenResponse, error) {
 	raw, hash, err := auth.NewRefreshToken()
 	if err != nil {
 		return tokenResponse{}, err
 	}
 	_, err = tx.Exec(ctx,
-		`insert into refresh_tokens (user_id, tenant_id, token_hash, expires_at) values ($1, $2, $3, now() + $4::interval)`,
-		userID, tenantID, hash, s.cfg.RefreshTTL.String())
+		`insert into refresh_tokens (user_id, tenant_id, token_hash, expires_at, device_id) values ($1, $2, $3, now() + $4::interval, $5)`,
+		userID, tenantID, hash, s.cfg.RefreshTTL.String(), deviceID)
 	if err != nil {
 		return tokenResponse{}, err
 	}
@@ -162,7 +164,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.issueTokens(ctx, tx, userID, tenantID, req.Role)
+	resp, err := s.issueTokens(ctx, tx, userID, tenantID, req.Role, nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "token failed")
 		return
@@ -225,70 +227,7 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := s.issueTokens(ctx, tx, userID, tenantID, role)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "token failed")
-		return
-	}
-	if err := tx.Commit(ctx); err != nil {
-		writeErr(w, http.StatusInternalServerError, "commit failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-type refreshRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-// Refresh rotates a refresh token and returns a new token pair.
-func (s *Server) Refresh(w http.ResponseWriter, r *http.Request) {
-	var req refreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid body")
-		return
-	}
-	hash, err := auth.HashRefreshToken(req.RefreshToken)
-	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "invalid refresh token")
-		return
-	}
-
-	ctx := r.Context()
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "tx failed")
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	var tokenID, userID, tenantID uuid.UUID
-	var role string
-	err = tx.QueryRow(ctx, `
-		update refresh_tokens rt set revoked_at = now()
-		from users u
-		where rt.user_id = u.id
-		  and rt.token_hash = $1 and rt.revoked_at is null and rt.expires_at > now()
-		returning rt.id, rt.user_id, rt.tenant_id, u.role`, hash).
-		Scan(&tokenID, &userID, &tenantID, &role)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeErr(w, http.StatusUnauthorized, "invalid or expired refresh token")
-		return
-	}
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "refresh failed")
-		return
-	}
-
-	if err := audit.Record(ctx, tx, audit.Event{
-		TenantID: tenantID, ActorID: &userID,
-		Action: "auth.refresh", ResourceType: "refresh_token", ResourceID: tokenID.String(),
-	}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "audit failed")
-		return
-	}
-
-	resp, err := s.issueTokens(ctx, tx, userID, tenantID, role)
+	resp, err := s.issueTokens(ctx, tx, userID, tenantID, role, nil)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "token failed")
 		return

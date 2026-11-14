@@ -63,6 +63,8 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 			r.Post("/register", s.Register)
 			r.Post("/login", s.Login)
 			r.Post("/refresh", s.Refresh)
+			r.Post("/enroll", s.Enroll)
+			r.Post("/logout", s.Logout)
 		})
 
 		r.Group(func(r chi.Router) {

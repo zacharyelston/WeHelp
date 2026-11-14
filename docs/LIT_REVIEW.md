@@ -41,7 +41,7 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 |---|---|
 | immudb, google/trillian | **reference** — both prove we chose the right family of design (append-only + chained hashes); ours stays hand-rolled until scale demands otherwise |
 
-## Push notifications (#9)
+## Push notifications (#9, now sent by the Relay: #7)
 
 | Candidate | Verdict |
 |---|---|
@@ -61,6 +61,49 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 | Candidate | Verdict |
 |---|---|
 | oapi-codegen/oapi-codegen | **evaluate** — spec-first codegen for chi; alternatively keep hand-written handlers + spec as documentation, generate the Swift client from the spec later |
+
+## V1 secure channel: Back Office ↔ Relay ↔ phone (V1-M1, V1-M2)
+
+Requirement: the Relay connects phones to their office without being able to
+read or impersonate it. The office opens only outbound connections. See
+ARCHITECTURE.md, "Connections".
+
+| Candidate | Verdict |
+|---|---|
+| golang.org/x/crypto/ssh | **adopt**: office ↔ Relay transport. Key auth, host-key pinning and custom channel types are all in the standard Go extended library, with no new protocol to invent or audit |
+| iOS 17 `ProxyConfiguration` (HTTP `CONNECT`, Network framework) | **adopt** (confirm in spike S1): `URLSession` reaches the Relay as a `CONNECT` proxy, so routing needs no DNS or SNI tricks and the inner TLS stays end to end |
+| `URLSession` delegate SPKI pinning | **adopt**: pin the office TLS key delivered by the QR. Fails closed |
+| Tailscale Funnel | **reference**: an edge that routes without terminating TLS. Same principle |
+| frp, yamux, SNI-passthrough routing | **superseded** by SSH + `CONNECT` (fewer moving parts; no public DNS or certificates per office) |
+| Cloudflare Tunnel, ngrok default edges | **skip**: they terminate TLS at a third party, which would see PHI |
+| modernc.org/sqlite | **adopt**: the Relay's registry and push tokens, pure Go, single file |
+
+## V1 identity and staff auth (V1-M2)
+
+| Candidate | Verdict |
+|---|---|
+| CryptoKit `SecureEnclave.P256` | **adopt** (built in the PoC): the device key is the patient credential |
+| `LocalAuthentication` (Face ID or passcode) | **adopt**: unlocks the app; patients have no password in V1 |
+| pquerna/otp | **adopt**: TOTP for staff sign-in. Small, widely used |
+| Apple App Attest | **evaluate** (#11): proves the genuine app at enrollment |
+| A local breached-password list (HIBP-style hashes) | **evaluate**: staff password screening without an outbound call |
+
+## V1 telehealth (V1-M4)
+
+| Candidate | Verdict |
+|---|---|
+| WebRTC 1:1, DTLS-SRTP end to end | **adopt**: for two parties, peer-to-peer media through TURN is already end-to-end encrypted; no SFU needed |
+| pion/turn | **adopt** (confirm in spike S2): TURN server in the Relay binary, in Go |
+| WebRTC iOS framework (Google's build via a SwiftPM package) | **evaluate** in S2: the binary dependency size and update cadence must be acceptable |
+| LiveKit, SFU + SFrame | **reference**: only needed for group visits, which are post-V1 |
+
+## V1 operations (V1-M6)
+
+| Candidate | Verdict |
+|---|---|
+| filippo.io/age | **adopt**: encrypted nightly backups to the practice owner's key |
+| govulncheck, staticcheck | **adopt**: CI security and correctness checks |
+| OWASP ASVS 4.0 L2, MASVS L2 | **adopt** as the audit checklists (SECURITY.md) |
 
 ## Non-Go prior art worth knowing
 
