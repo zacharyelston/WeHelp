@@ -6,6 +6,17 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The readme and the presentation lead with who we are: built by providers,
+  for providers, from 30 years in healthcare services technology and patient
+  services, with licensed providers on the board of directors. The deck has a
+  new "Who we are" slide after the cover, and its page numbers now count
+  themselves.
+- The readme opens with screenshots (staff web, iPhone app, practice website)
+  and links to the overview presentation, published from `presentation/` to
+  GitHub Pages (https://zacharyelston.github.io/WeHelp/) by
+  `.github/workflows/pages.yml`. The presentation is a static copy of the
+  WeHelp overview deck: arrow keys or swipe to move, and it prints as one
+  slide per page.
 - Proposal for other kinds of practice (docs/PRACTICE_TYPES.md, epic #112):
   presets with their own words for therapy, allied health and salons; switches
   so a practice or a provider can turn messaging off; a practice inbox; and
