@@ -1,0 +1,29 @@
+# Spike S3 (#34) iOS client: registers for push and shows its device token
+# and any received notification. Throwaway. Generate with `xcodegen generate`.
+name: S3Spike
+options:
+  bundleIdPrefix: com.zacelston.wehelp
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  S3Spike:
+    type: application
+    platform: iOS
+    sources:
+      - path: S3Spike
+        excludes:
+          - "Info.plist"
+    info:
+      path: S3Spike/Info.plist
+      properties:
+        UILaunchScreen: {}
+    entitlements:
+      path: S3Spike/S3Spike.entitlements
+      properties:
+        aps-environment: development
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zacelston.wehelp.spike3
+        DEVELOPMENT_TEAM: WZYFJ8TSWD
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
