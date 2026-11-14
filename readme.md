@@ -2,6 +2,8 @@
 
 ### Built by providers, for providers.
 
+<a href="https://zacharyelston.github.io/WeHelp/#5"><img src="presentation/img/ecosystem.svg" alt="The WeHelp ecosystem: the patient's app and the practice's Back Office are tied together by a QR code scanned at the front desk; the app talks to the Back Office through WeHelp's Relay, which only sees encrypted traffic; all patient data stays in the Back Office; the Registry lists practices; the Relay serves each practice's website and blog." width="100%"></a>
+
 We have spent the last 30 years in healthcare services technology and patient
 services, and licensed providers sit on our board of directors and shape what
 we build.
@@ -15,7 +17,7 @@ monitors.
   <tr>
     <td width="44%"><a href="https://zacharyelston.github.io/WeHelp/#8"><img src="presentation/img/08-provider-appointments.png" alt="Staff web: a provider's appointments and appointment requests"></a></td>
     <td width="18%"><a href="https://zacharyelston.github.io/WeHelp/#6"><img src="presentation/img/app-schedule.png" alt="The WeHelp iPhone app's Schedule screen"></a></td>
-    <td width="38%"><a href="https://zacharyelston.github.io/WeHelp/#11"><img src="presentation/img/s01-site-home-ocean.png" alt="A practice website made with WeHelp, in the ocean theme"></a></td>
+    <td width="38%"><a href="https://zacharyelston.github.io/WeHelp/#14"><img src="presentation/img/s01-site-home-ocean.png" alt="A practice website made with WeHelp, in the ocean theme"></a></td>
   </tr>
   <tr>
     <td align="center">Staff web: the provider's day</td>
