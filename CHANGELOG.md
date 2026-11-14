@@ -5,6 +5,22 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- CI and `make test` run Go tests with the race detector (`-race`). `main`
+  is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
+  must be up to date before a PR merges (#30).
+- iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
+  `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).
+  The HealthKit entitlement is kept; it provisions on this paid team.
+- Migrations moved from embedded goose to **Flyway**: `db/migrations/
+  V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
+  compose `migrate` service runs before `server`; `make db-migrate` is the
+  containerized path and `wehelpd migrate` wraps a local flyway CLI.
+  `serve`/`seed` no longer auto-migrate; `WEHELP_AUTO_MIGRATE` is gone.
+  Existing goose-managed dev DBs need `flyway baseline` or a fresh volume.
+- Server binary renamed `wehelp` → `wehelpd`: viper found the binary itself
+  when it sat at the container's CWD and tried to parse it as YAML.
+
 ### Added
 - iOS sign-in with device-bound sessions (#5). There is a sign-in screen
   (practice, email, password, server). After a password login the app creates
@@ -31,10 +47,8 @@ All notable changes to WeHelp are documented here. Format follows
   - Debug builds can define several demo servers as `Label|URL` pairs in
     `WEHELP_DEV_SERVERS`, set in the gitignored `Local.xcconfig` (see
     `Local.xcconfig.example`). Each uses the demo login. A "Restore demo
-    servers" button brings back any you deleted. Debug builds
-  add a "Demo Clinic" connection from `ios/Config/Debug.xcconfig` (seed
-  credentials, including the demo password) for device testing. Release
-  builds leave those settings empty.
+    servers" button brings back any you deleted. Release builds include no
+    demo servers or demo credentials.
 - Server: `POST /api/v1/auth/enroll` and `/auth/logout`, plus migration
   `V3__devices.sql` (a `devices` table and `refresh_tokens.device_id`).
   - Device-bound refresh tokens need an ECDSA-P256 proof over
@@ -44,24 +58,6 @@ All notable changes to WeHelp are documented here. Format follows
     patients mobile-only per docs/ARCHITECTURE.md. Staff tokens are
     unaffected.
   - Enroll, refresh and logout are audited.
-
-### Changed
-- CI and `make test` run Go tests with the race detector (`-race`). `main`
-  is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
-  must be up to date before a PR merges (#30).
-- iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
-  `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).
-  The HealthKit entitlement is kept; it provisions on this paid team.
-- Migrations moved from embedded goose to **Flyway**: `db/migrations/
-  V{n}__name.sql`, `flyway_schema_history` + checksum enforcement. The
-  compose `migrate` service runs before `server`; `make db-migrate` is the
-  containerized path and `wehelpd migrate` wraps a local flyway CLI.
-  `serve`/`seed` no longer auto-migrate; `WEHELP_AUTO_MIGRATE` is gone.
-  Existing goose-managed dev DBs need `flyway baseline` or a fresh volume.
-- Server binary renamed `wehelp` → `wehelpd`: viper found the binary itself
-  when it sat at the container's CWD and tried to parse it as YAML.
-
-### Added
 - iOS: run on a physical device against a local backend. The server URL can
   now be set in Settings (persisted in UserDefaults; it is not a secret),
   with "Save and test connection" calling `/api/v1/ping` and a reset to the
