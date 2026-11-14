@@ -49,6 +49,10 @@ function startStaffSetup() {
   return true;
 }
 
+// A set-up link pasted into a tab already on this page only changes the
+// fragment, with no reload.
+window.addEventListener("hashchange", startStaffSetup);
+
 const PROVIDER_STATUS = {
   invited: ["pending", "Invited"],
   invite_expired: ["revoked", "Link expired"],
