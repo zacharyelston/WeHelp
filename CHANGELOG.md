@@ -5,6 +5,16 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- Spike S2, telehealth (#33): the answer is yes. Two iOS simulators held 1:1
+  WebRTC calls with relay-only ICE through pion/turn. Media was DTLS-SRTP end
+  to end, and the DTLS fingerprints matched each peer's SDP. Two calls at
+  once used about 6% of one core on the server. The write-up and
+  measurements are in docs/spikes/S2.md. The throwaway code in `spikes/s2/`
+  is a TURN and signaling server in Go and a SwiftUI app using
+  `stasel/WebRTC`. The lit review verdicts for pion/turn and the iOS WebRTC
+  framework are updated.
+
 ### Changed
 - AGENTS.md and CONTRIBUTING.md brought up to date (#13):
   - issues and PRs live in zacharyelston/WeHelp;
