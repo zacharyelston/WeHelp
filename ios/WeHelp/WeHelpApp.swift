@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct WeHelpApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @State private var appState = AppState()
 
     var body: some Scene {
@@ -36,7 +37,10 @@ struct RootView: View {
                 .overlay {
                     if lock.locked { LockView(lock: lock) } else if scenePhase != .active { PrivacyCover() }
                 }
-                .task { await lock.unlock() }
+                .task {
+                    await lock.unlock()
+                    await Push.enable() // permission once, then the token goes to every practice (#7)
+                }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background { lock.lock() }
                     if phase == .active { Task { await lock.unlock() } }

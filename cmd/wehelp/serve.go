@@ -43,7 +43,9 @@ var serveCmd = &cobra.Command{
 			if p, err := id.Pairing(); err == nil {
 				srv.SetPairing(p) // QR pairing (#37)
 			}
-			startTunnel(ctx, cfg, id, srv.Router())
+			pusher := &tunnel.Pusher{}
+			srv.SetPusher(pusher) // push through the Relay (#7)
+			startTunnel(ctx, cfg, id, srv.Router(), pusher)
 			if err := startStaffTLS(ctx, cfg, id, srv); err != nil {
 				return err
 			}
@@ -65,12 +67,12 @@ func loadOffice(cfg config.Config) (*office.Identity, error) {
 
 // startTunnel connects this office to its Relay (#4). With relay_tunnel off,
 // the server is reachable on the office LAN only.
-func startTunnel(ctx context.Context, cfg config.Config, id *office.Identity, handler http.Handler) {
+func startTunnel(ctx context.Context, cfg config.Config, id *office.Identity, handler http.Handler, pusher *tunnel.Pusher) {
 	if !cfg.RelayTunnel {
 		return
 	}
 	go func() {
-		if err := tunnel.Run(ctx, id, handler, tunnel.Options{RelayAddress: cfg.RelayAddressOverride}); err != nil {
+		if err := tunnel.Run(ctx, id, handler, tunnel.Options{RelayAddress: cfg.RelayAddressOverride, Pusher: pusher}); err != nil {
 			slog.Error("relay tunnel stopped", "err", err)
 		}
 	}()

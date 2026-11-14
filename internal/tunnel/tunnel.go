@@ -51,6 +51,8 @@ type Options struct {
 	Keepalive    time.Duration // default 30 s
 	// OnConnect, if set, is called each time the tunnel is up (tests).
 	OnConnect func()
+	// Pusher, if set, sends push requests over the live connection (#7).
+	Pusher *Pusher
 }
 
 // Run keeps the tunnel up until ctx ends, reconnecting with backoff.
@@ -147,6 +149,10 @@ func connectOnce(ctx context.Context, addr string, cfg *ssh.ClientConfig, ln *ch
 	client := ssh.NewClient(conn, chans, reqs)
 	defer client.Close()
 	phones := client.HandleChannelOpen(ChannelType) // all other types are rejected
+	if opt.Pusher != nil {
+		opt.Pusher.set(client)
+		defer opt.Pusher.set(nil)
+	}
 	slog.Info("tunnel: connected to relay", "relay", addr)
 	if opt.OnConnect != nil {
 		opt.OnConnect()

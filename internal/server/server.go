@@ -24,6 +24,7 @@ type Server struct {
 	jwtSecret []byte
 	pairing   *office.Pairing // nil until the office is installed (#35)
 	httpsPort string          // set: plain HTTP only redirects to HTTPS (#38)
+	pusher    Pusher          // push through the Relay (#7); nil = off
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -104,6 +105,8 @@ func (s *Server) Router() chi.Router {
 			r.Patch("/appointments/{appointmentID}", s.UpdateAppointment)
 			r.Get("/devices", s.ListMyDevices)
 			r.Delete("/devices/{deviceID}", s.RevokeMyDevice)
+			r.Put("/devices/current/push", s.SetPushToken)
+			r.Delete("/devices/current/push", s.ClearPushToken)
 		})
 
 		// Staff routes: office LAN only. Through the Relay they are a 404

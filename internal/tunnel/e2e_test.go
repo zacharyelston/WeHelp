@@ -108,7 +108,9 @@ type harness struct {
 	cache      string
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *harness { return newHarnessWith(t, nil) }
+
+func newHarnessWith(t *testing.T, apns *relay.APNs) *harness {
 	t.Helper()
 	_, regKey, _ := ed25519.GenerateKey(rand.Reader)
 	h := &harness{reg: &fakeRegistry{key: regKey}, relayID: uuid.NewString()}
@@ -125,7 +127,7 @@ func newHarness(t *testing.T) *harness {
 	h.rl, err = relay.New(relay.Config{
 		RelayID: h.relayID, HostKey: keys.HostKey, TLSCert: keys.TLSCert,
 		RegistryURL: h.registry.URL, RegistryKey: regKey.Public().(ed25519.PublicKey),
-		CachePath: h.cache, ListInterval: 50 * time.Millisecond,
+		CachePath: h.cache, ListInterval: 50 * time.Millisecond, APNs: apns,
 	})
 	if err != nil {
 		t.Fatal(err)

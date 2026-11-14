@@ -1496,3 +1496,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /api/v1/devices/current/push:
+    put:
+      tags: [devices]
+      summary: Register this device's APNs token for push (#7)
+      description: >
+        Device-bound sessions only. The Back Office keeps the token on the
+        device record and asks its Relay to push fixed, generic categories
+        (new message, appointment reminder, visit starting). Cleared when
+        the device is revoked or Apple reports it invalid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, environment]
+              properties:
+                token: { type: string, description: Hex APNs device token. }
+                environment: { type: string, enum: [sandbox, production] }
+      responses:
+        "204":
+          description: Registered.
+        "400":
+          description: Malformed token or environment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Not a paired device.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags: [devices]
+      summary: Stop push to this device
+      responses:
+        "204":
+          description: Token cleared.
+        "403":
+          description: Not a paired device.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

@@ -48,6 +48,8 @@ type Config struct {
 	HTTPClient   *http.Client      // default: 20 s timeout
 	MaxChannels  int               // concurrent phone connections per office; default 64
 	Keepalive    time.Duration     // SSH keepalive to offices; default 30 s
+	APNs         *APNs             // push sender (#7); nil = push disabled
+	PushPerMin   int               // pushes per office per minute; default 120
 	Now          func() time.Time  // for tests
 }
 
@@ -65,6 +67,7 @@ type Relay struct {
 	version int64
 	offices map[string]*officeConn // office ID → live connection
 	active  map[string]int         // office ID → open phone channels
+	pushes  map[string][]time.Time // office ID → recent pushes (rate limit)
 }
 
 // New returns a Relay, loading the cached list if there is one.
@@ -84,7 +87,11 @@ func New(cfg Config) (*Relay, error) {
 	if cfg.Keepalive <= 0 {
 		cfg.Keepalive = 30 * time.Second
 	}
-	r := &Relay{cfg: cfg, allowed: map[string]string{}, offices: map[string]*officeConn{}, active: map[string]int{}}
+	if cfg.PushPerMin <= 0 {
+		cfg.PushPerMin = 120
+	}
+	r := &Relay{cfg: cfg, allowed: map[string]string{}, offices: map[string]*officeConn{}, active: map[string]int{},
+		pushes: map[string][]time.Time{}}
 	if cfg.CachePath != "" {
 		if l, err := loadCache(cfg.CachePath, cfg.RegistryKey); err != nil {
 			slog.Warn("relay: ignoring office list cache", "err", err)
@@ -199,7 +206,7 @@ func (r *Relay) serveOffice(nc net.Conn, cfg *ssh.ServerConfig) {
 	}
 	slog.Info("relay: office connected", "office", id)
 
-	go ssh.DiscardRequests(reqs)
+	go r.officeRequests(id, reqs)
 	go func() { // offices never open channels to the Relay
 		for nch := range chans {
 			_ = nch.Reject(ssh.Prohibited, "the relay accepts no channels")

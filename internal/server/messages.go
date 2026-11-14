@@ -119,6 +119,7 @@ func (s *Server) CreateMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "commit failed")
 		return
 	}
+	s.notify(req.RecipientID, "new_message") // generic push to their devices (#7)
 	writeJSON(w, http.StatusCreated, map[string]any{"id": msgID, "kind": req.Kind})
 }
 
