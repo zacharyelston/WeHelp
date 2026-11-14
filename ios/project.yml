@@ -43,11 +43,6 @@ targets:
               NSIncludesSubdomains: true
               NSExceptionAllowsInsecureHTTPLoads: true
               NSExceptionMinimumTLSVersion: TLSv1.3
-        # Debug-only demo connection (empty in Release).
-        WeHelpDevTenant: $(WEHELP_DEV_TENANT)
-        WeHelpDevEmail: $(WEHELP_DEV_EMAIL)
-        WeHelpDevPassword: $(WEHELP_DEV_PASSWORD)
-        WeHelpDevServers: $(WEHELP_DEV_SERVERS)
     entitlements:
       path: WeHelp/WeHelp.entitlements
       properties:

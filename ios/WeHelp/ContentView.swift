@@ -41,11 +41,17 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Account") {
-                    if let name = appState.me?.displayName, !name.isEmpty {
-                        LabeledContent("Name", value: name)
+                // The practices this device is paired with (#89).
+                Section("Practice") {
+                    if let a = appState.active { AccountRow(account: a, active: true) }
+                    NavigationLink {
+                        AccountsView()
+                    } label: {
+                        Label(appState.accounts.count > 1 ? "Switch practice (\(appState.accounts.count) accounts)" : "Accounts",
+                              systemImage: "person.2")
                     }
-                    LabeledContent("Role", value: appState.me?.role ?? "unknown")
+                }
+                Section("This device") {
                     LabeledContent("Office", value: appState.api.office.map { String($0.officeID.prefix(8)) + "…" } ?? "none")
                     LabeledContent("Relay", value: appState.api.office?.relay ?? "none")
                     NavigationLink("Devices") { DevicesView() }

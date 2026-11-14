@@ -6,23 +6,56 @@ enum Role: String, Codable {
     case patient
 }
 
-/// Session-scoped state: who is signed in and how to reach the backend.
+/// App state: the practices this device is paired with (#89), which one is
+/// active, and that account's session.
 @MainActor
 @Observable
 final class AppState {
-    /// unreachable: this device is paired but the practice can't be reached
-    /// right now. The account is kept; it is never treated as unpaired.
+    /// signedOut: no accounts yet (pair screen). unreachable: the active
+    /// practice can't be reached right now; the account is kept and is never
+    /// treated as unpaired.
     enum Phase: Equatable { case launching, signedOut, signedIn, unreachable(String) }
 
-    /// UserDefaults keys. Neither is a secret.
-    static let officeKey = "currentOffice"
-    static let tenantKey = "tenant"
+    /// UserDefaults keys. None is a secret.
+    static let accountsKey = "accounts"
+    static let activeKey = "activeAccount"
 
     private(set) var phase: Phase = .launching
     private(set) var me: Me?
     var role: Role? { me.flatMap { Role(rawValue: $0.role) } }
-    /// Provider and admin devices get the practice view (#69).
+    /// Provider and admin accounts get the practice view (#69).
     var isStaff: Bool { me?.role == "provider" || me?.role == "admin" }
+
+    // MARK: Accounts (#89)
+
+    /// Every practice this device is paired with, in Accounts-card order:
+    /// admin first, then provider, then patient.
+    private(set) var accounts: [Account] = []
+    private(set) var active: Account?
+    /// Bumped when a pairing adds an account, so the pair screen can close.
+    private(set) var pairedCount = 0
+
+    private var sessions: [String: SessionStore] = [:]
+    private(set) var api: APIClient
+    private let defaults: UserDefaults
+
+    /// The active practice's name, for messages.
+    var lastTenant: String { active?.practice ?? "" }
+
+    private func session(for id: String) -> SessionStore {
+        if let s = sessions[id] { return s }
+        let s = SessionStore(accountID: id)
+        sessions[id] = s
+        return s
+    }
+
+    private func persist() {
+        accounts = Account.sorted(accounts)
+        if let data = try? JSONEncoder().encode(accounts) { defaults.set(data, forKey: Self.accountsKey) }
+        defaults.set(active?.id, forKey: Self.activeKey)
+    }
+
+    // MARK: People
 
     /// Display names of the people the caller is linked with, from
     /// /api/v1/links. In memory only; never written to disk.
@@ -40,173 +73,122 @@ final class AppState {
         people = names
     }
 
-    let session = SessionStore()
-    private(set) var api: APIClient
-    private let defaults: UserDefaults
-
-    var lastTenant: String {
-        get { defaults.string(forKey: Self.tenantKey) ?? "" }
-        set { defaults.set(newValue, forKey: Self.tenantKey) }
-    }
-
-    // MARK: Saved connections
-
-    static let connectionsKey = "savedConnections"
-    static let hiddenPresetsKey = "hiddenPresetConnections"
-
-    /// Most recent first. The Debug demo preset is listed after the user's
-    /// own connections unless one of them already matches it, or the user
-    /// deleted or edited it away.
-    private(set) var savedConnections: [SavedConnection] = []
-
-    private var hiddenPresets: Set<String> {
-        get { Set(defaults.stringArray(forKey: Self.hiddenPresetsKey) ?? []) }
-        set { defaults.set(Array(newValue), forKey: Self.hiddenPresetsKey) }
-    }
-
-    private func loadConnections(bundle: Bundle) {
-        // Decoded one by one so a stale entry (e.g. a pre-Relay server URL)
-        // is dropped without losing the rest.
-        struct Lenient: Decodable {
-            let value: SavedConnection?
-            init(from decoder: Decoder) throws { value = try? SavedConnection(from: decoder) }
-        }
-        let stored = defaults.data(forKey: Self.connectionsKey)
-            .flatMap { try? JSONDecoder().decode([Lenient].self, from: $0) }?
-            .compactMap(\.value) ?? []
-        var list = stored
-        let hidden = hiddenPresets
-        for preset in SavedConnection.devPresets(bundle: bundle)
-        where !hidden.contains(preset.id) {
-            if let i = list.firstIndex(where: { $0.id == preset.id }) {
-                list[i].devPassword = preset.devPassword
-                if list[i].label == nil { list[i].label = preset.label }
-            } else {
-                list.append(preset)
-            }
-        }
-        savedConnections = list
-    }
-
-    /// Debug builds: whether any demo presets exist to restore.
-    var hasDevPresets: Bool {
-        !SavedConnection.devPresets().isEmpty
-    }
-
-    /// Brings back demo presets the user deleted or edited away.
-    func restoreDevPresets() {
-        hiddenPresets = []
-        persistConnections()
-        loadConnections(bundle: .main)
-    }
-
-    private func persistConnections() {
-        if let data = try? JSONEncoder().encode(savedConnections) {
-            defaults.set(data, forKey: Self.connectionsKey)
-        }
-    }
-
-    /// Moves (or inserts) the connection to the top of the list.
-    func rememberConnection(tenant: String, email: String) {
-        guard let office = api.office else { return }
-        var conn = SavedConnection(office: office, tenant: tenant, email: email)
-        if let existing = savedConnections.first(where: { $0.id == conn.id }) {
-            conn.devPassword = existing.devPassword
-            conn.label = existing.label
-        }
-        savedConnections.removeAll { $0.id == conn.id }
-        savedConnections.insert(conn, at: 0)
-        persistConnections()
-    }
-
-    /// Adds a connection, or replaces `replacing` (the old ID) when editing.
-    func saveConnection(_ conn: SavedConnection, replacing oldID: SavedConnection.ID? = nil) {
-        if let oldID, oldID != conn.id,
-           savedConnections.first(where: { $0.id == oldID })?.devPassword != nil {
-            hiddenPresets.insert(oldID)   // an edited preset must not come back
-        }
-        let index = oldID.flatMap { id in savedConnections.firstIndex { $0.id == id } }
-        savedConnections.removeAll { $0.id == conn.id || $0.id == oldID }
-        savedConnections.insert(conn, at: min(index ?? 0, savedConnections.count))
-        persistConnections()
-    }
-
-    func forgetConnection(_ conn: SavedConnection) {
-        if conn.devPassword != nil { hiddenPresets.insert(conn.id) }
-        savedConnections.removeAll { $0.id == conn.id }
-        persistConnections()
-    }
-
-    /// Points the client at the connection's office and persists the choice.
-    func use(_ conn: SavedConnection) {
-        setOffice(conn.office)
-    }
-
-    init(defaults: UserDefaults = .standard, bundle: Bundle = .main) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        let stored = defaults.data(forKey: Self.officeKey)
-            .flatMap { try? JSONDecoder().decode(OfficeEndpoint.self, from: $0) }
-        api = APIClient(office: stored, session: session)
-        defaults.removeObject(forKey: "serverURL") // pre-Relay setting (#36)
-        loadConnections(bundle: bundle)
-        // A revoked device (#10) is signed out as soon as the server says so.
-        NotificationCenter.default.addObserver(forName: .weHelpSessionEnded, object: nil, queue: .main) { [weak self] _ in
+        api = APIClient(office: nil, session: SessionStore(accountID: "none"))
+        accounts = Account.sorted(defaults.data(forKey: Self.accountsKey)
+            .flatMap { try? JSONDecoder().decode([Account].self, from: $0) } ?? [])
+        let activeID = defaults.string(forKey: Self.activeKey)
+        active = accounts.first { $0.id == activeID } ?? accounts.first
+        if let a = active { api = APIClient(office: a.office, session: session(for: a.id)) }
+        for key in ["serverURL", "savedConnections", "hiddenPresetConnections"] { // pre-#89 settings
+            defaults.removeObject(forKey: key)
+        }
+        // A device the practice revoked (#10) loses just that account.
+        NotificationCenter.default.addObserver(forName: .weHelpSessionEnded, object: nil, queue: .main) { [weak self] note in
+            let accountID = note.object as? String
             MainActor.assumeIsolated {
-                guard let self, self.phase == .signedIn else { return }
-                Task { await self.wipeLocalSession() }
+                guard let self, let accountID else { return }
+                Task { await self.removeRevoked(accountID) }
             }
         }
     }
 
-    // MARK: Session
+    // MARK: Launch and switching
 
-    /// On launch: resume a device-bound session if this phone has one.
+    /// On launch: move a pre-#89 pairing over, then open the active account.
     func bootstrap() async {
-        guard await session.refreshToken != nil, DeviceKey.load() != nil else {
+        await migrateLegacyPairing()
+        guard let a = active else {
             phase = .signedOut
             return
         }
+        await open(a)
+    }
+
+    /// Makes `a` the active account and reaches its practice.
+    func switchTo(_ a: Account) async {
+        guard a.id != active?.id || phase != .signedIn else { return }
+        me = nil
+        people = [:]
+        active = a
+        persist()
+        phase = .launching
+        await open(a)
+    }
+
+    private func open(_ a: Account) async {
+        api = APIClient(office: a.office, session: session(for: a.id))
         do {
-            me = try await api.me()   // refreshes with the device key first
+            let m = try await api.me() // refreshes with this account's device key first
+            me = m
+            if let i = accounts.firstIndex(where: { $0.id == a.id }) {
+                accounts[i].role = m.role
+                accounts[i].userID = m.userID
+                if let n = m.displayName, !n.isEmpty { accounts[i].displayName = n }
+                active = accounts[i]
+                persist()
+            }
             phase = .signedIn
         } catch APIError.unauthorized, APIError.notEnrolled {
-            await wipeLocalSession()
+            await removeRevoked(a.id)
         } catch {
             // Practice unreachable (Relay down, no network, office offline):
-            // keep the pairing and offer to try again, never the pair screen.
+            // keep the account and offer to try again or switch, never the
+            // pair screen.
             phase = .unreachable(error.localizedDescription)
         }
     }
 
-    /// Tries to reach the practice again after `.unreachable`.
+    /// Tries to reach the active practice again after `.unreachable`.
     func retry() {
         phase = .launching
     }
 
-    /// Password login, then enroll this device and keep only the
-    /// device-bound session.
-    func signIn(tenant: String, email: String, password: String) async throws {
-        let login = try await api.login(tenant: tenant, email: email, password: password)
-        DeviceKey.delete()
-        let key = try DeviceKey.create()
-        let bound = try await api.enroll(loginRefreshToken: login.refreshToken, key: key, name: UIDevice.current.name)
-        try await session.store(bound)
-        lastTenant = tenant
-        rememberConnection(tenant: tenant, email: email)
-        me = try await api.me()
-        phase = .signedIn
+    /// The practice revoked this device (or its session ended for good):
+    /// remove only that account, then open another or show the pair screen.
+    private func removeRevoked(_ id: String) async {
+        guard accounts.contains(where: { $0.id == id }) else { return }
+        await session(for: id).clear()
+        Keychain.deleteAll(account: id)
+        sessions[id] = nil
+        accounts.removeAll { $0.id == id }
+        if active?.id == id {
+            me = nil
+            people = [:]
+            active = accounts.first
+            persist()
+            if let next = active {
+                phase = .launching
+                await open(next)
+            } else {
+                api = APIClient(office: nil, session: SessionStore(accountID: "none"))
+                phase = .signedOut
+            }
+        } else {
+            persist()
+        }
     }
 
-
-    private func wipeLocalSession() async {
-        people = [:]
-        await session.clear()
-        DeviceKey.delete()
-        me = nil
-        phase = .signedOut
+    /// A device paired before #89 kept one unscoped key and token; give them
+    /// an account so the pairing survives the update.
+    private func migrateLegacyPairing() async {
+        guard accounts.isEmpty,
+              let office = defaults.data(forKey: "currentOffice").flatMap({ try? JSONDecoder().decode(OfficeEndpoint.self, from: $0) })
+        else { return }
+        let id = UUID().uuidString
+        let s = session(for: id)
+        guard await s.adoptLegacyToken(), DeviceKey.migrateLegacy(to: id) else { return }
+        let a = Account(id: id, office: office, practice: defaults.string(forKey: "tenant") ?? "Your practice",
+                        displayName: "", role: "patient", userID: "", deviceID: "", pairedAt: .now)
+        accounts = [a]
+        active = a
+        persist()
+        defaults.removeObject(forKey: "currentOffice")
+        defaults.removeObject(forKey: "tenant")
     }
 
-    // MARK: Pairing (#37)
+    // MARK: Pairing (#37, #89)
 
     enum Pairing: Equatable {
         case idle
@@ -217,8 +199,9 @@ final class AppState {
     private(set) var pairing: Pairing = .idle
     private var pairingTask: Task<Void, Never>?
 
-    /// Pairs this phone from a scanned QR code: a new device key, then redeem
-    /// the invite through the Relay with both pins checked. Success signs in.
+    /// Pairs this device with a practice from a scanned QR code, adding an
+    /// account: its own device key, then redeem the invite through the Relay
+    /// with both pins checked. Other accounts are untouched.
     func pair(with payload: PairingPayload) {
         pairingTask?.cancel()
         pairingTask = Task { await runPairing(payload) }
@@ -232,23 +215,41 @@ final class AppState {
 
     private func runPairing(_ p: PairingPayload) async {
         pairing = .connecting
+        let id = UUID().uuidString
+        let s = session(for: id)
         do {
-            DeviceKey.delete()
-            let key = try DeviceKey.create()
-            let r = try await APIClient(office: p.office, session: session)
-                .redeemInvite(p.invite, key: key, name: UIDevice.current.name)
-            try await session.store(r.tokens)
-            setOffice(p.office)
-            lastTenant = r.practice
-            rememberConnection(tenant: r.practice, email: "")
-            me = try await api.me()
+            let key = try DeviceKey.create(account: id)
+            let client = APIClient(office: p.office, session: s)
+            let r = try await client.redeemInvite(p.invite, key: key, name: UIDevice.current.name)
+            try await s.store(r.tokens)
+            let m = try await client.me()
+            var a = Account(id: id, office: p.office, practice: r.practice,
+                            displayName: m.displayName ?? r.patientName, role: m.role,
+                            userID: m.userID, deviceID: r.deviceID ?? "", pairedAt: .now)
+            if a.displayName.isEmpty { a.displayName = r.patientName }
+            // Re-pairing the same person at the same practice replaces the old
+            // entry (its device stays listed for the practice to revoke).
+            for old in accounts where old.sameIdentity(as: a) {
+                Keychain.deleteAll(account: old.id)
+                sessions[old.id] = nil
+            }
+            accounts.removeAll { $0.sameIdentity(as: a) }
+            accounts.append(a)
+            active = a
+            me = m
+            people = [:]
+            api = client
+            persist()
             pairing = .idle
+            pairedCount += 1
             phase = .signedIn
         } catch is CancellationError {
-            DeviceKey.delete()
+            Keychain.deleteAll(account: id)
+            sessions[id] = nil
         } catch {
-            DeviceKey.delete()
-            await session.clear()
+            await s.clear()
+            Keychain.deleteAll(account: id)
+            sessions[id] = nil
             pairing = .failed(Self.pairingMessage(error))
         }
     }
@@ -258,19 +259,9 @@ final class AppState {
         case APIError.unauthorized:
             "This pairing code has expired or was already used. Ask the front desk for a new one."
         case APIError.http(409, _):
-            "This phone is already paired. Ask the front desk to remove the old pairing first."
+            "This device is already paired for that account."
         default:
             error.localizedDescription
-        }
-    }
-
-    // MARK: Office
-
-    /// Points the client at an office (through its Relay) and persists it.
-    func setOffice(_ office: OfficeEndpoint) {
-        api = APIClient(office: office, session: session)
-        if let data = try? JSONEncoder().encode(office) {
-            defaults.set(data, forKey: Self.officeKey)
         }
     }
 }

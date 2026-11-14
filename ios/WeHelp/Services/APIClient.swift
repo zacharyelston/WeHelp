@@ -53,24 +53,6 @@ struct APIClient: Sendable {
 
     // MARK: Auth
 
-    func login(tenant: String, email: String, password: String) async throws -> TokenPair {
-        try await send("POST", "api/v1/auth/login",
-                       body: ["tenant": tenant, "email": email, "password": password])
-    }
-
-    /// Swaps an unbound login token for a device-bound pair.
-    func enroll(loginRefreshToken: String, key: DeviceKey, name: String) async throws -> TokenPair {
-        let proof = try key.proof(purpose: "enroll", refreshToken: loginRefreshToken)
-        let body: [String: any Sendable & Encodable] = [
-            "refresh_token": loginRefreshToken,
-            "public_key": try key.publicKeyDER.base64EncodedString(),
-            "name": name,
-            "timestamp": proof.timestamp,
-            "signature": proof.signature,
-        ]
-        return try await send("POST", "api/v1/auth/enroll", body: AnyEncodable(body))
-    }
-
     // MARK: Devices (#10)
 
     func devices() async throws -> [Device] {
@@ -88,11 +70,13 @@ struct APIClient: Sendable {
     struct PairResult: Decodable, Sendable {
         let practice: String
         let patientName: String
+        let role: String?
+        let deviceID: String?
         let accessToken: String
         let refreshToken: String
         var tokens: TokenPair { TokenPair(accessToken: accessToken, refreshToken: refreshToken) }
         enum CodingKeys: String, CodingKey {
-            case practice, patientName = "patient_name"
+            case practice, role, patientName = "patient_name", deviceID = "device_id"
             case accessToken = "access_token", refreshToken = "refresh_token"
         }
     }
@@ -118,7 +102,7 @@ struct APIClient: Sendable {
         let office = office
         return try await session.refresh {
             guard let token = await session.refreshToken else { throw APIError.unauthorized("no session") }
-            guard let key = DeviceKey.load() else { throw APIError.notEnrolled }
+            guard let key = DeviceKey.load(account: session.accountID) else { throw APIError.notEnrolled }
             let proof = try key.proof(purpose: "refresh", refreshToken: token)
             let body: [String: any Sendable & Encodable] = [
                 "refresh_token": token, "timestamp": proof.timestamp, "signature": proof.signature,
@@ -126,12 +110,6 @@ struct APIClient: Sendable {
             return try await APIClient(office: office, session: session)
                 .send("POST", "api/v1/auth/refresh", body: AnyEncodable(body))
         }
-    }
-
-    /// Revokes this device's session on the server. Best effort.
-    func logout() async {
-        guard let token = await session.refreshToken else { return }
-        _ = try? await send("POST", "api/v1/auth/logout", body: ["refresh_token": token]) as Empty
     }
 
     func me() async throws -> Me {
@@ -191,7 +169,7 @@ struct APIClient: Sendable {
             } catch APIError.unauthorized {
                 // The session is gone for good (this device was revoked, #10,
                 // or the refresh token expired). Let AppState sign out.
-                NotificationCenter.default.post(name: .weHelpSessionEnded, object: nil)
+                NotificationCenter.default.post(name: .weHelpSessionEnded, object: session.accountID)
                 throw APIError.unauthorized("This device was signed out.")
             }
             return try await send(method, path, query: query, body: body, bearer: await session.accessToken)
@@ -241,7 +219,8 @@ struct APIClient: Sendable {
 struct Empty: Decodable, Sendable {}
 
 extension Notification.Name {
-    /// Posted when the server refuses this device's session for good.
+    /// Posted when the server refuses a device's session for good. The
+    /// object is the account ID (#89).
     static let weHelpSessionEnded = Notification.Name("WeHelpSessionEnded")
 }
 

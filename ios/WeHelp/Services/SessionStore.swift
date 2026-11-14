@@ -15,17 +15,23 @@ struct TokenPair: Decodable, Sendable {
     }
 }
 
-/// Holds the session: the access token in memory only, the refresh token in
-/// the Keychain. Refreshes are single-flight so concurrent 401s don't spend
-/// the same single-use refresh token twice.
+/// Holds one practice account's session (#89): the access token in memory
+/// only, the refresh token in that account's Keychain item. Refreshes are
+/// single-flight so concurrent 401s don't spend the same single-use refresh
+/// token twice.
 actor SessionStore {
+    nonisolated let accountID: String
     private(set) var accessToken: String?
     private var inFlight: Task<TokenPair, Error>?
 
-    var refreshToken: String? { Keychain.string(.refreshToken) }
+    init(accountID: String) { self.accountID = accountID }
+
+    private var key: String { Keychain.Item.refreshToken.scoped(accountID) }
+
+    var refreshToken: String? { Keychain.string(key) }
 
     func store(_ pair: TokenPair) throws {
-        try Keychain.set(pair.refreshToken, for: .refreshToken)
+        try Keychain.set(pair.refreshToken, for: key)
         accessToken = pair.accessToken
     }
 
@@ -33,7 +39,7 @@ actor SessionStore {
         accessToken = nil
         inFlight?.cancel()
         inFlight = nil
-        Keychain.delete(.refreshToken)
+        Keychain.delete(key)
     }
 
     /// Runs `perform` unless a refresh is already running, in which case it
@@ -46,5 +52,13 @@ actor SessionStore {
         let pair = try await task.value
         try store(pair)
         return pair
+    }
+
+    /// Moves a pre-#89 refresh token into this account.
+    func adoptLegacyToken() -> Bool {
+        guard let token = Keychain.string(Keychain.Item.refreshToken.rawValue) else { return false }
+        guard (try? Keychain.set(token, for: key)) != nil else { return false }
+        Keychain.delete(Keychain.Item.refreshToken.rawValue)
+        return true
     }
 }

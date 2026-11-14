@@ -1,10 +1,2 @@
-// Copy to Local.xcconfig (gitignored) to override Debug settings on this Mac.
-//
-// Demo practices, comma-separated, each
-//   Label|relay host:port|relay pin|office ID|office pin
-// Get the values from:
-//   wehelp-relay init   -> tls_key_pin (the relay pin)
-//   wehelpd init        -> pairing.office and pairing.key_pin
-// Find the Relay's LAN address with: ipconfig getifaddr en0
-// A literal "//" starts a comment in xcconfig; write it as /$()/ if a pin contains it.
-WEHELP_DEV_SERVERS = Barnacle|192.168.1.50:8443|<relay pin>|<office id>|<office pin>
+// Copy to Local.xcconfig (gitignored) to override Debug build settings on
+// this Mac. Nothing is needed today: devices join practices by QR pairing.
