@@ -1,11 +1,15 @@
 # Kiosk interventions and questionnaires: Interventionaire and the demo
 
 The in-office kiosk iPad (#8) is post-V1. This note covers the questionnaire
-and intervention tooling it would run, which comes from **Interventionaire**,
-a separate project. It summarises what Interventionaire does, how it plugs
-into the Back Office without breaking the rule that patient data lives only
-there, and the demo script. Integration work is #82. The Interventionaire
-repo is not changed by this work.
+and intervention tooling it would run. The design comes from
+**Interventionaire**, a separate project that is itself being renewed as an
+iOS app. The kiosk copies design ideas from Interventionaire as it renews, so
+keep this note in step with it.
+
+This note summarises what Interventionaire does, what the kiosk takes from
+it, how the result fits the Back Office without breaking the rule that
+patient data lives only there, and the demo script. Integration work is #82.
+The Interventionaire repo is not changed by this work.
 
 ## What Interventionaire is
 
@@ -19,6 +23,7 @@ been partly modernised; the authoring client has not.
 | `interventionaire-backend` | AdonisJS 5 (Node, TypeScript), MySQL 8, Docker Compose | Modernisation in progress: v1.3 (models, validation, Jest tests). Raw SQL in most controllers; auth refactor and migrations still on its TODO list |
 | `original-source/.../client` | AngularJS 1 SPA, Grunt and Bower | Legacy. The editor and the runner. Not in the Compose file yet |
 | `original-source/.../worker` | Grunt-built worker | Legacy |
+| Renewal | iOS app | Planned. When it exists, it becomes the main design reference for the kiosk, and this note is updated |
 
 ### Content model
 
@@ -68,13 +73,31 @@ A run of a booklet is a *test* (`tbl_testing`) with a single-use
 | EHR practice and patient screens (`ehr-practice`, `ehr-patient-modal`) hold patient names and external IDs | A second patient store |
 | Its own users, JWT auth and password reset by email; the run token is still a stub (`'no token'`) | A second identity system, not the WeHelp device-key model |
 | Node + MySQL stack | New infrastructure on the Back Office (ARCHITECTURE.md allows Postgres, Relay, Registry, observability sidecar) |
-| `original-source/.../README.txt` contains what look like live cloud credentials in plain text | Rotate them and purge them from history in that repo. This is outside WeHelp's scope, but it should be fixed before the repo is shared further |
+
+These are findings about the legacy code, not the renewal. They are the
+things the kiosk must not copy.
+
+## What the kiosk copies from Interventionaire
+
+| Interventionaire idea | In the WeHelp kiosk |
+|---|---|
+| Booklet → sections → pages | The same three levels for questionnaires |
+| Choices between sections, with branch rules on earlier answers | The same, as declarative rules parsed and checked on import, never executed as code |
+| Input elements (radio, checkbox, slider, keypad, text) and output elements (text, image, video, chart) | The same element set, as native SwiftUI views |
+| On-screen keyboard for a kiosk without a hardware keyboard | The iPad's own keyboard and number pad, in Guided Access |
+| Style books and themes | The practice's branding on the kiosk |
+| Single-use run codes and the proctor view | A staff-started kiosk session from the patient record, and a staff view of its progress |
+| Demo runs that keep no results | A training mode for the demo kit |
+| Bundle export and import | A signed, versioned content bundle (#82) |
 
 ## How it plugs into the Back Office
 
-**Recommended: Interventionaire is the authoring tool; the Back Office owns
-the runs.** Content flows in one direction, as data. Answers never leave
-the Back Office.
+**Recommended: copy Interventionaire's design; the Back Office owns the
+runs.** Content flows in one direction, as data. Answers never leave the
+Back Office. The diagram shows Interventionaire as the authoring tool. That
+holds whether authoring stays in the legacy editor or moves to the renewed
+iOS app, as long as it can export a content-only bundle. If it can't,
+authoring moves into the WeHelp staff UI (see "Alternatives considered").
 
 ```
 WeHelp or a staff laptop                     The practice
@@ -95,8 +118,9 @@ WeHelp or a staff laptop                     The practice
                                                      └──────────────┘
 ```
 
-1. **Author** in Interventionaire, with content only. It runs at WeHelp or
-   on a staff laptop, never on the Back Office, and holds no answers.
+1. **Author** in Interventionaire, with content only. It runs at WeHelp, on
+   a staff laptop, or (after the renewal) on an iPad that isn't the kiosk.
+   It never runs on the Back Office and holds no answers.
 2. **Export** a booklet as a bundle. #82 adds a signed, versioned JSON
    format: pages, elements, sections, choices, and branch rules written in a
    small declarative expression language (comparisons, `and`/`or`/`not`, set
@@ -129,7 +153,8 @@ Interventionaire's user accounts and run codes, and its MySQL answer tables.
 | Option | Verdict |
 |---|---|
 | Run Interventionaire beside `wehelpd` and point the kiosk at it | **Rejected.** Node + MySQL on the Back Office, answers outside the audit chain, `eval` in the runner, a second auth system |
-| Rewrite authoring inside the WeHelp staff UI | **Later.** Worth it if the practice authors its own questionnaires often. The bundle format from #82 is the same either way |
+| Rewrite authoring inside the WeHelp staff UI | **Later.** Worth it if the practice authors its own questionnaires often, or if the renewed Interventionaire can't export bundles. The bundle format from #82 is the same either way |
+| Use the renewed Interventionaire iOS app as the kiosk itself | **Revisit when the renewal exists.** It would have to enrol as an office device, keep no answers, and save each answer to the Back Office with `audit.Record`. Until then, the kiosk is a WeHelp app that copies its design |
 | Adopt a standard format (FHIR Questionnaire, SurveyJS, ResearchKit) and convert Interventionaire into it | **Evaluate in #82**, through a lit-review entry, before the bundle format is fixed |
 
 ## Demo script
@@ -140,7 +165,9 @@ date and answer in both is synthetic.
 ### Version A: today (Interventionaire prototype, standalone)
 
 **What it shows:** the authoring and the patient experience. It does **not**
-show the Back Office integration, and the presenter says so.
+show the Back Office integration, and the presenter says so. Once the
+renewed Interventionaire iOS app runs, use it here instead of the legacy
+web client.
 
 **Setup (not verified for this doc; do a dry run first):**
 - Interventionaire backend and MySQL from its Compose file on the demo

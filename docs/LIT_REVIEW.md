@@ -150,7 +150,7 @@ output, so patient data never leaves the box. See
 
 | Candidate | Verdict |
 |---|---|
-| Interventionaire (in-house, AdonisJS + MySQL + AngularJS) | **adopt as the authoring tool only**: booklets, sections, pages and branches exported as a signed JSON bundle. Not run in the practice; its `eval` branching and answer storage are not carried over. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
+| Interventionaire (in-house; legacy AdonisJS + MySQL + AngularJS, being renewed as an iOS app) | **reference, and possibly the authoring tool**: the kiosk copies its design (booklets, sections, pages, branches, element types, style books, proctored runs) and follows the renewal. Content may arrive as a signed JSON bundle. Never run in the practice; its `eval` branching and answer storage are not carried over. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
 | FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **evaluate in #82**: the standard shape; `enableWhen` covers simple branching. Maps onto #26 later |
 | SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
 | Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |

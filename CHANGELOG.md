@@ -78,9 +78,10 @@ All notable changes to WeHelp are documented here. Format follows
     criteria, hypercare and rollback;
   - a video training outline: 13 modules with scripts and a shot list per
     screen, each marked as existing today or waiting on its issue;
-  - Interventionaire (questionnaire and intervention tooling for the
-    post-V1 kiosk): what it does, why it is used for authoring only, how
-    bundles plug into the Back Office, and the demo script.
+  - Interventionaire (questionnaire and intervention tooling, being
+    renewed as an iOS app): what it does, which of its design ideas the
+    post-V1 kiosk copies, how content bundles plug into the Back Office,
+    and the demo script.
 - Design note `docs/LOCAL_AGENT.md`: a Mac Pro Back Office running a local
   AI agent for daily routines and approved outreach, with inference and all
   patient data on the box and every agent action audited. Lit-review
