@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Signed-out home: the practices/servers this phone knows. Tap one to sign
-/// in; "+" adds a server; the ⓘ button, a long press, or a swipe edits or
+/// Signed-out home: the practices this phone knows. Tap one to sign
+/// in; "+" adds a practice; the ⓘ button, a long press, or a swipe edits or
 /// deletes one.
 struct ConnectionsView: View {
     @Environment(AppState.self) private var appState
@@ -13,14 +13,14 @@ struct ConnectionsView: View {
             Group {
                 if appState.savedConnections.isEmpty {
                     ContentUnavailableView {
-                        Label("No servers yet", systemImage: "server.rack")
+                        Label("No practices yet", systemImage: "server.rack")
                     } description: {
-                        Text("Add your practice's WeHelp server to sign in.")
+                        Text("Add your practice to sign in.")
                     } actions: {
-                        Button("Add server") { editing = .new }
+                        Button("Add practice") { editing = .new }
                             .buttonStyle(.borderedProminent)
                         if appState.hasDevPresets {
-                            Button("Restore demo servers") { appState.restoreDevPresets() }
+                            Button("Restore demo practices") { appState.restoreDevPresets() }
                         }
                     }
                 } else {
@@ -44,7 +44,7 @@ struct ConnectionsView: View {
                         }
                         if appState.hasDevPresets {
                             Section {
-                                Button("Restore demo servers") { appState.restoreDevPresets() }
+                                Button("Restore demo practices") { appState.restoreDevPresets() }
                             } footer: {
                                 Text("Debug builds only.")
                             }
@@ -52,15 +52,15 @@ struct ConnectionsView: View {
                     }
                 }
             }
-            .navigationTitle("Servers")
+            .navigationTitle("Practices")
             .navigationDestination(for: SavedConnection.self) { SignInView(connection: $0) }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { editing = .new } label: { Label("Add server", systemImage: "plus") }
+                    Button { editing = .new } label: { Label("Add practice", systemImage: "plus") }
                 }
             }
             .sheet(item: $editing) { ConnectionEditorView(target: $0) }
-            .confirmationDialog("Delete this server?", isPresented: Binding(
+            .confirmationDialog("Delete this practice?", isPresented: Binding(
                 get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } }),
                 presenting: confirmDelete
             ) { conn in

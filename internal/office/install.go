@@ -3,6 +3,7 @@ package office
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -75,6 +76,9 @@ func (r Registration) validate() error {
 	}
 	if _, _, _, _, err := ssh.ParseAuthorizedKey([]byte(r.Relay.SSHHostKey)); err != nil {
 		return fmt.Errorf("office: Relay host key: %w", err)
+	}
+	if pin, err := base64.StdEncoding.DecodeString(r.Relay.TLSPin); err != nil || len(pin) != 32 {
+		return fmt.Errorf("office: Registry returned no valid Relay TLS pin")
 	}
 	if r.Relay.SSHAddress == "" || r.Relay.ConnectAddress == "" {
 		return fmt.Errorf("office: Registry returned no Relay address")

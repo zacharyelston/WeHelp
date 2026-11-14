@@ -19,7 +19,7 @@ struct SignInView: View {
         Form {
             Section {
                 LabeledContent("Practice", value: connection.tenant)
-                LabeledContent("Server", value: connection.serverURL.host() ?? connection.serverURL.absoluteString)
+                LabeledContent("Relay", value: connection.office.relay)
             }
             Section("Account") {
                 TextField("Email", text: $email)

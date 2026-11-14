@@ -73,6 +73,8 @@ func testDB(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+const testPin = "Ar1cxddT3OFraDM2dIXtqUQKiaz5jzUiiH/IBXyI8Ik="
+
 func newSigner(t *testing.T) ed25519.PrivateKey {
 	t.Helper()
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
@@ -167,12 +169,12 @@ func TestRegistryFlow(t *testing.T) {
 	}
 
 	relay, err := st.AddRelay(ctx, actor, Relay{Name: "laptop", SSHAddress: "relay.test:2222",
-		ConnectAddress: "relay.test:8443", SSHHostKey: sshKeyLine(t) + " relay@host"})
+		ConnectAddress: "relay.test:8443", SSHHostKey: sshKeyLine(t) + " relay@host", TLSPin: testPin})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.AddRelay(ctx, actor, Relay{Name: "bad", SSHAddress: "nohostport",
-		ConnectAddress: "x:1", SSHHostKey: sshKeyLine(t)}); !errors.Is(err, ErrInvalidInput) {
+		ConnectAddress: "x:1", SSHHostKey: sshKeyLine(t), TLSPin: testPin}); !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("bad relay address: err = %v", err)
 	}
 	p, err := st.AddPractice(ctx, actor, "Demo Naturopathy", "laptop")
@@ -207,7 +209,7 @@ func TestRegistryFlow(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("install: status %d", code)
 	}
-	if res.Relay.ID != relay.ID || res.Relay.ConnectAddress != "relay.test:8443" || res.Relay.SSHHostKey != relay.SSHHostKey {
+	if res.Relay.ID != relay.ID || res.Relay.ConnectAddress != "relay.test:8443" || res.Relay.SSHHostKey != relay.SSHHostKey || res.Relay.TLSPin != testPin {
 		t.Errorf("install relay = %+v, want %+v", res.Relay, relay)
 	}
 	if got, err := officelist.ParsePublicKey(res.RegistrySigningKey); err != nil || !got.Equal(pub) {
@@ -303,7 +305,7 @@ func TestAuditDetectsTampering(t *testing.T) {
 	st := New(pool, newSigner(t))
 	for i := 0; i < 3; i++ {
 		if _, err := st.AddRelay(ctx, "cli:test", Relay{Name: fmt.Sprint("r", i), SSHAddress: "h:1",
-			ConnectAddress: "h:2", SSHHostKey: sshKeyLine(t)}); err != nil {
+			ConnectAddress: "h:2", SSHHostKey: sshKeyLine(t), TLSPin: testPin}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -329,7 +331,7 @@ func TestConcurrentPublishVersions(t *testing.T) {
 	pool := testDB(t)
 	key := newSigner(t)
 	st := New(pool, key)
-	if _, err := st.AddRelay(ctx, "cli:test", Relay{Name: "r", SSHAddress: "h:1", ConnectAddress: "h:2", SSHHostKey: sshKeyLine(t)}); err != nil {
+	if _, err := st.AddRelay(ctx, "cli:test", Relay{Name: "r", SSHAddress: "h:1", ConnectAddress: "h:2", SSHHostKey: sshKeyLine(t), TLSPin: testPin}); err != nil {
 		t.Fatal(err)
 	}
 	const n = 8

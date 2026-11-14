@@ -59,6 +59,7 @@ type Relay struct {
 	SSHAddress     string    `json:"ssh_address"`
 	ConnectAddress string    `json:"connect_address"`
 	SSHHostKey     string    `json:"ssh_host_key"`
+	TLSPin         string    `json:"tls_pin"` // phones pin the Relay's TLS key (keyfile.P256Pin)
 }
 
 type Practice struct {
@@ -125,29 +126,68 @@ func (s *Store) AddRelay(ctx context.Context, actor string, r Relay) (Relay, err
 		return Relay{}, fmt.Errorf("%w: relay host key: %v", ErrInvalidInput, err)
 	}
 	r.SSHHostKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pk)))
+	if err := checkPin(r.TLSPin); err != nil {
+		return Relay{}, err
+	}
 	err = s.withTx(ctx, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `
-			insert into relays (name, ssh_address, connect_address, ssh_host_key)
-			values ($1, $2, $3, $4) returning id`,
-			r.Name, r.SSHAddress, r.ConnectAddress, r.SSHHostKey).Scan(&r.ID); err != nil {
+			insert into relays (name, ssh_address, connect_address, ssh_host_key, tls_pin)
+			values ($1, $2, $3, $4, $5) returning id`,
+			r.Name, r.SSHAddress, r.ConnectAddress, r.SSHHostKey, r.TLSPin).Scan(&r.ID); err != nil {
 			return err
 		}
 		return record(ctx, tx, Event{Actor: actor, Action: "relay.create", ResourceType: "relay",
 			ResourceID: r.ID.String(), Detail: map[string]string{
 				"name": r.Name, "ssh_address": r.SSHAddress, "connect_address": r.ConnectAddress,
-				"host_key_fingerprint": ssh.FingerprintSHA256(pk)}})
+				"host_key_fingerprint": ssh.FingerprintSHA256(pk), "tls_pin": r.TLSPin}})
 	})
 	return r, err
 }
 
+// checkPin accepts a base64 SHA-256 pin.
+func checkPin(pin string) error {
+	raw, err := base64.StdEncoding.DecodeString(pin)
+	if err != nil || len(raw) != sha256.Size {
+		return fmt.Errorf("%w: relay TLS pin must be base64 SHA-256 (wehelp-relay init prints it)", ErrInvalidInput)
+	}
+	return nil
+}
+
+// SetRelayTLSPin records a Relay's TLS pin (after the Relay's TLS key is
+// created or rotated). Offices learn it at their next install.
+func (s *Store) SetRelayTLSPin(ctx context.Context, actor, name, pin string) error {
+	if err := checkPin(pin); err != nil {
+		return err
+	}
+	return s.withTx(ctx, func(tx pgx.Tx) error {
+		var id uuid.UUID
+		var old string
+		err := tx.QueryRow(ctx, `select id, tls_pin from relays where name = $1 for update`, name).Scan(&id, &old)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: relay %q", ErrNotFound, name)
+		}
+		if err != nil {
+			return err
+		}
+		if old == pin {
+			return ErrNoChange
+		}
+		if _, err := tx.Exec(ctx, `update relays set tls_pin = $2 where id = $1`, id, pin); err != nil {
+			return err
+		}
+		return record(ctx, tx, Event{Actor: actor, Action: "relay.set_tls_pin", ResourceType: "relay",
+			ResourceID: id.String(), Detail: map[string]string{"from": old, "to": pin}})
+	})
+}
+
 func (s *Store) ListRelays(ctx context.Context) ([]Relay, error) {
-	rows, err := s.pool.Query(ctx, `select id, name, ssh_address, connect_address, ssh_host_key from relays order by name`)
+	rows, err := s.pool.Query(ctx, `select id, name, ssh_address, connect_address, ssh_host_key, tls_pin from relays order by name`)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Relay, error) {
 		var r Relay
-		err := row.Scan(&r.ID, &r.Name, &r.SSHAddress, &r.ConnectAddress, &r.SSHHostKey)
+		err := row.Scan(&r.ID, &r.Name, &r.SSHAddress, &r.ConnectAddress, &r.SSHHostKey, &r.TLSPin)
 		return r, err
 	})
 }
@@ -334,9 +374,9 @@ func (s *Store) Install(ctx context.Context, token, sshPublicKey string) (res In
 			return err
 		}
 		if err := tx.QueryRow(ctx, `
-			select r.id, r.name, r.ssh_address, r.connect_address, r.ssh_host_key
+			select r.id, r.name, r.ssh_address, r.connect_address, r.ssh_host_key, r.tls_pin
 			from relays r join practices p on p.relay_id = r.id where p.id = $1`, practiceID).
-			Scan(&res.Relay.ID, &res.Relay.Name, &res.Relay.SSHAddress, &res.Relay.ConnectAddress, &res.Relay.SSHHostKey); err != nil {
+			Scan(&res.Relay.ID, &res.Relay.Name, &res.Relay.SSHAddress, &res.Relay.ConnectAddress, &res.Relay.SSHHostKey, &res.Relay.TLSPin); err != nil {
 			return err
 		}
 		actor := "install-token:" + tokenID.String()

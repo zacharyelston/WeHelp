@@ -70,6 +70,7 @@ type Relay struct {
 	SSHAddress     string `json:"ssh_address"`
 	ConnectAddress string `json:"connect_address"`
 	SSHHostKey     string `json:"ssh_host_key"`
+	TLSPin         string `json:"tls_pin"` // the Relay's TLS key pin, for phones
 }
 
 // Ensure loads the office identity from dir, generating any key that does
@@ -189,9 +190,10 @@ func (id *Identity) Host() string {
 // Pairing is the office part of the QR pairing payload (#37). The invite
 // code is added per patient by the pairing flow.
 type Pairing struct {
-	RelayAddress string `json:"relay"`   // host:port of the Relay's CONNECT listener
-	OfficeID     string `json:"office"`  // also the inner TLS host: <office>.wehelp.invalid
-	KeyPin       string `json:"key_pin"` // see KeyPin
+	RelayAddress string `json:"relay"`     // host:port of the Relay's CONNECT listener
+	RelayPin     string `json:"relay_pin"` // the Relay's TLS key pin
+	OfficeID     string `json:"office"`    // also the inner TLS host: <office>.wehelp.invalid
+	KeyPin       string `json:"key_pin"`   // see KeyPin
 }
 
 // Pairing returns the office's pairing identity, or an error before install.
@@ -199,7 +201,7 @@ func (id *Identity) Pairing() (Pairing, error) {
 	if id.Registration == nil {
 		return Pairing{}, errors.New("office: not installed with the Registry yet (wehelpd init --install-token)")
 	}
-	return Pairing{RelayAddress: id.Registration.Relay.ConnectAddress,
+	return Pairing{RelayAddress: id.Registration.Relay.ConnectAddress, RelayPin: id.Registration.Relay.TLSPin,
 		OfficeID: id.Registration.OfficeID, KeyPin: id.KeyPin()}, nil
 }
 
