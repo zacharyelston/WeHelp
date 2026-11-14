@@ -152,6 +152,7 @@ struct ThreadView: View {
                     Image(systemName: "arrow.up.circle.fill").font(.title)
                 }
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || sending)
+                .keyboardShortcut(.return, modifiers: .command) // hardware keyboards
                 .accessibilityLabel("Send")
             }
         }
