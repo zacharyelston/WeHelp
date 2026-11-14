@@ -71,6 +71,22 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Several practices per device (#89).
+  - The app keeps an **account** for each practice it's paired with:
+    practice, name and role. Each has **its own Secure Enclave key, refresh
+    token and session** (Keychain items scoped by account), so nothing is
+    shared between practices.
+  - Settings → **Accounts** lists them, admin first, then provider, then
+    patient. Tap one to switch the whole app, or use **Pair another
+    practice**. Re-pairing the same person at the same practice replaces
+    their entry.
+  - If a practice revokes the device, only that account is removed. There's
+    still no unpair in the app.
+  - A device paired before this update moves to the new storage
+    automatically, with no re-pairing.
+  - Removed: the Debug-only saved-servers and password screens and their
+    `WEHELP_DEV_*` settings. Password login has been office-LAN only since
+    #38; devices join by QR.
 - Provider devices (#69): one WeHelp app, with the role set by pairing.
   - On the staff web UI, **My devices** shows a staff member's phones and
     iPads, with **Pair my phone or iPad** and Revoke.

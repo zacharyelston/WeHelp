@@ -1,16 +1,12 @@
 import SwiftUI
 import VisionKit
 
-/// Signed-out home (#37). Patients join by scanning the Pair phone QR code
-/// the front desk shows them; there is no password. Debug builds also keep
-/// the developer screens (saved practices with password sign-in, for staff
-/// accounts and demos).
+/// First-run home (#37): no practice yet. Everyone, patient or staff, joins
+/// by scanning the pairing code their practice shows them; there is no
+/// password. More practices are added from Settings → Accounts (#89).
 struct WelcomeView: View {
     @Environment(AppState.self) private var appState
     @State private var pairing = false
-    #if DEBUG
-    @State private var developer = false
-    #endif
 
     var body: some View {
         NavigationStack {
@@ -35,16 +31,9 @@ struct WelcomeView: View {
                 .controlSize(.large)
                 .padding(.horizontal, 32)
                 Spacer()
-                #if DEBUG
-                Button("Developer: saved practices") { developer = true }
-                    .font(.footnote)
-                #endif
             }
             .padding()
             .fullScreenCover(isPresented: $pairing) { PairingView() }
-            #if DEBUG
-            .sheet(isPresented: $developer) { ConnectionsView() }
-            #endif
         }
     }
 }
@@ -88,9 +77,7 @@ struct PairingView: View {
                     }
                 }
             }
-            .onChange(of: appState.phase) { _, phase in
-                if phase == .signedIn { dismiss() }
-            }
+            .onChange(of: appState.pairedCount) { dismiss() } // a practice was added (#89)
             .alert("That isn't a WeHelp pairing code", isPresented: $badCode) {
                 Button("OK", role: .cancel) {}
             } message: {
