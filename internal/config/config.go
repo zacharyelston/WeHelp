@@ -63,6 +63,17 @@ type Config struct {
 	RelaySitePublicURL string `mapstructure:"relay_site_public_url"` // e.g. https://relay.example:8444, told to offices
 	RelaySiteCert      string `mapstructure:"relay_site_cert"`       // PEM cert for the site listener; empty = the Relay TLS cert
 	RelaySiteKey       string `mapstructure:"relay_site_key"`        // its key, mode 600
+	// Video-visit TURN (#6). Off until relay_turn_public_ip is set.
+	RelayTURNAddr      string `mapstructure:"relay_turn_addr"`        // UDP and TCP
+	RelayTURNPublicIP  string `mapstructure:"relay_turn_public_ip"`   // the address phones reach; empty = TURN off
+	RelayTURNPorts     string `mapstructure:"relay_turn_ports"`       // relay port range
+	RelayTURNMaxVisits int    `mapstructure:"relay_turn_max_visits"`  // live visits per office
+	RelayTURNSecret    string `mapstructure:"relay_turn_secret_file"` // master secret, mode 600; default relay_dir/turn.secret
+	RelayTURNTLSAddr   string `mapstructure:"relay_turn_tls_addr"`    // TURN over TLS, e.g. :443; needs a public certificate
+	RelayTURNHostname  string `mapstructure:"relay_turn_hostname"`    // public DNS name: Let's Encrypt via autocert
+	RelayACMEDir       string `mapstructure:"relay_acme_dir"`         // autocert cache; default relay_dir/acme
+	RelayTURNTLSCert   string `mapstructure:"relay_turn_tls_cert"`    // or a certificate from certbot
+	RelayTURNTLSKey    string `mapstructure:"relay_turn_tls_key"`
 }
 
 func defaultRelayDir() string {
@@ -137,6 +148,16 @@ func Load(cfgFile string) error {
 	viper.SetDefault("relay_site_public_url", "")
 	viper.SetDefault("relay_site_cert", "")
 	viper.SetDefault("relay_site_key", "")
+	viper.SetDefault("relay_turn_addr", ":3478")
+	viper.SetDefault("relay_turn_public_ip", "")
+	viper.SetDefault("relay_turn_ports", "49160-49999")
+	viper.SetDefault("relay_turn_max_visits", 4)
+	viper.SetDefault("relay_turn_secret_file", "")
+	viper.SetDefault("relay_turn_tls_addr", "")
+	viper.SetDefault("relay_turn_hostname", "")
+	viper.SetDefault("relay_acme_dir", "")
+	viper.SetDefault("relay_turn_tls_cert", "")
+	viper.SetDefault("relay_turn_tls_key", "")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

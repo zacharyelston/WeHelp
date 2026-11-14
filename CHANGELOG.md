@@ -97,6 +97,21 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Video-visit TURN in the Relay (#6, step 2): `pion/turn` on UDP and TCP
+  3478, and TURN over TLS (normally 443) with a Let's Encrypt certificate
+  the Relay fetches itself, or certbot files. Off until
+  `relay_turn_public_ip` is set.
+  - When an office's tunnel connects, the Relay sends it a TURN key
+    derived from a master secret that never leaves the Relay. The office
+    mints per-visit credentials itself (`internal/turncred`); it never asks
+    the Relay for anything.
+  - The Relay accepts a credential only while its office is on the signed
+    list, before it expires, and if minted no more than 12 hours ahead.
+    Limits: 8 allocations per visit and 4 live visits per office. Peers are
+    limited to the Relay's own relay address, so TURN is not an open proxy.
+    Allocations live 5 minutes and permissions 2 minutes unless refreshed.
+  - A counts-only log line a minute while visits are live. Runbook in
+    `docs/RELAY.md`.
 - Provider roster (#62): the Back Office pulls its practice's providers
   from the Registry.
   - `POST /v1/roster` on the Registry. The office signs the request with

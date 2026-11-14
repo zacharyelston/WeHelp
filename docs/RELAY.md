@@ -115,6 +115,49 @@ handles.
 curl -k https://192.168.1.20:8444/s/<office-id>/store.html
 ```
 
+## Video-visit TURN (#6)
+
+Video visits send media phone to phone, DTLS-SRTP end to end, forced through
+the Relay's TURN server, which forwards ciphertext only. TURN is off until
+`relay_turn_public_ip` is set.
+
+| Key | Default | Notes |
+|---|---|---|
+| `relay_turn_public_ip` | empty (off) | the IPv4 address phones reach; relay addresses use it too |
+| `relay_turn_addr` | `:3478` | UDP and TCP |
+| `relay_turn_ports` | `49160-49999` | relay port range, UDP |
+| `relay_turn_max_visits` | `4` | live visits per office |
+| `relay_turn_secret_file` | `{relay_dir}/turn.secret` | master secret, created on first run, mode 600, never sent anywhere |
+| `relay_turn_tls_addr` | empty | TURN over TLS, normally `:443`, for networks that block UDP |
+| `relay_turn_hostname` | empty | public DNS name: the Relay gets a Let's Encrypt certificate itself (TLS-ALPN-01 on the TLS port, so no port 80), cached in `relay_acme_dir` |
+| `relay_turn_tls_cert`, `relay_turn_tls_key` | empty | instead of the hostname, a certificate from certbot |
+
+- **Credentials:** when an office's tunnel connects, the Relay sends it a
+  TURN key derived from the master secret. The office mints per-visit
+  credentials from it and never asks the Relay for anything. The Relay
+  accepts a credential only while its office is on the signed list, before
+  it expires, and if it was minted no more than 12 hours ahead.
+- **Limits:** 8 allocations per visit credential and `relay_turn_max_visits`
+  live visits per office. Peers may only be this Relay's own relay address,
+  so TURN can't reach the internet or the Relay's network. Allocations
+  live 5 minutes unless refreshed, and permissions 2 minutes.
+- **TURN over TLS** needs a publicly trusted certificate, because libwebrtc
+  can't pin the Relay's self-signed key. A Relay without a public name (the
+  laptop demo) runs UDP and TCP only.
+- **Firewall:** open UDP and TCP 3478, UDP 49160-49999, and TCP 443 for TLS.
+- **Bandwidth, not CPU, is the cost:** allow about 5 Mbit/s each way per
+  concurrent 720p visit. When both phones are in the office, the media goes
+  office → Relay → office. A visit costs a few percent of a core (S2).
+- **Rotating the master secret:** stop the Relay, delete `turn.secret`, and
+  start it. Each office gets its new key on its next connect, so restart
+  the offices' tunnels too, or wait for them to reconnect.
+- **Logs:** a line a minute with live allocation and visit counts while any
+  are live. No addresses or usernames.
+
+```bash
+WEHELP_RELAY_TURN_PUBLIC_IP=192.168.1.20 bin/wehelp-relay serve
+```
+
 ## Rotating Relay keys
 
 - **Host key:**
