@@ -50,7 +50,7 @@
 
 {{define "join"}}{{template "head" .}}
 <h1>Get the app and join</h1>
-<p class="lede">New and current patients use the free WeHelp app for appointments, messages, video visits and supply orders.</p>
+<p class="lede">New and current {{.Words.Patients}} use the free WeHelp app for appointments, messages, video visits and supply orders.</p>
 <ol class="steps">
   <li>
     <h2>Download WeHelp</h2>
@@ -59,7 +59,7 @@
   </li>
   <li>
     <h2>Visit the office</h2>
-    <p>Bring your phone to your next visit{{if .Phone}}, or call {{.Phone}} to arrange one{{end}}. Our staff add you as a patient.</p>
+    <p>Bring your phone to your next visit{{if .Phone}}, or call {{.Phone}} to arrange one{{end}}. Our staff add you as a {{.Words.Patient}}.</p>
   </li>
   <li>
     <h2>Scan your pairing code</h2>

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/zacharyelston/wehelp/internal/practice"
 )
 
 // Limits the Relay also enforces (internal/relay/site.go keeps its own copy:
@@ -85,6 +87,9 @@ type Content struct {
 	Join         string     `json:"join"`    // extra words for "Get the app and join"
 	LogoFile     string     `json:"logo_file"`
 	Theme        string     `json:"theme"` // one of Themes; empty = the first
+	// Words come from the practice type (#108), set by the Back Office when it
+	// renders; never saved with the content.
+	Words practice.Words `json:"-"`
 	Providers    []Provider `json:"providers"`
 	Services     []Service  `json:"services"`
 	Podcasts     []Podcast  `json:"podcasts"`

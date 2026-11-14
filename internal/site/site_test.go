@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zacharyelston/wehelp/internal/practice"
 )
 
 func TestRenderEscapesAndHasNoScripts(t *testing.T) {
@@ -143,5 +145,24 @@ func TestThemes(t *testing.T) {
 	c.Theme = `x" onload="alert(1)`
 	if c.Validate() == nil {
 		t.Error("unknown theme accepted")
+	}
+}
+
+// TestWords: the practice type's words reach the pages (#108); without
+// any, the default words do.
+func TestWords(t *testing.T) {
+	c := DemoContent("Shear Joy Salon")
+	c.Words = practice.Words{Patient: "client", Patients: "clients", Provider: "stylist", Providers: "stylists"}
+	out, err := Render(c, nil, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, join := string(out["index.html"]), string(out["join.html"])
+	if !strings.Contains(idx, "Clients use the free WeHelp app") || !strings.Contains(join, "add you as a client") || strings.Contains(idx+join, "atient") {
+		t.Error("salon words not used")
+	}
+	out, _ = Render(DemoContent("Clinic"), nil, nil, time.Now())
+	if !strings.Contains(string(out["index.html"]), "Patients use the free WeHelp app") {
+		t.Error("default words not used")
 	}
 }

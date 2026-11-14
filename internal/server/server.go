@@ -107,6 +107,7 @@ func (s *Server) Router() chi.Router {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me", s.Me)
+			r.Get("/practice", s.GetPractice) // practice type and words (#108)
 			r.Post("/links", s.CreateLink)
 			r.Get("/links", s.ListLinks)
 			r.Post("/links/{userID}/accept", s.AcceptLink)
@@ -147,6 +148,7 @@ func (s *Server) Router() chi.Router {
 			r.Post("/patients", s.CreatePatient)
 			r.Post("/pairing/invites", s.CreateInvite)
 			r.Get("/pairing/invites/{inviteID}", s.GetInvite)
+			r.Put("/practice", s.PutPractice) // admins (#108)
 			// Practice website and store admin (#97).
 			r.Get("/site", s.GetSite)
 			r.Put("/site", s.PutSite)
