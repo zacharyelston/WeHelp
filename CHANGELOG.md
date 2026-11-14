@@ -97,6 +97,24 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Registry console (#61) at `/console/` for WeHelp support.
+  - Sign-in is a password plus an authenticator code, with the same rules as
+    the Back Office staff UI (#38): codes work once, 5 failures lock the
+    account for 15 minutes, `__Host-` cookie sessions, and a CSRF header on
+    writes. Accounts come from `wehelp-registry staff add`.
+  - Roles: `support` runs practices (admin contact, subscription status),
+    providers and admins (credentials, licence number) and install tokens.
+    `registry-admin` can also suspend, reactivate, move a practice that
+    isn't installed yet to another Relay, and set Relay capacity.
+  - Health: each Relay posts a status report after every list sync, signed
+    with its SSH host key: its list version and connected office IDs. The
+    console shows Relays up or down and each office connected or not.
+  - Every console action goes into the Registry's hash chain as
+    `console:<email>`. The console has a strict CSP and no inline script.
+    Migration `db/registry/V3`.
+  - Shared sign-in pieces (TOTP, tokens, QR, argon2id) moved to
+    `internal/staffauth`, so the Registry doesn't import the Back Office's
+    `auth` package.
 - `docs/MOBILE_CLIENT.md` (#140): the contract every WeHelp app follows,
   written down for the Android app. It covers the pairing QR code and its
   checks, the two pinned TLS hops and how a pin is computed, the device key

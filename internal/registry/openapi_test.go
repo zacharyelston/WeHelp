@@ -36,6 +36,9 @@ func TestOpenAPICoversRoutes(t *testing.T) {
 	}
 	inRouter := map[string]bool{}
 	err = chi.Walk(NewServer(nil).Router(), func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if route == "/console" || strings.HasPrefix(route, "/console/") {
+			return nil // the console's static page, not the API
+		}
 		inRouter[method+" "+strings.TrimSuffix(route, "/")] = true
 		return nil
 	})

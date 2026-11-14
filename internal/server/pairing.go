@@ -17,8 +17,8 @@ import (
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/auth"
 	"github.com/zacharyelston/wehelp/internal/office"
+	"github.com/zacharyelston/wehelp/internal/staffauth"
 	"github.com/zacharyelston/wehelp/internal/tunnel"
-	"rsc.io/qr"
 )
 
 // QR pairing (#37). Patients have no password. In the office:
@@ -202,14 +202,7 @@ func (s *Server) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func qrPNG(text string) ([]byte, error) {
-	c, err := qr.Encode(text, qr.M)
-	if err != nil {
-		return nil, err
-	}
-	c.Scale = 8
-	return c.PNG(), nil
-}
+func qrPNG(text string) ([]byte, error) { return staffauth.QRPNG(text) }
 
 // staffPatient returns the patient's display name if the staff member may
 // act for them: admins for any patient in the tenant, providers for patients

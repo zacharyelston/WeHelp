@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -14,10 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/auth"
+	"github.com/zacharyelston/wehelp/internal/staffauth"
 	"github.com/zacharyelston/wehelp/internal/tunnel"
 )
 
@@ -122,23 +119,7 @@ func (s *Server) recordFailure(ctx context.Context, u staffUser, reason string) 
 // checkTOTP accepts a 6-digit code for the current step ±1 that is newer
 // than the last accepted one, and returns its step.
 func checkTOTP(secret, code string, lastStep *int64, now time.Time) (int64, bool) {
-	code = strings.ReplaceAll(strings.TrimSpace(code), " ", "")
-	if len(code) != 6 {
-		return 0, false
-	}
-	step := now.Unix() / totpPeriod
-	for _, d := range []int64{-1, 0, 1} {
-		st := step + d
-		if lastStep != nil && st <= *lastStep {
-			continue
-		}
-		want, err := totp.GenerateCodeCustom(secret, time.Unix(st*totpPeriod, 0), totp.ValidateOpts{
-			Period: totpPeriod, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
-		if err == nil && subtle.ConstantTimeCompare([]byte(want), []byte(code)) == 1 {
-			return st, true
-		}
-	}
-	return 0, false
+	return staffauth.CheckTOTP(secret, code, lastStep, now)
 }
 
 type staffSession struct {
@@ -146,18 +127,9 @@ type staffSession struct {
 	State, CSRF          string
 }
 
-func randomToken(n int) string {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b)
-}
+func randomToken(n int) string { return staffauth.RandomToken(n) }
 
-func hashToken(t string) []byte {
-	sum := sha256.Sum256([]byte(t))
-	return sum[:]
-}
+func hashToken(t string) []byte { return staffauth.HashToken(t) }
 
 // startSession creates a session and sets the cookie.
 func startSession(ctx context.Context, tx pgx.Tx, w http.ResponseWriter, u staffUser, state string) (staffSession, error) {
@@ -327,8 +299,7 @@ func (s *Server) StaffTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "setup failed")
 		return
 	}
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: "WeHelp " + practice, AccountName: email,
-		Period: totpPeriod, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
+	key, err := staffauth.NewTOTPKey("WeHelp "+practice, email)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "setup failed")
 		return

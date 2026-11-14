@@ -107,7 +107,7 @@ func TestReminders(t *testing.T) {
 	}
 	var since time.Time
 	_ = pool.QueryRow(ctx, `select checkin_since from provider_patients where provider_id = $1 and patient_id = $2`, ada, jordan).Scan(&since)
-	since = since.UTC() // office time in this test
+	since = since.UTC()                   // office time in this test
 	day := func(at time.Time) time.Time { // the next daytime hour, office time
 		for at.Hour() < checkinDayStart || at.Hour() >= checkinDayEnd {
 			at = at.Add(time.Hour)
