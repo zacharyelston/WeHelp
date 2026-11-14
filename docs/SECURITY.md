@@ -60,8 +60,10 @@ attacker, and jailbroken devices with root on the patient's own phone.
 ### Phone ↔ Back Office (through the Relay)
 
 - TLS 1.3, end to end, terminated only on the Back Office.
-- The app pins the office TLS public key (SPKI SHA-256) from the QR pairing.
-  It fails closed on mismatch and has no "trust anyway" option.
+- The app pins the office TLS public key from the QR pairing: base64
+  SHA-256 of the uncompressed X9.63 key (`04 || X || Y`), not of the whole
+  SPKI (see [MOBILE_CLIENT.md](MOBILE_CLIENT.md#computing-a-pin)). It fails
+  closed on mismatch and has no "trust anyway" option.
 - The Relay sees an office ID, timing and byte counts. It cannot decrypt,
   alter or replay any request.
 - **Sessions:**
@@ -154,6 +156,8 @@ attacker, and jailbroken devices with root on the patient's own phone.
     `AfterFirstUnlockThisDeviceOnly`;
   - no PHI is cached on disk in V1 (the app fetches on view);
   - screens with PHI are hidden in the app switcher.
+
+  Every app, iOS and Android, follows [MOBILE_CLIENT.md](MOBILE_CLIENT.md#9-lock-and-data-on-the-phone).
 
 ## Logging and audit
 
