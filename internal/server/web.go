@@ -3,6 +3,7 @@ package server
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/zacharyelston/wehelp/web"
@@ -26,10 +27,21 @@ func (s *Server) webRoutes(r chi.Router) {
 		serveStatic(w, r, static, "styles.css")
 	})
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		// Unknown API paths are real 404s in JSON. Serving the SPA here would
+		// hand API clients an HTML page with status 200.
+		if isAPIPath(r.URL.Path) {
+			writeErr(w, http.StatusNotFound, "not found")
+			return
+		}
 		// SPA fallback: unknown non-API paths get index.html.
 		serveStatic(w, r, static, "index.html")
 	})
 	_ = fileServer
+}
+
+func isAPIPath(p string) bool {
+	return p == "/api" || strings.HasPrefix(p, "/api/") ||
+		p == "/healthz" || p == "/readyz"
 }
 
 func serveStatic(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string) {

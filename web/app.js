@@ -38,15 +38,33 @@ async function api(method, path, body) {
 async function login(tenant, email, password) {
   const data = await api("POST", "/auth/login", { tenant, email, password });
   session = data;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   await fetchIdentity();
+  // Staff only: patients use the mobile app (docs/ARCHITECTURE.md). Drop the
+  // session before anything is stored or rendered.
+  if (session.role === "patient") {
+    session = null;
+    localStorage.removeItem(STORAGE_KEY);
+    renderPatientNotice();
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   render();
+}
+
+function renderPatientNotice() {
+  document.getElementById("app").innerHTML = `
+    <div class="card login-card">
+      <h1>WeHelp</h1>
+      <p>This page is for practice staff.</p>
+      <p>Patients, please use the <strong>WeHelp app</strong> on your phone to see
+        your appointments and messages. Ask the front desk to pair your phone.</p>
+      <button class="btn" style="width:100%" onclick="render()">Back to sign in</button>
+    </div>`;
 }
 
 async function fetchIdentity() {
   const me = await api("GET", "/me");
   session = { ...session, ...me };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 function logout() {
@@ -60,6 +78,11 @@ function logout() {
 // ---------------------------------------------------------------------------
 function render() {
   const app = document.getElementById("app");
+  if (session && session.role === "patient") {
+    // A patient session restored from an older build: discard it.
+    session = null;
+    localStorage.removeItem(STORAGE_KEY);
+  }
   if (!session) {
     app.innerHTML = renderLogin();
     bindLogin();
@@ -107,7 +130,7 @@ function bindLogin() {
       await login(tenant, email, password);
     } catch (err) {
       document.getElementById("login-error").innerHTML =
-        `<div class="alert alert-error">${err.message}</div>`;
+        `<div class="alert alert-error">${esc(err.message)}</div>`;
     }
   };
 }
@@ -146,7 +169,7 @@ function bindDashboard() {
 function showAlert(msg, type = "error") {
   const area = document.getElementById("alert-area");
   if (!area) return;
-  area.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  area.innerHTML = `<div class="alert alert-${type}">${esc(msg)}</div>`;
   setTimeout(() => { if (area) area.innerHTML = ""; }, 4000);
 }
 
@@ -158,7 +181,7 @@ async function loadTab() {
     else if (activeTab === "appointments") await loadAppointments(content);
     else if (activeTab === "links") await loadLinks(content);
   } catch (err) {
-    content.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }
 }
 
