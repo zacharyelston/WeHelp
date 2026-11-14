@@ -71,6 +71,18 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Provider devices (#69): one WeHelp app, with the role set by pairing.
+  - On the staff web UI, **My devices** shows a staff member's phones and
+    iPads, with **Pair my phone or iPad** and Revoke.
+  - `POST /pairing/invites` takes `user_id` for any account: a provider for
+    linked patients or themselves; an admin for anyone in the practice.
+    Redeem issues a device-bound session with the account's own role.
+  - The app opens on a provider **Today** view (today's visits with patient
+    names, what's coming up, and unread messages) alongside Messages,
+    Schedule and Settings.
+  - `/links` now carries `provider_name` and `patient_name`, and `/me`
+    carries `display_name`, so messages and visits show names instead of
+    "Patient" or "Care team".
 - Staff sign-in and the LAN-only staff surface (#38).
   - Staff web UI sign-in is password + TOTP. The first sign-in walks through
     authenticator setup (QR code and key). Codes work once, and five failures
