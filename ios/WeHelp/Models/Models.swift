@@ -1,23 +1,84 @@
 import Foundation
 
-struct User: Identifiable, Codable {
+/// One inbox entry from `GET /api/v1/messages`. Held in memory only; PHI is
+/// never written to disk.
+struct Message: Identifiable, Decodable, Sendable, Hashable {
     let id: UUID
-    var displayName: String
-    var role: Role
+    let senderID: UUID
+    let recipientID: UUID
+    let kind: Kind
+    let body: String
+    var readAt: Date?
+    let createdAt: Date
+
+    var isUnread: Bool { readAt == nil }
+
+    enum Kind: String, Decodable, Sendable {
+        case message, memo, checkin, reminder, unknown
+
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Kind(rawValue: raw) ?? .unknown
+        }
+
+        var label: String {
+            switch self {
+            case .message: "Message"
+            case .memo: "Memo"
+            case .checkin: "Check-in"
+            case .reminder: "Reminder"
+            case .unknown: "Note"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .message: "bubble.left"
+            case .memo: "doc.text"
+            case .checkin: "checkmark.circle"
+            case .reminder: "bell"
+            case .unknown: "envelope"
+            }
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, body
+        case senderID = "sender_id"
+        case recipientID = "recipient_id"
+        case readAt = "read_at"
+        case createdAt = "created_at"
+    }
 }
 
-struct Message: Identifiable, Codable {
-    let id: UUID
-    var senderID: UUID
-    var recipientID: UUID
-    var kind: Kind
-    var body: String
-    var createdAt: Date
+/// A page of the inbox. `nextCursor` is nil on the last page.
+struct MessagePage: Decodable, Sendable {
+    let messages: [Message]
+    let nextCursor: String?
 
-    enum Kind: String, Codable {
-        case message
-        case memo
-        case checkin
-        case reminder
+    enum CodingKeys: String, CodingKey {
+        case messages
+        case nextCursor = "next_cursor"
     }
+}
+
+/// A provider-patient link from `GET /api/v1/links`.
+struct CareLink: Decodable, Sendable, Hashable {
+    let providerID: UUID
+    let patientID: UUID
+    let status: String
+
+    var isActive: Bool { status == "active" }
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case providerID = "provider_id"
+        case patientID = "patient_id"
+    }
+}
+
+/// Response to `POST /api/v1/messages`.
+struct CreatedMessage: Decodable, Sendable {
+    let id: UUID
+    let kind: String
 }

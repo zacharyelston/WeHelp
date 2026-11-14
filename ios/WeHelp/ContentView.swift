@@ -30,19 +30,6 @@ struct TodayView: View {
     }
 }
 
-struct MessagesView: View {
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "No messages yet",
-                systemImage: "bubble.left.and.bubble.right",
-                description: Text("Messages and memos from your care team appear here.")
-            )
-            .navigationTitle("Messages")
-        }
-    }
-}
-
 struct AppointmentsView: View {
     var body: some View {
         NavigationStack {
