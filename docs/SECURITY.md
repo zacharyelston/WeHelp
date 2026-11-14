@@ -93,6 +93,16 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - Staff routes are refused on Relay channels: the listener decides reachability,
   not a header.
 - Admin actions (users, pairing, device revoke, settings) are audited.
+- As built (#38):
+  - TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, ±1 step), and each code works
+    once (last accepted step stored).
+  - Five failed sign-ins lock the account for 15 minutes, and each failure
+    is audited.
+  - Session cookies are `__Host-`, with a 30-minute idle and 12-hour
+    absolute limit. CSRF is a per-session token checked in constant time on
+    every change.
+  - Staff accounts are created on the host (`wehelpd staff add`).
+  - The breached-password check is still an open decision.
 
 ### Telehealth
 

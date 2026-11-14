@@ -54,6 +54,21 @@ files.
    the `officekeys` volume. See docs/OFFICE_KEYS.md, which also covers key
    rotation. Back up the volume with the database: losing the TLS key means
    re-pairing every phone.
+8. **Staff web UI over HTTPS** (#38):
+   1. Set `WEHELP_STAFF_HOSTS` in `deploy/.env` to the names and LAN
+      addresses staff will type, for example
+      `barnacle.local,192.168.1.55`. Then `make appliance-up`.
+   2. Staff use `https://<host>:8443`; plain `:8080` redirects there.
+   3. Run `deploy/appliance.sh export-ca > wehelp-office-ca.crt` and install
+      that certificate on each staff machine (macOS: open it, then in
+      Keychain Access set it to Always Trust).
+   4. Create each staff account on this machine:
+      ```
+      cd deploy && docker compose -f docker-compose.yml -f docker-compose.appliance.yml \
+        run --rm --no-deps server staff add --tenant "<practice>" --email <email> --name "<name>" --role provider|admin
+      ```
+      It asks for the password. Each person sets up their authenticator app
+      at their first sign-in.
 
 ## After a reboot
 
