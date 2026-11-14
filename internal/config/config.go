@@ -25,6 +25,10 @@ type Config struct {
 	RegistrySigningKey  string `mapstructure:"registry_signing_key"` // ed25519 PEM, mode 600
 	RegistryTLSCert     string `mapstructure:"registry_tls_cert"`    // empty = plain HTTP (dev only)
 	RegistryTLSKey      string `mapstructure:"registry_tls_key"`
+
+	// Back Office identity (#35): keys, local CA and Registry registration.
+	OfficeDir   string `mapstructure:"office_dir"`   // mode 700, outside the repo
+	RegistryURL string `mapstructure:"registry_url"` // where wehelpd init installs
 }
 
 // defaultRegistryKey keeps the signing key outside the repo by default.
@@ -34,6 +38,15 @@ func defaultRegistryKey() string {
 		return "/var/lib/wehelp-registry/signing.key"
 	}
 	return filepath.Join(home, ".wehelp", "registry", "signing.key")
+}
+
+// defaultOfficeDir keeps the office keys outside the repo by default.
+func defaultOfficeDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "/var/lib/wehelp/office"
+	}
+	return filepath.Join(home, ".wehelp", "office")
 }
 
 // Load initializes Viper: defaults, WEHELP_* env vars, and an optional YAML
@@ -56,6 +69,9 @@ func Load(cfgFile string) error {
 	viper.SetDefault("registry_signing_key", defaultRegistryKey())
 	viper.SetDefault("registry_tls_cert", "")
 	viper.SetDefault("registry_tls_key", "")
+
+	viper.SetDefault("office_dir", defaultOfficeDir())
+	viper.SetDefault("registry_url", "http://localhost:8090")
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

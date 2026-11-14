@@ -71,6 +71,19 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Back Office identity (#35): `wehelpd init`.
+  - It creates the office SSH key (ed25519), the office TLS key (P-256) with
+    a self-signed certificate for `<office-id>.wehelp.invalid`, and a local
+    CA for the staff UI.
+  - Everything lives in `office_dir`, mode 700, with keys at mode 600. It is
+    never overwritten, and it is safe to rerun.
+  - With `--install-token` (or `WEHELP_INSTALL_TOKEN`) it installs with the
+    Registry and stores the office ID, Relay addresses and host key, and the
+    Registry signing key.
+  - It prints the pairing identity for the QR payload: Relay address, office
+    ID, and the key pin (SHA-256 of the X9.63 public key, the SPKI key bits).
+  - Appliance: an `officekeys` volume and `appliance.sh init-office`.
+  - Rotation procedures for each key: docs/OFFICE_KEYS.md.
 - WeHelp Registry core (#60): a new `wehelp-registry` binary with its own
   Postgres database and Flyway migrations (`db/registry`).
   - Practices, Relays, offices, install tokens, and every published office

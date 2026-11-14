@@ -48,6 +48,12 @@ files.
    make appliance-up            # creates deploy/.env if missing, builds, starts, waits for /healthz
    make appliance-install-login # installs the login-time boot job
    ```
+7. **Office identity and Registry install** (#35): get an install token from
+   WeHelp support, then run `deploy/appliance.sh init-office` with
+   `WEHELP_INSTALL_TOKEN` and `WEHELP_REGISTRY_URL` set. The keys live on
+   the `officekeys` volume. See docs/OFFICE_KEYS.md, which also covers key
+   rotation. Back up the volume with the database: losing the TLS key means
+   re-pairing every phone.
 
 ## After a reboot
 

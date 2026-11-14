@@ -18,3 +18,11 @@ services:
         required: true
     environment:
       WEHELP_ENV: appliance
+      WEHELP_OFFICE_DIR: /var/lib/wehelp/office
+    # Office keys, local CA and Registry registration (#35). Created by
+    # `appliance.sh init-office`; see docs/OFFICE_KEYS.md.
+    volumes:
+      - officekeys:/var/lib/wehelp/office
+
+volumes:
+  officekeys:
