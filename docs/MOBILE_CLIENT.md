@@ -24,6 +24,7 @@ What every WeHelp app must do to pair with a practice, reach it, stay signed in 
 12. [Practice words and switches](#12-practice-words-and-switches)
 13. [Data formats](#13-data-formats)
 14. [Never](#14-never)
+15. [Video visits](#15-video-visits)
 
 ## 1. How an app reaches a practice
 
@@ -216,6 +217,8 @@ There is no socket for live updates. While the screen is visible and the app is 
 | Conversation list | 15 seconds |
 | An open thread | 10 seconds |
 
+The one exception is a video visit's signal long-poll while the call screen is open (§15).
+
 Stop when the screen goes away, the app goes to the background, or the app locks. Opening a thread marks its incoming messages read, so polling under the lock screen would mark messages read that nobody saw (the iPhone app still does this, #144).
 
 ## 12. Practice words and switches
@@ -246,3 +249,34 @@ The iPhone app doesn't follow words or switches yet (#142).
 - Never put patient data in a log, notification, analytics event, crash report, file, cache or backup.
 - Never export the device key or share it between accounts.
 - Never run two refreshes for one account at once.
+
+## 15. Video visits
+
+A 1:1 video visit between a patient and their provider (#6). Media goes phone to phone, DTLS-SRTP end to end, through the Relay's TURN server. Signaling goes through the Back Office over the two pinned hops, so the Relay can't swap the fingerprints that secure the media. Only when the practice's `video` switch is on (§12).
+
+**Starting and joining**
+- Any scheduled appointment can become a video visit. It can be joined from 10 minutes before `starts_at` until 30 minutes after `ends_at`.
+- **The provider starts it:** `POST /api/v1/appointments/{id}/visit/start`.
+- **The patient** sees "Your provider will start the visit" until the appointment's `visit_status` is `open` (in `GET /appointments`, or after the `visit_starting` push). Then they get **Join video visit**: `POST /api/v1/appointments/{id}/visit/join`. Before that, join returns 409 `not_started`.
+- **Codes to handle:** `not_started`, `outside_window`, `not_scheduled` and `ended` (409); `video_unavailable` (503, the practice's Relay connection is down: "The video service isn't reachable right now").
+- The answer gives `visit_id`, `role`, `peer_present`, `after`, `ice_servers` and `expires_at`.
+
+**WebRTC**
+- `RTCConfiguration`: `iceServers` from the answer, `iceTransportPolicy = relay` (never gather host or reflexive candidates), unified plan, `bundlePolicy = maxBundle`, `rtcpMuxPolicy = require`.
+- `RTCCryptoOptions`: enable the SRTP AES-GCM suites.
+- Video: front camera, 1280×720 at 30 fps, H.264, degradation preference `balanced`. Audio: echo cancellation on, speaker by default.
+- **The provider always makes the offer** and the patient answers. The provider sends a fresh offer with an ICE restart whenever the patient joins or rejoins (`joined`), or asks (`restart`).
+
+**Signals**
+- Send: `POST /api/v1/visits/{visit_id}/signals` with `{"type": "offer"|"answer", "sdp"}`, `{"type": "candidate", "candidate": {candidate, sdpMid, sdpMLineIndex}}`, or (patient) `{"type": "restart"}`.
+- Receive: `GET /api/v1/visits/{visit_id}/signals?after={seq}` returns at once when there is something newer, otherwise after about 25 seconds. Poll again at once with the highest `seq` you got.
+  - Only while the call screen is open.
+  - The other side's `joined`, `left`, `offer`, `answer`, `candidate`, `restart`, and the Back Office's `ended` and `replaced`.
+- `ended: true` or `ended`: the visit is over; show it and close the call.
+- `replaced`, or 409 `replaced`: the person joined from another device; stop here.
+
+**Security check:** after the connection is up, compare the remote certificate fingerprint in `getStats` with the `a=fingerprint` in the SDP you received. On a mismatch, hang up and show "This call couldn't be secured."
+
+**Leaving:** `POST /visits/{id}/leave` when the person leaves (the visit stays open to rejoin). The provider may `POST /visits/{id}/end` for both. Ending doesn't change the appointment; staff mark it.
+
+**On the phone:** keep the screen awake during a call. Store nothing about the call. Going to the background drops media; on return, rejoin. No CallKit or background audio in V1.

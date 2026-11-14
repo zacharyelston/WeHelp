@@ -397,6 +397,49 @@ components:
           format: date-time
         provider_name: { type: string, description: "In lists (#106)." }
         patient_name: { type: string, description: "In lists (#106)." }
+        visit_status:
+          type: string
+          enum: [open, ended]
+          description: "In lists (#6): the video visit's state; absent if none was started. The patient's Join button shows while it is open."
+        visit_opened_at: { type: string, format: date-time }
+        visit_ended_at: { type: string, format: date-time }
+
+    VisitJoin:
+      type: object
+      required: [visit_id, role, peer_present, after, ice_servers, expires_at]
+      properties:
+        visit_id: { type: string, format: uuid }
+        role: { type: string, enum: [provider, patient] }
+        peer_present: { type: boolean, description: The other party's device is in the call. }
+        after: { type: integer, description: Poll signals after this sequence. }
+        ice_servers:
+          type: array
+          description: "Pass to RTCConfiguration with iceTransportPolicy = relay. TURN REST credentials, valid until expires_at."
+          items:
+            type: object
+            required: [urls, username, credential]
+            properties:
+              urls: { type: array, items: { type: string } }
+              username: { type: string }
+              credential: { type: string }
+        expires_at: { type: string, format: date-time, description: The end of the join window. }
+
+    VisitSignal:
+      type: object
+      required: [seq, from, type]
+      properties:
+        seq: { type: integer }
+        from: { type: string, enum: [provider, patient, server] }
+        type:
+          type: string
+          enum: [offer, answer, candidate, restart, joined, left, ended, replaced]
+          description: |
+            From the other phone: offer (always the provider), answer (always
+            the patient), candidate, restart (the patient asking for a fresh
+            offer). From the Back Office or about the other side: joined,
+            left, ended, replaced (this visit moved to another of your devices).
+        sdp: { type: string }
+        candidate: { type: object, additionalProperties: true }
 
     PreferredTime:
       type: object
@@ -1706,6 +1749,117 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  # Video visits (#6). Participants only, from the app (device sessions),
+  # through the Relay. Media is phone to phone through the Relay's TURN.
+  /api/v1/appointments/{appointmentID}/visit/start:
+    post:
+      tags: [visits]
+      summary: The provider starts (or rejoins) the video visit
+      description: |
+        Only the appointment's provider, from the app, while the appointment
+        is scheduled and inside the join window (10 minutes before the start
+        until 30 minutes after the end). Opens the visit, joins this device
+        (replacing any other device of theirs) and pushes `visit_starting` to
+        the patient. Audited as visit.open and visit.join.
+      parameters:
+        - { name: appointmentID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "In the call", content: { application/json: { schema: { $ref: "#/components/schemas/VisitJoin" } } } }
+        "403": { description: "Not the provider, a browser session, or another role", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: "No such appointment of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409": { description: "Codes: not_scheduled, outside_window, ended; or video is turned off for the practice", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "Code video_unavailable: no TURN key from the Relay (the tunnel is down)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/v1/appointments/{appointmentID}/visit/join:
+    post:
+      tags: [visits]
+      summary: The patient joins an open visit, or the provider rejoins
+      description: |
+        Like start, but the provider must have started the visit first
+        (409 `not_started` until then). Joining from another device replaces
+        the earlier one, which gets `replaced`. Audited as visit.join.
+      parameters:
+        - { name: appointmentID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: "In the call", content: { application/json: { schema: { $ref: "#/components/schemas/VisitJoin" } } } }
+        "403": { description: "A browser session or another role", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: "No such appointment of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409": { description: "Codes: not_started, not_scheduled, outside_window, ended; or video is turned off", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "Code video_unavailable", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/v1/visits/{visitID}/signals:
+    get:
+      tags: [visits]
+      summary: Long-poll for signals from the other side
+      description: |
+        Returns at once with any signals after `after`, otherwise waits up to
+        25 seconds. Only while the call screen is open: the one exception to
+        the polling rules in docs/MOBILE_CLIENT.md. Signals are held in
+        memory only and never stored or logged.
+      parameters:
+        - { name: visitID, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: after, in: query, required: false, schema: { type: integer } }
+      responses:
+        "200":
+          description: Signals (possibly none), and whether the visit has ended
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [signals, ended]
+                properties:
+                  signals: { type: array, items: { $ref: "#/components/schemas/VisitSignal" } }
+                  ended: { type: boolean }
+        "404": { description: "No such visit of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409": { description: "Codes: replaced (moved to another of your devices), not_in_call (join first)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+    post:
+      tags: [visits]
+      summary: Send a signal to the other side
+      description: The provider sends offers and the patient answers; both send ICE candidates. The patient may send restart to ask for a fresh offer.
+      parameters:
+        - { name: visitID, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type: { type: string, enum: [offer, answer, candidate, restart] }
+                sdp: { type: string, description: "offer and answer; at most 16 KB" }
+                candidate: { type: object, additionalProperties: true, description: "RTCIceCandidate fields; at most 2 KB" }
+      responses:
+        "204": { description: Passed on }
+        "400": { description: "Wrong type for your role, or bad SDP or candidate", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: "No such visit of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409": { description: "Codes: ended, replaced, not_in_call", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/v1/visits/{visitID}/leave:
+    post:
+      tags: [visits]
+      summary: Leave the call; the visit stays open to rejoin
+      description: Audited as visit.leave. The other side gets `left`.
+      parameters:
+        - { name: visitID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Left }
+        "404": { description: "No such visit of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+
+  /api/v1/visits/{visitID}/end:
+    post:
+      tags: [visits]
+      summary: The provider ends the visit for both
+      description: |
+        Audited as visit.end. The appointment is left as it is for staff to
+        mark. A visit nobody ends closes itself at the end of its window.
+      parameters:
+        - { name: visitID, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: Ended }
+        "403": { description: "Not the provider", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "404": { description: "No such visit of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   # Appointment requests (#68)
   /api/v1/appointment-requests:

@@ -252,8 +252,21 @@ the ledger API, FHIR, SSO, and cloud-hosted Back Offices.
   through the Relay's TURN server (`iceTransportPolicy = relay`), so device
   IP addresses are not exposed and the path is predictable. TURN forwards
   ciphertext only.
-- The Back Office mints short-lived TURN credentials per visit through the
-  Relay. Nothing is recorded anywhere.
+- The Back Office mints short-lived TURN credentials per visit itself, from
+  a key the Relay sends it when the tunnel connects. It never asks the Relay
+  for anything. Nothing is recorded anywhere.
+- As built (#6):
+  - **Lifecycle:** any scheduled appointment becomes a visit when its
+    provider starts one in the app, from 10 minutes before the start to 30
+    minutes after the end. The patient gets a push and can join only after
+    that.
+  - **Who:** only the two of them, from the app, one device each.
+  - **Signaling:** a long-poll held in the Back Office's memory, never
+    stored or logged.
+  - **Ending:** the provider ends the visit, or it closes itself at the end
+    of the window. Ending doesn't change the appointment; staff mark it.
+  - **Audit:** open, join, leave and end.
+  - The client contract is in MOBILE_CLIENT.md §15.
 
 ### Push
 

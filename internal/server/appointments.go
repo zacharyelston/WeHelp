@@ -46,6 +46,10 @@ type appointmentView struct {
 	CreatedAt    time.Time `json:"created_at"`
 	ProviderName string    `json:"provider_name,omitempty"` // in lists (#106)
 	PatientName  string    `json:"patient_name,omitempty"`
+	// Video visit state (#6): open or ended, with its times; absent if none.
+	VisitStatus   *string    `json:"visit_status,omitempty"`
+	VisitOpenedAt *time.Time `json:"visit_opened_at,omitempty"`
+	VisitEndedAt  *time.Time `json:"visit_ended_at,omitempty"`
 }
 
 type createAppointmentRequest struct {
@@ -210,10 +214,11 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 	// one provider's day with ?provider_id=.
 	base := `
 		select a.id, a.provider_id, a.patient_id, a.starts_at, a.ends_at, a.status, a.created_at,
-		       pr.display_name, pa.display_name
+		       pr.display_name, pa.display_name, v.status, v.opened_at, v.ended_at
 		from appointments a
 		join users pr on pr.id = a.provider_id
 		join users pa on pa.id = a.patient_id
+		left join visits v on v.appointment_id = a.id
 		where a.tenant_id = $1`
 	args := []any{id.TenantID}
 	if practiceWide(id.Role) {
@@ -260,7 +265,8 @@ func (s *Server) ListAppointments(w http.ResponseWriter, r *http.Request) {
 	appts := []appointmentView{}
 	for rows.Next() {
 		var a appointmentView
-		if err := rows.Scan(&a.ID, &a.ProviderID, &a.PatientID, &a.StartsAt, &a.EndsAt, &a.Status, &a.CreatedAt, &a.ProviderName, &a.PatientName); err != nil {
+		if err := rows.Scan(&a.ID, &a.ProviderID, &a.PatientID, &a.StartsAt, &a.EndsAt, &a.Status, &a.CreatedAt, &a.ProviderName, &a.PatientName,
+			&a.VisitStatus, &a.VisitOpenedAt, &a.VisitEndedAt); err != nil {
 			writeErr(w, http.StatusInternalServerError, "scan failed")
 			return
 		}

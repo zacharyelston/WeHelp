@@ -97,6 +97,25 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Video visits in the Back Office (#6, step 3).
+  - **Starting:** any scheduled appointment can become a video visit. The
+    provider starts it from the app (`POST
+    /appointments/{id}/visit/start`), from 10 minutes before the start to 30
+    minutes after the end. The patient gets the `visit_starting` push and
+    joins (`.../visit/join`, 409 `not_started` until then).
+  - **Who:** only the appointment's provider and patient, from the app (no
+    browser sessions, front desk or admins), one device each. Joining from
+    another device replaces the first.
+  - **Signaling:** `/visits/{id}/signals`, a long-poll held in memory only,
+    never stored or logged. The provider makes the offers and the patient
+    answers.
+  - **TURN credentials** are minted from the key the Relay sent at connect.
+    Without one, joining answers 503 `video_unavailable`.
+  - **Ending:** the provider ends it for both, or it closes itself after the
+    window. Ending leaves the appointment for staff to mark. The staff web
+    shows each visit as in progress or how long it lasted.
+  - **Audit:** `visit.open`, `visit.join`, `visit.leave`, `visit.end`.
+    Migration `V20`, the `video` switch, and MOBILE_CLIENT.md §15.
 - Video-visit TURN in the Relay (#6, step 2): `pion/turn` on UDP and TCP
   3478, and TURN over TLS (normally 443) with a Let's Encrypt certificate
   the Relay fetches itself, or certbot files. Off until
