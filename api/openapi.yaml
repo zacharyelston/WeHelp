@@ -147,6 +147,62 @@ components:
 
     RefreshRequest:
       type: object
+      description: >
+        For a device-bound refresh token, `timestamp` and `signature` are
+        required: a DER ECDSA-P256-SHA256 signature by the enrolled device key
+        over `wehelp-device-v1\nrefresh\n{refresh_token}\n{timestamp}`,
+        within ±5 minutes of server time. Patient accounts can only refresh
+        device-bound tokens.
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix seconds when the proof was signed.
+        signature:
+          type: string
+          format: byte
+          description: Base64 DER ECDSA signature by the device key.
+
+    EnrollRequest:
+      type: object
+      description: >
+        Swaps an unbound refresh token (from password login) for a token pair
+        bound to this device. The signature proves possession of the private
+        key: `wehelp-device-v1\nenroll\n{refresh_token}\n{timestamp}`.
+      required: [refresh_token, public_key, timestamp, signature]
+      properties:
+        refresh_token:
+          type: string
+        public_key:
+          type: string
+          format: byte
+          description: Base64 DER SubjectPublicKeyInfo, P-256 only.
+        name:
+          type: string
+          maxLength: 100
+          description: Device display name.
+        timestamp:
+          type: integer
+          format: int64
+        signature:
+          type: string
+          format: byte
+
+    EnrollResponse:
+      allOf:
+        - $ref: "#/components/schemas/TokenResponse"
+        - type: object
+          required: [device_id]
+          properties:
+            device_id:
+              type: string
+              format: uuid
+
+    LogoutRequest:
+      type: object
       required: [refresh_token]
       properties:
         refresh_token:
@@ -454,7 +510,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
         "401":
-          description: Invalid or expired refresh token
+          description: >
+            Invalid or expired refresh token, a failed device proof, a revoked
+            device, or a patient token that is not device-bound.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/enroll:
+    post:
+      tags: [auth]
+      summary: Enroll this device and get a device-bound token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollRequest"
+      responses:
+        "201":
+          description: Device enrolled; the login refresh token is consumed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollResponse"
+        "400":
+          description: Malformed body or a public key that is not P-256 SPKI.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Invalid refresh token or failed device proof.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Session already device-bound, or the key is already enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke a session (and its device, if device-bound)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "204":
+          description: >
+            Revoked. For a device-bound token, the device and all its tokens
+            are revoked. Unknown or expired tokens also return 204.
+        "400":
+          description: Malformed body.
           content:
             application/json:
               schema:
