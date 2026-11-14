@@ -2795,6 +2795,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/v1/staff/audit/verify:
+    get:
+      tags: [staff]
+      summary: Check the practice's audit hash chain (admins only, #24)
+      description: >
+        Recomputes the admin's own practice's audit chain and reports the first
+        broken event. Events from before #28 can only be checked by their links
+        (`link_only`). The check is itself recorded as audit.verify. LAN only.
+        On the host, `wehelpd audit verify` checks every practice.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The result; a broken chain is still a 200, with ok false.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, verified, link_only]
+                properties:
+                  ok: { type: boolean }
+                  verified: { type: integer, description: "Events checked." }
+                  broken_at: { type: integer, description: "Sequence number of the first bad event; absent when ok." }
+                  link_only: { type: integer, description: "Pre-#28 events checked by link only." }
+        "403":
+          description: Not an admin.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/v1/staff/profile:
     get:
       tags: [staff]
