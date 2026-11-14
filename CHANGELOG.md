@@ -6,6 +6,13 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- AGENTS.md and CONTRIBUTING.md brought up to date (#13):
+  - issues and PRs live in zacharyelston/WeHelp;
+  - V1 milestones and the docs to read first;
+  - required CI checks and `-race`;
+  - the V1 rules: patient data only in the Back Office, no patient
+    passwords, and the OpenAPI spec kept in step with the router;
+  - Flyway migrations (the last goose reference is removed).
 - WeHelp Registry added to the V1 architecture: a fourth service, the
   corporate control plane and support arm.
   - WeHelp support registers practices and their providers in a Registry
