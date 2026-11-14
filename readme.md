@@ -2,7 +2,7 @@
 
 ### Built by providers, for providers.
 
-<a href="https://zacharyelston.github.io/WeHelp/#5"><img src="presentation/img/ecosystem.svg" alt="The WeHelp ecosystem: the patient's app and the practice's Back Office are tied together by a QR code scanned at the front desk; the app talks to the Back Office through WeHelp's Relay, which only sees encrypted traffic; all patient data stays in the Back Office; the Registry lists practices; the Relay serves each practice's website and blog." width="100%"></a>
+<a href="https://zacharyelston.github.io/WeHelp/#5"><img src="presentation/img/ecosystem.svg" alt="The WeHelp ecosystem: in the practice, a mini PC Back Office holds all patient data and a front desk laptop uses it over the office Wi-Fi; the patient app pairs by scanning a QR code shown at the front desk; the app talks to the Back Office through WeHelp's Relay, which only sees encrypted traffic; all patient data stays in the Back Office; the Registry lists practices; the Relay serves each practice's website and blog." width="100%"></a>
 
 We have spent the last 30 years in healthcare services technology and patient
 services, and licensed providers sit on our board of directors and shape what
