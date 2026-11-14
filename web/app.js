@@ -346,6 +346,16 @@ function namesFrom(links) {
   return names;
 }
 
+// visitNote shows an appointment's video visit (#6): in progress, or how
+// long it lasted, so staff can mark the outcome. Visits are joined from the
+// app, never here.
+function visitNote(a) {
+  if (!a.visit_status) return "";
+  if (a.visit_status === "open") return '<div class="hint">Video visit in progress</div>';
+  const mins = Math.max(1, Math.round((new Date(a.visit_ended_at) - new Date(a.visit_opened_at)) / 60000));
+  return `<div class="hint">Video visit, ${mins} min</div>`;
+}
+
 function personName(names, id) {
   if (id === session.user_id) return "You";
   return esc(names[id] || id.slice(0, 8));
@@ -445,7 +455,7 @@ async function loadAppointments(container) {
       const patient = personName(names, a.patient_id);
       html += `<tr>
         <td>${start}</td><td>${end}</td>
-        <td><span class="badge badge-${a.status}">${a.status}</span></td>
+        <td><span class="badge badge-${a.status}">${a.status}</span>${visitNote(a)}</td>
         ${wide ? `<td>${personName(names, a.provider_id)}</td>` : ""}
         <td>${patient}</td>`;
       if (isProvider && a.status === "scheduled") {

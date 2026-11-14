@@ -27,6 +27,8 @@ type Server struct {
 	pusher    Pusher          // push through the Relay (#7); nil = off
 	sitePub   SitePublisher   // website publishing through the Relay (#97); nil = off
 	roster    RosterSource    // provider roster from the Registry (#62); nil = not installed
+	turnKeys  TURNKeySource   // video-visit TURN key from the Relay (#6); nil = not installed
+	visits    *visitHub       // video-visit signaling, in memory (#6)
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
@@ -38,7 +40,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 		}
 		slog.Warn("WEHELP_JWT_SECRET unset; using ephemeral secret — tokens will not survive restart")
 	}
-	return &Server{cfg: cfg, pool: pool, jwtSecret: secret}
+	return &Server{cfg: cfg, pool: pool, jwtSecret: secret, visits: newVisitHub()}
 }
 
 // Router builds the HTTP handler with every route. Tests use it to check the
@@ -141,6 +143,13 @@ func (s *Server) Router() chi.Router {
 			r.Post("/appointments", s.CreateAppointment)
 			r.Get("/appointments", s.ListAppointments)
 			r.Patch("/appointments/{appointmentID}", s.UpdateAppointment)
+			// Video visits (#6): participants, from the app.
+			r.Post("/appointments/{appointmentID}/visit/start", s.StartVisit)
+			r.Post("/appointments/{appointmentID}/visit/join", s.JoinVisit)
+			r.Get("/visits/{visitID}/signals", s.PollVisitSignals)
+			r.Post("/visits/{visitID}/signals", s.SendVisitSignal)
+			r.Post("/visits/{visitID}/leave", s.LeaveVisit)
+			r.Post("/visits/{visitID}/end", s.EndVisit)
 			r.Post("/appointment-requests", s.CreateAppointmentRequest)
 			r.Get("/appointment-requests", s.ListAppointmentRequests)
 			r.Post("/appointment-requests/{requestID}/cancel", s.CancelAppointmentRequest)

@@ -50,6 +50,7 @@ var serveCmd = &cobra.Command{
 			pusher := &tunnel.Pusher{}
 			srv.SetPusher(pusher)        // push through the Relay (#7)
 			srv.SetSitePublisher(pusher) // website publishing (#97)
+			srv.SetTURNKeys(pusher)      // video visits: the TURN key the Relay sends (#6)
 			if src, err := rosterSource(id); err != nil {
 				slog.Warn("provider roster off", "err", err)
 			} else {
@@ -62,6 +63,7 @@ var serveCmd = &cobra.Command{
 		}
 		go srv.RunReminders(ctx, cfg.ReminderInterval) // stops with ctx (#19)
 		go srv.RunRosterSync(ctx, cfg.RosterInterval)  // no-op before install (#62)
+		go srv.RunVisitCloser(ctx)                     // ends visits past their window (#6)
 		return srv.ListenAndServe(ctx)
 	},
 }
