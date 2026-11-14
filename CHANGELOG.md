@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- CI and `make test` run Go tests with the race detector (`-race`). `main`
+  is protected: the `go`, `ios` and `docker` CI jobs must pass and branches
+  must be up to date before a PR merges (#30).
 - iOS signing: automatic signing with team `WZYFJ8TSWD`, bundle ID
   `com.zacelston.wehelp` (`com.wehelp.app` is not registered to this team).
   The HealthKit entitlement is kept; it provisions on this paid team.
