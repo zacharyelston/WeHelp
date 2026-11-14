@@ -71,6 +71,19 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Appointment requests (#68, #39).
+  - Patients tap **Request** on the Schedule tab and pick a provider, 1–3
+    preferred days with a time of day, and an optional reason. Up to 3 can
+    wait per provider, and a patient can cancel one while it waits.
+  - Providers see waiting requests on the staff web Appointments tab. They
+    confirm at an exact time, which books the visit with the usual overlap
+    check, or decline with an optional note. Their iPad lists what's
+    waiting.
+  - The patient gets a message in their thread and a push. Two new fixed
+    Relay categories carry no details: `appointment_update` ("Your
+    appointment request has an update.") and `appointment_request` ("A
+    patient has requested an appointment.").
+  - Every step is audited. Migration V8 adds `appointment_requests`.
 - Reminders (#19), sent by the Back Office as reminder messages from the
   provider, with a push through the Relay.
   - Appointment reminders at each `reminder_offsets` offset (default 24h

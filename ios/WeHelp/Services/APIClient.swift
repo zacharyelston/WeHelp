@@ -178,6 +178,33 @@ struct APIClient: Sendable {
         return list.appointments
     }
 
+    // MARK: Appointment requests (#68)
+
+    /// The caller's requests, newest first: a patient's own, or those
+    /// addressed to a provider.
+    func appointmentRequests(status: String? = nil) async throws -> [AppointmentRequest] {
+        let query = status.map { [URLQueryItem(name: "status", value: $0)] } ?? []
+        let list: AppointmentRequestList = try await authorized("GET", "api/v1/appointment-requests", query: query)
+        return list.requests
+    }
+
+    private struct NewRequest: Encodable, Sendable {
+        let provider_id: String
+        let preferred: [PreferredTime]
+        let reason: String
+    }
+
+    @discardableResult
+    func requestAppointment(provider: UUID, preferred: [PreferredTime], reason: String) async throws -> AppointmentRequest {
+        try await authorized("POST", "api/v1/appointment-requests",
+                             body: NewRequest(provider_id: provider.uuidString.lowercased(), preferred: preferred, reason: reason))
+    }
+
+    @discardableResult
+    func cancelAppointmentRequest(_ id: UUID) async throws -> AppointmentRequest {
+        try await authorized("POST", "api/v1/appointment-requests/\(id.uuidString.lowercased())/cancel")
+    }
+
     // MARK: Plumbing
 
     /// Sends with the access token; on 401 refreshes once and retries.

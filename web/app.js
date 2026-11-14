@@ -326,6 +326,7 @@ async function loadAppointments(container) {
 
   let html = "";
   if (isProvider) {
+    html += await requestsCard(names);
     const patients = links.filter((l) => l.status === "active" && l.provider_id === session.user_id)
       .map((l) => ({ id: l.patient_id, label: personName(names, l.patient_id) }))
       .sort((a, b) => a.label.localeCompare(b.label));
@@ -411,6 +412,68 @@ async function loadAppointments(container) {
         showAlert(err.message);
       }
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Appointment requests (#68): patients ask from the app with preferred days;
+// the provider confirms at an exact time (booking the visit) or declines.
+// ---------------------------------------------------------------------------
+const PERIOD_LABEL = { morning: "Morning", afternoon: "Afternoon", evening: "Evening", any: "Any time" };
+const PERIOD_HOUR = { morning: 9, afternoon: 13, evening: 17, any: 9 };
+
+function preferredText(p) {
+  const d = new Date(p.date + "T12:00:00");
+  return `${d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · ${PERIOD_LABEL[p.period] || p.period}`;
+}
+
+async function requestsCard(names) {
+  const data = await api("GET", "/appointment-requests?status=pending");
+  const reqs = (data.requests || []).filter((r) => r.provider_id === session.user_id).reverse(); // oldest first
+  let html = `<div class="card"><h2>Appointment Requests</h2>`;
+  if (reqs.length === 0) return html + '<p class="empty">No requests waiting.</p></div>';
+  html += "<table><thead><tr><th>Patient</th><th>Prefers</th><th>Reason</th><th>Book at</th><th>Actions</th></tr></thead><tbody>";
+  for (const r of reqs) {
+    const first = r.preferred[0];
+    const start = new Date(first.date + "T00:00:00");
+    start.setHours(PERIOD_HOUR[first.period] || 9);
+    html += `<tr>
+      <td>${personName(names, r.patient_id)}</td>
+      <td>${r.preferred.map((p) => esc(preferredText(p))).join("<br>")}</td>
+      <td>${esc(r.reason || "")}</td>
+      <td><input type="datetime-local" id="req-start-${r.id}" value="${localInput(start)}">
+        <select id="req-len-${r.id}"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></td>
+      <td><button class="btn btn-sm" onclick="confirmRequest('${r.id}')">Confirm</button>
+        <button class="btn btn-sm btn-danger" onclick="declineRequest('${r.id}')">Decline</button></td>
+    </tr>`;
+  }
+  return html + "</tbody></table></div>";
+}
+
+async function confirmRequest(id) {
+  try {
+    const start = new Date(document.getElementById(`req-start-${id}`).value);
+    const minutes = Number(document.getElementById(`req-len-${id}`).value);
+    await api("POST", `/appointment-requests/${id}/confirm`, {
+      starts_at: start.toISOString(),
+      ends_at: new Date(start.getTime() + minutes * 60000).toISOString(),
+    });
+    showAlert("Appointment booked; the patient has been told", "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function declineRequest(id) {
+  const note = prompt("Note to the patient (optional):", "");
+  if (note === null) return;
+  try {
+    await api("POST", `/appointment-requests/${id}/decline`, { note });
+    showAlert("Request declined", "success");
+    loadTab();
+  } catch (err) {
+    showAlert(err.message);
   }
 }
 

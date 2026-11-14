@@ -5,6 +5,9 @@ import SwiftUI
 @Observable
 final class AppointmentsModel {
     private(set) var appointments: [Appointment] = []
+    /// Appointment requests (#68): a patient's own, or those waiting for a
+    /// provider.
+    private(set) var requests: [AppointmentRequest] = []
     private(set) var isLoading = false
     private(set) var hasLoaded = false
     private(set) var error: String?
@@ -19,12 +22,29 @@ final class AppointmentsModel {
         appointments.filter { $0.endsAt <= now }.sorted { $0.startsAt > $1.startsAt }
     }
 
+    /// Requests worth showing: waiting ones, and those decided in the last
+    /// two weeks (confirmed ones also appear as appointments).
+    func recentRequests(now: Date = .now) -> [AppointmentRequest] {
+        let cutoff = now.addingTimeInterval(-14 * 24 * 3600)
+        return requests.filter { $0.status == .pending || ($0.decidedAt ?? $0.createdAt) > cutoff }
+    }
+
+    func cancel(_ r: AppointmentRequest, api: APIClient) async {
+        do {
+            let updated = try await api.cancelAppointmentRequest(r.id)
+            if let i = requests.firstIndex(where: { $0.id == r.id }) { requests[i] = updated }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     func refresh(api: APIClient) async {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         do {
             appointments = try await api.appointments()
+            requests = (try? await api.appointmentRequests()) ?? requests
             error = nil
         } catch is CancellationError {
             return
@@ -40,6 +60,7 @@ final class AppointmentsModel {
 struct AppointmentsView: View {
     @Environment(AppState.self) private var appState
     @State private var model = AppointmentsModel()
+    @State private var requesting = false
 
     /// Who the visit is with, from this user's point of view.
     private func counterpart(_ a: Appointment) -> String? {
@@ -50,6 +71,14 @@ struct AppointmentsView: View {
         NavigationStack {
             content
                 .navigationTitle("Schedule")
+                .toolbar {
+                    if !appState.isStaff {
+                        Button("Request", systemImage: "calendar.badge.plus") { requesting = true }
+                    }
+                }
+                .sheet(isPresented: $requesting) {
+                    AppointmentRequestView { Task { await model.refresh(api: appState.api) } }
+                }
                 .refreshable { await model.refresh(api: appState.api) }
                 .task {
                     await appState.refreshPeople()
@@ -91,14 +120,45 @@ struct AppointmentsView: View {
                 } header: {
                     Text("Upcoming")
                 } footer: {
-                    // Patients can't request appointments in the app yet:
-                    // the API has no patient request endpoint.
-                    Text("To ask for a new appointment, send your care team a message.")
+                    if !appState.isStaff {
+                        Text("Tap Request to ask for a new appointment.")
+                    }
                 }
+                requestsSection
                 if !past.isEmpty {
                     Section("Past") {
                         ForEach(past) { AppointmentRow(appointment: $0, with: counterpart($0)) }
                     }
+                }
+            }
+        }
+    }
+}
+
+extension AppointmentsView {
+    /// Patients see their requests and can cancel waiting ones. Providers
+    /// see what's waiting for them; they confirm or decline in the Back
+    /// Office.
+    @ViewBuilder
+    var requestsSection: some View {
+        let shown = appState.isStaff ? model.requests.filter { $0.status == .pending } : model.recentRequests()
+        if !shown.isEmpty {
+            Section {
+                ForEach(shown) { r in
+                    AppointmentRequestRow(request: r, with: appState.isStaff ? appState.name(of: r.patientID) : appState.name(of: r.providerID))
+                        .swipeActions {
+                            if !appState.isStaff && r.status == .pending {
+                                Button("Cancel request", role: .destructive) {
+                                    Task { await model.cancel(r, api: appState.api) }
+                                }
+                            }
+                        }
+                }
+            } header: {
+                Text(appState.isStaff ? "Waiting requests" : "Requests")
+            } footer: {
+                if appState.isStaff {
+                    Text("Confirm or decline in the Back Office.")
                 }
             }
         }
