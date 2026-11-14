@@ -45,5 +45,41 @@ services:
     ports:
       - "8080:8080"
 
+  # WeHelp Registry database (#60). Opt in: docker compose --profile registry.
+  # Its own Postgres, so Registry and Back Office data never share a database.
+  registry-db:
+    profiles: [registry]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wehelp
+      POSTGRES_PASSWORD: wehelp
+      POSTGRES_DB: wehelp_registry
+    volumes:
+      - registrydata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wehelp -d wehelp_registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5433:5432"
+
+  registry-migrate:
+    profiles: [registry]
+    image: flyway/flyway:13
+    command: migrate
+    volumes:
+      - ../db/registry:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:postgresql://registry-db:5432/wehelp_registry
+      FLYWAY_USER: wehelp
+      FLYWAY_PASSWORD: wehelp
+      FLYWAY_CONNECT_RETRIES: "10"
+    depends_on:
+      registry-db:
+        condition: service_healthy
+    restart: "no"
+
 volumes:
   pgdata:
+  registrydata:

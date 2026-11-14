@@ -8,6 +8,21 @@ on:
 jobs:
   go:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wehelp
+          POSTGRES_PASSWORD: wehelp
+          POSTGRES_DB: wehelp
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U wehelp"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      # Database integration tests (e.g. internal/registry) create and drop
+      # their own databases through this URL; they skip when it is unset.
+      WEHELP_TEST_DATABASE_URL: postgres://wehelp:wehelp@localhost:5432/wehelp?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -36,6 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose -f deploy/docker-compose.yml config --quiet
       - run: docker compose -f deploy/docker-compose.yml run --rm migrate
+      - run: docker compose -f deploy/docker-compose.yml --profile registry run --rm registry-migrate
       - run: docker build -f deploy/Dockerfile .
 
   openapi:
@@ -47,3 +63,4 @@ jobs:
           python-version: "3.12"
       - run: pip install openapi-spec-validator pyyaml
       - run: python -c "from openapi_spec_validator import validate; import yaml; validate(yaml.safe_load(open('api/openapi.yaml')))"
+      - run: python -c "from openapi_spec_validator import validate; import yaml; validate(yaml.safe_load(open('api/registry.yaml')))"

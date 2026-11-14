@@ -24,7 +24,11 @@ backlog in alzacai/WeHelp was copied over and is referenced as
 
 ## Commands
 
-- Build server: `make build` → `bin/wehelpd`
+- Build server: `make build` → `bin/wehelpd` and `bin/wehelp-registry`
+- Registry (#60): `make registry-db registry-migrate`, then see
+  `docs/REGISTRY.md`. Registry migrations live in `db/registry/`.
+- DB integration tests run when `WEHELP_TEST_DATABASE_URL` is set (a
+  user that can create databases); CI sets it.
 - Test/vet: `make test` (runs with `-race`), `make vet`. CI runs go, ios,
   docker and openapi on every PR, and all four are required to merge.
 - Run with local Postgres: `make compose-up` then `make run` (or `wehelpd serve`)

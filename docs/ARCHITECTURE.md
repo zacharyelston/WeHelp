@@ -79,8 +79,11 @@ to secure, test and audit.
 ### Registry → Relay: signed office list
 
 - The Registry publishes an **office list**: office ID, office SSH public
-  key, status (active or suspended) and assigned Relay, with a version
-  number. It is signed with the Registry's ed25519 signing key.
+  key and assigned Relay, with a version number. Only offices of active
+  practices are listed: being on the list is the permission to connect. It is
+  signed with the Registry's ed25519 signing key, and a new version is
+  published in the same transaction as every change that affects it. Format
+  and runbook: [REGISTRY.md](REGISTRY.md).
 - Each Relay pulls the list over HTTPS every minute, verifies the signature
   against the Registry key it pinned at install, and rejects any list with an
   older version. It keeps the last good list, so a Registry outage doesn't
