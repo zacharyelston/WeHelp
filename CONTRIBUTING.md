@@ -61,11 +61,13 @@ to `agent-ready`, or leaves concrete questions and keeps `needs-spec`.
 - Every new table carries `tenant_id`. No tenant-less data.
 - The Xcode project is generated — edit `ios/project.yml`, never the
   `.xcodeproj`.
-- Migrations are goose SQL in `internal/store/migrations/` — numbered,
-  forward-only, with a matching `Down`.
+- Migrations are Flyway SQL in `db/migrations/` (`V{N}__name.sql`),
+  forward-only. Never edit an applied migration: Flyway enforces checksums.
+  Put manual rollback SQL in a comment.
 - API routes are documented in `api/openapi.yaml`. Every route change
   (new endpoint, changed request/response shape, new status code) must
-  update the spec in the same PR. CI validates the spec parses.
+  update the spec in the same PR. CI validates the spec, and
+  `TestOpenAPICoversRoutes` fails if the spec and the router differ.
 - Commits: ONE-LINE subjects only — context belongs in `CHANGELOG.md`
   (Keep a Changelog format), not the commit body.
 - Shell: never use heredocs — write files with file tools, then reference
