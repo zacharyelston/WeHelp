@@ -77,6 +77,25 @@ struct Message: Identifiable, Decodable, Sendable, Hashable {
 }
 
 /// A page of the inbox. `nextCursor` is nil on the last page.
+/// One person the caller is linked with, and the latest message (#67).
+struct Conversation: Identifiable, Decodable, Sendable, Hashable {
+    let userID: UUID
+    let name: String
+    let role: String
+    let lastBody: String?
+    let lastAt: Date?
+    let lastFromMe: Bool
+    let unreadCount: Int
+
+    var id: UUID { userID }
+
+    enum CodingKeys: String, CodingKey {
+        case name, role
+        case userID = "user_id", lastBody = "last_body", lastAt = "last_at"
+        case lastFromMe = "last_from_me", unreadCount = "unread_count"
+    }
+}
+
 struct MessagePage: Decodable, Sendable {
     let messages: [Message]
     let nextCursor: String?

@@ -71,6 +71,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Message threads with names (#67).
+  - `GET /api/v1/messages?with=<user>` returns the whole conversation with
+    one linked user, in both directions, newest first and paginated. It's
+    404 if the users aren't linked, and every thread read is audited
+    (`messages.read_thread`).
+  - `GET /api/v1/conversations` lists everyone you're linked with, with
+    their name, the latest message, who sent it, and the unread count.
+  - iOS Messages is now a conversation list that opens a chat-style
+    thread with a reply box. Your own sent messages show, and opening a
+    thread marks their messages read. The staff web Messages tab works
+    the same way.
 - Several practices per device (#89).
   - The app keeps an **account** for each practice it's paired with:
     practice, name and role. Each has **its own Secure Enclave key, refresh
