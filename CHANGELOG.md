@@ -97,6 +97,16 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Reads of patient data are audited (#40). Each read of patients, a
+  patient's devices, links, appointments and requests, messages and
+  conversations, the practice inbox, care teams, orders or a pairing invite
+  records one event per request, never per row.
+  - **The event:** actor, device (or `staff_web`), the patient or practice,
+    and the request's ID, date and status filters. No names or text.
+  - **Fails closed:** the response waits for the event. If it can't be
+    written, the request fails with a 500 and the data isn't sent.
+  - **No double counting:** thread reads and care team messages were
+    already audited, and are still recorded once.
 - Audit chain checks (#24).
   - **Command line:** `wehelpd audit verify [--tenant name-or-id]` checks
     every practice's chain and exits 1 on a break.

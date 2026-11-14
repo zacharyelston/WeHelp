@@ -178,6 +178,31 @@ attacker, and jailbroken devices with root on the patient's own phone.
 - `audit_events` records every PHI read and write, with actor, device and
   action. It is hash-chained, and `audit.Verify` runs nightly and alerts on
   failure.
+- Reads as built (#40): every route that returns patient data records one
+  event per request (never per row). Each event names:
+  - the actor;
+  - the device, or `staff_web`;
+  - the patient, or the practice for a list;
+  - the request's ID, date and status filters.
+
+  Polling screens record each poll. The response is held until the event is
+  written; if it can't be, the request fails with a 500 and the data isn't
+  sent. Covered:
+  - patients and a patient's devices;
+  - links;
+  - appointments and appointment requests;
+  - messages and conversations; thread reads (`messages.read_thread`) and
+    care team messages were already recorded;
+  - the practice inbox;
+  - care teams;
+  - orders;
+  - pairing invites.
+
+  Not covered:
+  - the visit signal long-poll, which is call setup only (joins are
+    recorded);
+  - library files, which are practice handouts;
+  - your own profile and devices.
 - As built (#28): each event's SHA-256 covers the previous hash and every
   field length-prefixed, with the detail hashed as Postgres stores it
   (`jsonb::text`), the same scheme as the Registry's chain. A per-tenant
