@@ -143,12 +143,21 @@ protect them at rest.
 
 1. Staff create or select the patient in the staff UI and press **Pair
    phone**.
-2. The Back Office shows a QR code containing: the Relay address, the office
-   ID, the SHA-256 of the office TLS public key, and a **single-use invite
-   code** that expires in 10 minutes.
+2. The Back Office shows a QR code containing: the Relay address and pin,
+   the office ID and pin, and a **single-use invite code** that expires in 10
+   minutes. The invite is 128 random bits, bound to that one patient in the
+   Back Office, which stores only its hash. Nothing about it goes to the
+   Relay or the Registry.
 3. The patient scans it in the app. The app generates a Secure Enclave
-   P-256 key, connects through the Relay, verifies the pinned office key,
-   and enrolls by redeeming the invite with a signature from the new key.
+   P-256 key, connects through the Relay, verifies both pinned keys, and
+   redeems the invite with a signature from the new key. That enrolls the
+   device and signs the phone in.
+
+Issuing invites (and adding patients) is a staff action on the office LAN:
+the Back Office refuses those routes when they arrive through the Relay.
+Patient password login and patient self-registration are refused. Cutting
+access: one patient by revoking their device (#10); a whole practice by
+suspending it in the Registry, which drops it from the Relay within a minute.
 4. From then on the device key is the patient's credential. Every session
    refresh is signed by it (device-bound sessions, already built). The app
    is unlocked with Face ID or the device passcode; patients have no
