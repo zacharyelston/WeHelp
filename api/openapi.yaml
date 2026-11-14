@@ -798,6 +798,29 @@ components:
         end_minute: { type: integer, minimum: 1, maximum: 1440 }
         auto_reply: { type: string, maxLength: 500, description: "Empty: a standard reply naming the hours." }
 
+    PracticeMessage:
+      type: object
+      required: [id, patient_id, author_id, author_name, from_patient, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid, description: Whose thread. }
+        author_id: { type: string, format: uuid }
+        author_name: { type: string, description: "The patient, or the staff member who answered for the practice." }
+        from_patient: { type: boolean }
+        body: { type: string }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    InboxConversation:
+      type: object
+      required: [patient_id, patient_name, last_body, last_at, last_from_patient, unread]
+      properties:
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        last_body: { type: string }
+        last_at: { type: string, format: date-time }
+        last_from_patient: { type: boolean }
+        unread: { type: integer, description: "From the patient, not yet read by the practice." }
+
     SiteView:
       type: object
       required: [content, files, published_url]
@@ -2654,6 +2677,166 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: Through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox:
+    get:
+      tags: [practice]
+      summary: The practice inbox (#110)
+      description: >
+        A patient gets their own thread with the practice (any channel). The
+        front desk (office) and admins get the list of conversations, newest
+        first, on the office LAN only. Providers get 403. 409 when the
+        practice has messages off.
+      responses:
+        "200":
+          description: "Patient: {messages}. Front desk: {conversations}."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PracticeMessage" }
+                  conversations:
+                    type: array
+                    items: { $ref: "#/components/schemas/InboxConversation" }
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Messages are off for this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags: [practice]
+      summary: Write to the practice, or reply as the practice (#110)
+      description: >
+        A patient writes in their own thread. The front desk or an admin
+        replies in a patient's thread (patient_id required, LAN only), signed
+        with their name. Audited as practice_message.create. Pushes are generic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                patient_id: { type: string, format: uuid, description: Front desk only. }
+                body: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Sent.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PracticeMessage"
+        "400":
+          description: Empty or too long, or patient_id missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such patient, or the front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Messages are off for this practice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox/{patientID}:
+    get:
+      tags: [practice]
+      summary: One patient's thread with the practice (#110)
+      description: The front desk and admins (LAN), or the patient for their own.
+      parameters:
+        - name: patientID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The thread, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [messages]
+                properties:
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PracticeMessage" }
+        "403":
+          description: Providers.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Another patient's thread, or the front desk through the Relay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/v1/practice-inbox/read:
+    post:
+      tags: [practice]
+      summary: Mark the other side's messages read (#110)
+      description: A patient marks the practice's replies read; the front desk marks a patient's messages read (patient_id required).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                patient_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: How many were marked.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marked: { type: integer }
+        "400":
+          description: patient_id missing (front desk).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Providers.
           content:
             application/json:
               schema:

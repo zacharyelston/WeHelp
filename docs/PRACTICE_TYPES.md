@@ -1,7 +1,7 @@
 # Practice types, message switches and care teams (proposal)
 
-Status: post-V1. Phase 1 (practice types and words, #108) and phase 2
-(switches, #109) are built. The rest is a proposal. Prior art:
+Status: post-V1. Phases 1 to 3 are built: practice types and words (#108),
+switches (#109) and the practice inbox (#110). Care teams are a proposal. Prior art:
 [LIT_REVIEW.md](LIT_REVIEW.md) → Practice types, message switches and care
 teams.
 
@@ -113,6 +113,9 @@ treatment": they read the patient's team thread, with the patient's
 consent, never someone's private thread.
 
 ### Practice inbox
+
+Built in #110 as a table of its own (`practice_messages`) rather than a
+`thread` column on `messages`, so provider threads are untouched.
 
 Patients can also message **the practice**: a thread the front desk and
 admins answer. It covers bookings, orders, directions and anything not

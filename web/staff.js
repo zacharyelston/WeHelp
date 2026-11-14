@@ -261,7 +261,7 @@ async function renderMessageSettings() {
     <form id="msg-form">
       ${mode("on", "On", "Messages arrive any time, with a notification.")}
       ${mode("hours", "Office hours", `Messages arrive any time. Outside your hours the ${esc(word("patient"))} gets an automatic reply and you get no notification.`)}
-      ${mode("off", "Off", `${esc(Word("patients"))} can't message you; the app asks them to call the practice.`)}
+      ${mode("off", "Off", `${esc(Word("patients"))} can't message you; they're pointed to the practice inbox, which the front desk answers.`)}
       <div class="form-group" style="margin-top:0.75rem"><label>Office hours</label>
         <div>${days.map((d, i) => `<label style="display:inline-flex;gap:0.25rem;margin-right:0.6rem"><input type="checkbox" data-day="${i}" ${m.days.includes(i) ? "checked" : ""} style="width:auto">${d}</label>`).join("")}</div>
         <div class="inline-form" style="margin-top:0.5rem"><input type="time" id="msg-start" value="${hm(m.start_minute)}"> to <input type="time" id="msg-end" value="${hm(m.end_minute)}"></div>
@@ -388,6 +388,66 @@ async function showSettings() {
       practiceInfo = await api("PUT", "/practice", { type: chosen.value });
       render();
       showAlert(`Saved: ${practiceInfo.type.label}`, "success");
+    } catch (err) {
+      showAlert(err.message);
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Practice inbox (#110): patients message "the practice"; the front desk and
+// admins answer here. Providers do not see it. Separate from provider threads.
+// ---------------------------------------------------------------------------
+let inboxOpen = null; // { id, name }
+
+async function loadInbox(container) {
+  const data = await api("GET", "/practice-inbox");
+  const convs = data.conversations || [];
+  let html = `<div class="threads"><div class="card conv-list"><h2>Practice inbox</h2>
+    <p class="hint">Messages ${esc(word("patients"))} send to the practice. Answers come from the practice, signed with your name.</p>`;
+  if (convs.length === 0) html += `<p class="empty">No messages to the practice yet.</p>`;
+  for (const c of convs) {
+    const preview = (c.last_from_patient ? "" : "Practice: ") + c.last_body;
+    html += `<div class="conv ${inboxOpen && inboxOpen.id === c.patient_id ? "active" : ""}" data-inbox="${attr(c.patient_id)}" data-name="${attr(c.patient_name)}">
+      <div class="conv-top"><strong>${esc(c.patient_name || "Unnamed")}</strong>
+        ${c.unread > 0 ? `<span class="badge badge-pending">${c.unread}</span>` : ""}</div>
+      <div class="conv-preview">${esc(preview)}</div><div class="hint">${esc(new Date(c.last_at).toLocaleString())}</div></div>`;
+  }
+  html += `</div><div class="card thread" id="inbox-thread"><p class="empty">Choose a conversation.</p></div></div>`;
+  container.innerHTML = html;
+  container.querySelectorAll("[data-inbox]").forEach((el) => {
+    el.onclick = () => { inboxOpen = { id: el.dataset.inbox, name: el.dataset.name }; loadInbox(container); };
+  });
+  if (inboxOpen) showInboxThread();
+}
+
+async function showInboxThread() {
+  const el = document.getElementById("inbox-thread");
+  if (!el || !inboxOpen) return;
+  let data;
+  try {
+    data = await api("GET", `/practice-inbox/${inboxOpen.id}`);
+    await api("POST", "/practice-inbox/read", { patient_id: inboxOpen.id });
+  } catch (err) {
+    el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
+    return;
+  }
+  let html = `<h2>${esc(inboxOpen.name)}</h2><div class="bubbles" id="inbox-bubbles">`;
+  for (const m of data.messages) {
+    html += `<div class="bubble ${m.from_patient ? "theirs" : "mine"}">
+      ${m.from_patient ? "" : `<div class="kind">${esc(m.author_name)} for the practice</div>`}
+      <div>${esc(m.body)}</div><div class="time">${esc(new Date(m.created_at).toLocaleString())}</div></div>`;
+  }
+  html += `</div><form class="reply" id="inbox-reply"><textarea id="inbox-body" rows="2" maxlength="4000" placeholder="Reply as the practice" required></textarea>
+    <button type="submit" class="btn">Send</button></form>`;
+  el.innerHTML = html;
+  const b = document.getElementById("inbox-bubbles");
+  b.scrollTop = b.scrollHeight;
+  document.getElementById("inbox-reply").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("POST", "/practice-inbox", { patient_id: inboxOpen.id, body: document.getElementById("inbox-body").value });
+      loadInbox(document.getElementById("tab-content"));
     } catch (err) {
       showAlert(err.message);
     }

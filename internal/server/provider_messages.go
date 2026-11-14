@@ -198,7 +198,7 @@ func (s *Server) recipientMode(ctx context.Context, tx pgx.Tx, w http.ResponseWr
 	}
 	switch m.Mode {
 	case "off":
-		writeErr(w, http.StatusConflict, name+" isn't taking messages in the app. Please call the practice.")
+		writeErr(w, http.StatusConflict, name+" isn't taking messages in the app. Please message the practice instead.")
 		return false, "", false
 	case "hours":
 		if m.inHours(now, s.location()) {
