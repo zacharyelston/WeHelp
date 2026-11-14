@@ -62,6 +62,32 @@ func lockRefreshToken(ctx context.Context, tx pgx.Tx, raw string) (tokenRow, err
 	return t, err
 }
 
+// lockRetriedRefreshToken finds a device-bound token that a refresh already
+// rotated, when the phone never got the reply (#136): its successor must be
+// unused and live. It locks both rows and returns the successor's ID. Tokens
+// without a device never qualify, and anything that revokes the live
+// successor (logout, device revocation, staff deactivation) ends the retry.
+func lockRetriedRefreshToken(ctx context.Context, tx pgx.Tx, raw string) (tokenRow, uuid.UUID, error) {
+	var t tokenRow
+	var next uuid.UUID
+	hash, err := auth.HashRefreshToken(raw)
+	if err != nil {
+		return t, next, pgx.ErrNoRows
+	}
+	err = tx.QueryRow(ctx, `
+		select rt.id, rt.user_id, rt.tenant_id, u.role, rt.device_id,
+		       d.public_key, d.revoked_at is not null, nx.id
+		from refresh_tokens rt
+		join users u on u.id = rt.user_id
+		join devices d on d.id = rt.device_id
+		join refresh_tokens nx on nx.id = rt.replaced_by
+		where rt.token_hash = $1 and rt.revoked_at is not null and rt.expires_at > now()
+		  and nx.revoked_at is null and nx.expires_at > now()
+		for update of rt, nx`, hash).
+		Scan(&t.ID, &t.UserID, &t.TenantID, &t.Role, &t.DeviceID, &t.DeviceKey, &t.DeviceRevoked, &next)
+	return t, next, err
+}
+
 type refreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 	deviceProof
@@ -86,8 +112,16 @@ func (s *Server) Refresh(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(ctx)
 
 	t, err := lockRefreshToken(ctx, tx, req.RefreshToken)
+	var successor *uuid.UUID // set when this is a retry of a lost refresh (#136)
 	if errors.Is(err, pgx.ErrNoRows) {
-		writeErr(w, http.StatusUnauthorized, "invalid or expired refresh token")
+		var next uuid.UUID
+		t, next, err = lockRetriedRefreshToken(ctx, tx, req.RefreshToken)
+		if err == nil {
+			successor = &next
+		}
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeErrCode(w, http.StatusUnauthorized, "invalid_token", "invalid or expired refresh token")
 		return
 	}
 	if err != nil {
@@ -97,14 +131,20 @@ func (s *Server) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case t.DeviceID == nil && t.Role == "patient":
-		writeErr(w, http.StatusUnauthorized, "patient sessions must be device-bound; enroll this device")
+		writeErrCode(w, http.StatusUnauthorized, "not_enrolled", "patient sessions must be device-bound; enroll this device")
 		return
 	case t.DeviceID != nil && t.DeviceRevoked:
-		writeErr(w, http.StatusUnauthorized, "device revoked")
+		writeErrCode(w, http.StatusUnauthorized, "device_revoked", "device revoked")
 		return
 	case t.DeviceID != nil:
 		if err := req.verify(t.DeviceKey, auth.PurposeRefresh, req.RefreshToken); err != nil {
-			writeErr(w, http.StatusUnauthorized, "device proof failed")
+			// A skewed clock is the phone's to fix, not a reason to sign
+			// the patient out, so it gets its own code.
+			if errors.Is(err, auth.ErrProofTimestamp) {
+				writeErrCode(w, http.StatusUnauthorized, "proof_timestamp", "device clock is off; check the date and time")
+				return
+			}
+			writeErrCode(w, http.StatusUnauthorized, "proof_failed", "device proof failed")
 			return
 		}
 		if _, err := tx.Exec(ctx, `update devices set last_seen_at = now() where id = $1`, t.DeviceID); err != nil {
@@ -113,13 +153,19 @@ func (s *Server) Refresh(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := tx.Exec(ctx, `update refresh_tokens set revoked_at = now() where id = $1`, t.ID); err != nil {
+	// Retire the presented token, or on a retry the successor the phone
+	// never received.
+	retire, action := t.ID, "auth.refresh"
+	if successor != nil {
+		retire, action = *successor, "auth.refresh_retry"
+	}
+	if _, err := tx.Exec(ctx, `update refresh_tokens set revoked_at = now() where id = $1`, retire); err != nil {
 		writeErr(w, http.StatusInternalServerError, "refresh failed")
 		return
 	}
 	if err := audit.Record(ctx, tx, audit.Event{
 		TenantID: t.TenantID, ActorID: &t.UserID,
-		Action: "auth.refresh", ResourceType: "refresh_token", ResourceID: t.ID.String(),
+		Action: action, ResourceType: "refresh_token", ResourceID: t.ID.String(),
 	}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "audit failed")
 		return
@@ -128,6 +174,10 @@ func (s *Server) Refresh(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.issueTokens(ctx, tx, t.UserID, t.TenantID, t.Role, t.DeviceID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "token failed")
+		return
+	}
+	if _, err := tx.Exec(ctx, `update refresh_tokens set replaced_by = $2 where id = $1`, t.ID, resp.id); err != nil {
+		writeErr(w, http.StatusInternalServerError, "refresh failed")
 		return
 	}
 	if err := tx.Commit(ctx); err != nil {

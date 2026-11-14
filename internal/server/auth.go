@@ -88,6 +88,8 @@ type tokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
+
+	id uuid.UUID // the new refresh token's row, for rotation (#136)
 }
 
 // issueTokens mints an access token and a refresh token. deviceID binds the
@@ -97,9 +99,10 @@ func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uu
 	if err != nil {
 		return tokenResponse{}, err
 	}
-	_, err = tx.Exec(ctx,
-		`insert into refresh_tokens (user_id, tenant_id, token_hash, expires_at, device_id) values ($1, $2, $3, now() + $4::interval, $5)`,
-		userID, tenantID, hash, s.cfg.RefreshTTL.String(), deviceID)
+	var id uuid.UUID
+	err = tx.QueryRow(ctx,
+		`insert into refresh_tokens (user_id, tenant_id, token_hash, expires_at, device_id) values ($1, $2, $3, now() + $4::interval, $5) returning id`,
+		userID, tenantID, hash, s.cfg.RefreshTTL.String(), deviceID).Scan(&id)
 	if err != nil {
 		return tokenResponse{}, err
 	}
@@ -112,6 +115,7 @@ func (s *Server) issueTokens(ctx context.Context, tx pgx.Tx, userID, tenantID uu
 		RefreshToken: raw,
 		TokenType:    "Bearer",
 		ExpiresIn:    int(s.cfg.AccessTTL.Seconds()),
+		id:           id,
 	}, nil
 }
 
@@ -332,4 +336,11 @@ func (s *Server) Me(w http.ResponseWriter, r *http.Request) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// writeErrCode is writeErr with a stable code that apps can act on, where
+// the status alone is ambiguous (#136, #138). The codes are listed on the
+// Error schema in api/openapi.yaml.
+func writeErrCode(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg, "code": code})
 }

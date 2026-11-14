@@ -9,9 +9,14 @@ enum APIError: Error, LocalizedError {
     /// A pin check failed: the relay or office presented a key other than the
     /// one this phone was paired with. Never retried or bypassed.
     case pinMismatch(PinnedParty)
+    /// The practice refused the device proof because this phone's clock is
+    /// off (#136). The session is fine; the patient fixes the clock.
+    case clockSkew
 
     var errorDescription: String? {
         switch self {
+        case .clockSkew:
+            "Your practice couldn't sign you in because this iPhone's date and time look wrong. Turn on Set Automatically in Settings > General > Date & Time, then try again."
         case .unauthorized(let msg): "Not signed in: \(msg)"
         case .http(let code, let msg): "Server error \(code): \(msg)"
         case .notEnrolled: "This device is not enrolled."
@@ -293,7 +298,11 @@ struct APIClient: Sendable {
         let (data, response) = try await OfficeTransport.shared(for: office).data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "HTTP \(status)"
+            let body = try? JSONDecoder().decode([String: String].self, from: data)
+            let msg = body?["error"] ?? "HTTP \(status)"
+            // A skewed clock is not a signed-out session (#136): keep the
+            // account instead of treating it as a 401.
+            if status == 401, body?["code"] == "proof_timestamp" { throw APIError.clockSkew }
             throw status == 401 ? APIError.unauthorized(msg) : APIError.http(status, msg)
         }
         return (data, response as? HTTPURLResponse)
