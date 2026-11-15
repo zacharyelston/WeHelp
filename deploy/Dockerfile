@@ -1,4 +1,6 @@
-FROM golang:1.26-alpine AS build
+# Pinned to the patch release go.mod names (toolchain), so the image gets the
+# same standard-library security fixes (#43).
+FROM golang:1.26.11-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

@@ -49,7 +49,8 @@ func (s *Server) Router() chi.Router {
 	r := chi.NewRouter()
 	r.Use(
 		middleware.RequestID,
-		middleware.RealIP,
+		// No RealIP (#43): it trusts X-Forwarded-For and X-Real-IP from any
+		// client, and nothing sits in front of the Back Office to set them.
 		requestLogger,
 		middleware.Recoverer,
 		middleware.Timeout(60*time.Second),

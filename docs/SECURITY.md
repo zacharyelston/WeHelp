@@ -269,6 +269,24 @@ attacker, and jailbroken devices with root on the patient's own phone.
   entry.
 - Secrets never go in the repo. Demo credentials are seed data only and are
   never present in a field build.
+- As built (#43):
+  - **Toolchain:** `go.mod` pins the patched Go toolchain (`toolchain
+    go1.26.11`), and the Docker build image is pinned to match. Go 1.26.0
+    had 40 standard-library vulnerabilities our code reached.
+  - **Scanners:** CI runs `govulncheck` v1.9.0 and `staticcheck` v0.8.2 at
+    pinned versions, and the Relay and Registry import-boundary tests as a
+    named step.
+  - **iOS Release check:** CI builds Release and runs
+    `scripts/check-ios-release.sh`, which fails on:
+    - any App Transport Security loosening, or an exception other than
+      `wehelp.invalid` with TLS 1.3;
+    - file sharing;
+    - a Debug dylib or DEBUG-only strings;
+    - demo accounts or passwords, or LAN or localhost addresses in the
+      binaries;
+    - `DEBUG` or testability in the Release settings.
+  - **No `RealIP`:** the Back Office no longer uses chi's `RealIP`
+    middleware, which trusts client-supplied forwarding headers.
 - Release builds are produced from tagged commits. Debug-only features (demo
   servers, demo passwords) are compiled out of Release.
 

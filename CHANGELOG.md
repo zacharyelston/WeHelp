@@ -97,6 +97,12 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- CI security checks (#43).
+  - `govulncheck` and `staticcheck` at pinned versions, and the Relay and
+    Registry import-boundary tests as a named step.
+  - A Release iOS build checked by `scripts/check-ios-release.sh`: App
+    Transport Security, file sharing, Debug leftovers, and demo or LAN
+    strings.
 - Encrypted backups with a tested restore (#41). Runbook:
   `docs/BACKUPS.md`.
   - **Backup:** `appliance.sh backup` streams `pg_dump`, the office keys
@@ -829,6 +835,11 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Go toolchain pinned to 1.26.11 in `go.mod` and the Docker image (#43).
+  `govulncheck` found 40 standard-library vulnerabilities reachable under
+  1.26.0, and 2 in `golang.org/x/crypto` v0.55.0 (now v0.59.0).
+- Removed chi's `RealIP` middleware (#43). It rewrote the client address
+  from client-supplied headers; nothing used it.
 - The Back Office audit chain verifies (#28). `audit.Verify` reported a
   break at any event with a multi-key detail.
   - **Cause:** `Record` hashed the caller's JSON bytes, but jsonb stores them
