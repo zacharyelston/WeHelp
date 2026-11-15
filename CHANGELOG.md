@@ -846,6 +846,20 @@ All notable changes to WeHelp are documented here. Format follows
 - CONTRIBUTING.md, issue/PR templates, AGENTS.md agent bootstrap notes.
 
 ### Fixed
+- Stored XSS in the staff web (#159).
+  - **The bug:** patient names went into inline `onclick` handlers with
+    HTML escaping only. The browser decodes `&#39;` back to a quote before
+    running the handler, so a name like `x');alert(1);//` ran script in
+    another staff member's session.
+  - **No inline handlers now:** all 43 are replaced by `data-act` with JSON
+    arguments, dispatched from an allow-list.
+  - **Quote-safe escaping:** `esc()` escapes both quote characters in the
+    staff web and the Registry console.
+  - **Headers:** the staff web sends a CSP with no inline script, plus
+    `nosniff`, `no-referrer`, no framing and charsets (part of #160). The
+    console CSP adds `object-src` and `base-uri`.
+  - **Tests:** `TestStaffWebNoInlineHandlers` and `TestStaffWebHeaders`.
+  - **Also:** My devices did nothing when opened from another screen; fixed.
 - Go toolchain pinned to 1.26.11 in `go.mod` and the Docker image (#43).
   `govulncheck` found 40 standard-library vulnerabilities reachable under
   1.26.0, and 2 in `golang.org/x/crypto` v0.55.0 (now v0.59.0).

@@ -308,12 +308,12 @@ Before the audit:
 
    | Checklist | Met | N/A | Accepted | Gap |
    |---|---|---|---|---|
-   | [ASVS 5.0 L2](security/asvs-l2.md), 253 rows | 113 | 62 | 2 | 76 |
+   | [ASVS 5.0 L2](security/asvs-l2.md), 253 rows | 120 | 62 | 2 | 69 |
    | [MASVS v2](security/masvs-l2.md), 24 controls | 9 | 1 | 2 | 12 |
    | [HIPAA §164.312](security/hipaa.md), 12 rows | 8 | 0 | 0 | 4 |
 
-   Fix first: the stored XSS in the staff web (#159), demo accounts in field
-   builds (#161) and the HIPAA gaps (#169).
+   The stored XSS in the staff web (#159) is fixed. Fix next: demo accounts
+   in field builds (#161) and the HIPAA gaps (#169).
 4. **Pen-test scope:**
    - the Relay (all listeners);
    - the Back Office (Relay channel and LAN);

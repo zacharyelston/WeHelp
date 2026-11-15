@@ -84,7 +84,7 @@ async function showProviders(invite) {
     html += `<div class="card"><h2>Set-up link for ${esc(invite.provider.display_name)}</h2>
       <p>Give this link to them in person or open it on their computer in the office. It works once, on the office network, until ${esc(new Date(invite.expires_at).toLocaleString())}. It is shown only now.</p>
       <div class="inline-form"><input id="setup-link" readonly value="${esc(invite.setup_url)}" style="flex:1;min-width:20rem">
-      <button class="btn" onclick="copySetupLink()">Copy</button></div></div>`;
+      <button class="btn" data-act="copySetupLink">Copy</button></div></div>`;
   }
   html += '<div class="card"><h2>Staff</h2>';
   if (data.providers.length === 0) {
@@ -97,12 +97,12 @@ async function showProviders(invite) {
       if (p.status === "invited" && p.invite_expires_at) note = `<div class="hint">Link works until ${esc(new Date(p.invite_expires_at).toLocaleString())}</div>`;
       const actions = [];
       if (p.status === "invited" || p.status === "invite_expired") {
-        actions.push(`<button class="btn btn-sm" onclick="providerAction('${esc(p.id)}', 'invite')">New set-up link</button>`);
+        actions.push(`<button class="btn btn-sm" ${act("providerAction", p.id, "invite")}>New set-up link</button>`);
       }
       if (p.status === "disabled") {
-        actions.push(`<button class="btn btn-sm" onclick="providerAction('${esc(p.id)}', 'enable')">Enable</button>`);
+        actions.push(`<button class="btn btn-sm" ${act("providerAction", p.id, "enable")}>Enable</button>`);
       } else {
-        actions.push(`<button class="btn btn-sm btn-danger" onclick="providerAction('${esc(p.id)}', 'disable')">Disable</button>`);
+        actions.push(`<button class="btn btn-sm btn-danger" ${act("providerAction", p.id, "disable")}>Disable</button>`);
       }
       html += `<tr><td>${esc(p.display_name)}</td><td>${p.role === "office" ? "Front desk" : Word("provider")}</td><td>${esc(p.email)}</td>
         <td><span class="badge badge-${badge}">${esc(label)}</span>${note}</td><td>${actions.join(" ")}</td></tr>`;
@@ -145,7 +145,7 @@ function rosterCard(r) {
   }
   const when = r.synced_at ? `Last pulled ${esc(new Date(r.synced_at).toLocaleString())}.` : "Not pulled yet.";
   html += `<p class="hint">The ${esc(word("providers"))} WeHelp support lists for this practice. ${when} It is pulled every 15 minutes.
-    <button class="btn btn-sm btn-outline" onclick="syncRoster()" style="margin-left:0.5rem">Sync now</button></p>`;
+    <button class="btn btn-sm btn-outline" data-act="syncRoster" style="margin-left:0.5rem">Sync now</button></p>`;
   if (r.error) html += `<div class="alert alert-error">The last pull failed: ${esc(r.error)}</div>`;
   if (r.entries.length === 0) return html + '<p class="empty">No one on the roster yet.</p></div>';
   html += "<table><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Credentials</th><th>Status</th><th></th></tr></thead><tbody>";
@@ -153,9 +153,9 @@ function rosterCard(r) {
     const [badge, label] = ROSTER_STATUS[e.status] || ["pending", e.status];
     let action = "";
     if (e.status === "needs_invite") {
-      action = `<button class="btn btn-sm" onclick="rosterInvite('${attr(e.registry_id)}')">Invite</button>`;
+      action = `<button class="btn btn-sm" ${act("rosterInvite", e.registry_id)}>Invite</button>`;
     } else if (e.status === "disable" && e.account && e.account.role !== "admin") {
-      action = `<button class="btn btn-sm btn-danger" onclick="providerAction('${attr(e.account.id)}', 'disable')">Disable</button>`;
+      action = `<button class="btn btn-sm btn-danger" ${act("providerAction", e.account.id, "disable")}>Disable</button>`;
     } else if (e.status === "disable") {
       action = '<span class="hint">Disable on the Back Office host</span>';
     }
@@ -245,7 +245,7 @@ async function showMyProfile() {
       <form id="photo-form" class="inline-form">
         <input id="pf-photo" type="file" accept="image/png,image/jpeg,image/webp" required>
         <button type="submit" class="btn">Upload photo</button>
-        ${p.has_photo ? '<button type="button" class="btn btn-outline" onclick="removeProfilePhoto()">Remove photo</button>' : ""}
+        ${p.has_photo ? '<button type="button" class="btn btn-outline" data-act="removeProfilePhoto">Remove photo</button>' : ""}
       </form>
       <p class="hint">A square head-and-shoulders photo works best. PNG, JPEG or WebP, at most 2 MB.</p>
     </div>
@@ -368,7 +368,7 @@ function themePicker(data) {
   const themes = data.themes || [];
   const current = data.content.theme || (themes[0] && themes[0].id) || "";
   const swatches = themes.map((t) => `
-    <button type="button" class="theme-swatch${t.id === current ? " selected" : ""}" data-theme-id="${attr(t.id)}" onclick="pickTheme(this)"
+    <button type="button" class="theme-swatch${t.id === current ? " selected" : ""}" data-theme-id="${attr(t.id)}" data-act="pickTheme"
       title="${attr(t.label)}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.75rem;margin:0 0.4rem 0.4rem 0;border-radius:999px;cursor:pointer;
       border:2px solid ${t.id === current ? "var(--primary)" : "#ddd"};background:#fff">
       <span style="width:1.2rem;height:1.2rem;border-radius:50%;background:${attr(t.swatch)};display:inline-block"></span>${esc(t.label)}
@@ -562,7 +562,7 @@ async function showTeam(summary) {
   if (live.length === 0) html += `<tr><td colspan="3" class="empty">No one yet.</td></tr>`;
   html += "</tbody></table>";
   if (summary.my_status === "none") {
-    html += `<p style="margin-top:0.75rem"><button class="btn" onclick="proposeTeam(\x27${attr(summary.patient_id)}\x27, \x27${attr(session.user_id)}\x27)">Ask to join this care team</button></p>`;
+    html += `<p style="margin-top:0.75rem"><button class="btn" ${act("proposeTeam", summary.patient_id, session.user_id)}>Ask to join this care team</button></p>`;
   } else if (summary.my_status === "pending") {
     html += `<p class="hint" style="margin-top:0.75rem">Waiting for ${esc(team.patient_name)} to approve you in the WeHelp app.</p>`;
   }
@@ -616,6 +616,11 @@ async function proposeTeam(patientId, memberId) {
 // ---------------------------------------------------------------------------
 let blogEditing = null; // the post being edited, or null for a new one
 
+function cancelBlogEdit() {
+  blogEditing = null;
+  loadBlogCard();
+}
+
 const POST_STATUS = { live: ["active", "Live"], scheduled: ["scheduled", "Scheduled"], draft: ["pending", "Draft"] };
 
 async function loadBlogCard() {
@@ -645,7 +650,7 @@ async function loadBlogCard() {
       </div>
       <label style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem"><input type="checkbox" id="post-draft" style="width:auto" ${p.draft ? "checked" : ""}> Draft (not on the website)</label>
       <button type="submit" class="btn">${blogEditing ? "Save post" : "Add post"}</button>
-      ${blogEditing ? `<button type="button" class="btn btn-outline" onclick="blogEditing=null;loadBlogCard()">Cancel</button>` : ""}
+      ${blogEditing ? `<button type="button" class="btn btn-outline" data-act="cancelBlogEdit">Cancel</button>` : ""}
     </form>`;
   if (data.posts.length) {
     html += "<table><thead><tr><th>Goes live</th><th>Title</th><th>Author</th><th>Status</th><th></th></tr></thead><tbody>";

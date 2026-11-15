@@ -43,6 +43,18 @@ func (s *Server) webRoutes(r chi.Router) {
 	_ = fileServer
 }
 
+// staffWebHeaders lock the staff web down (#159, #160). Scripts come only
+// from this origin: no inline script or event handlers (actions use
+// data-act, see web/app.js), so an injected handler doesn't run. Inline style
+// attributes are allowed; they can't run script. QR codes are data: images.
+var staffWebHeaders = map[string]string{
+	"Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+	"X-Content-Type-Options": "nosniff",
+	"Referrer-Policy":        "no-referrer",
+	"X-Frame-Options":        "DENY",
+}
+
 func isAPIPath(p string) bool {
 	return p == "/api" || strings.HasPrefix(p, "/api/") ||
 		p == "/healthz" || p == "/readyz"
@@ -59,13 +71,17 @@ func serveStatic(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string
 		http.NotFound(w, r)
 		return
 	}
+	h := w.Header()
+	for k, v := range staffWebHeaders {
+		h.Set(k, v)
+	}
 	switch name {
 	case "index.html":
-		w.Header().Set("content-type", "text/html; charset=utf-8")
+		h.Set("content-type", "text/html; charset=utf-8")
 	case "app.js", "staff.js":
-		w.Header().Set("content-type", "application/javascript")
+		h.Set("content-type", "text/javascript; charset=utf-8")
 	case "styles.css":
-		w.Header().Set("content-type", "text/css")
+		h.Set("content-type", "text/css; charset=utf-8")
 	}
 	w.Write(data)
 }
