@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Shown when the active practice can't be reached (the Relay or the office
 /// is down, or there's no network). The account is kept: this is never the
-/// pair screen. With several practices, you can switch to another (#89).
+/// pair screen. You can switch to another practice (#89) or pair one, even
+/// with only one practice (for example after the practice moved its Relay).
 struct UnreachableView: View {
     @Environment(AppState.self) private var appState
     let message: String
@@ -18,8 +19,11 @@ struct UnreachableView: View {
             } actions: {
                 Button("Try again") { appState.retry() }
                     .buttonStyle(.borderedProminent)
-                if appState.accounts.count > 1 {
-                    NavigationLink("Switch practice") { AccountsView() }
+                // Always offered, even with one practice: a phone whose
+                // practice moved its Relay can only get going again by
+                // pairing anew, and without this it was stuck here.
+                NavigationLink(appState.accounts.count > 1 ? "Switch or pair a practice" : "Pair again or another practice") {
+                    AccountsView()
                 }
             }
         }
