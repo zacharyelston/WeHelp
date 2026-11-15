@@ -97,6 +97,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Security checklists (#44) in `docs/security/`:
+  - OWASP ASVS 5.0 Levels 1 and 2: 253 rows. 113 met, 62 not applicable,
+    2 accepted, 76 gaps.
+  - OWASP MASVS v2 for the iOS app: 24 controls. 9 met, 1 not applicable,
+    2 accepted, 12 gaps.
+  - HIPAA §164.312 technical safeguards: 8 met, 4 gaps, plus the
+    practice-owner documents.
+
+  Each row cites the code, test or doc behind it, and every gap is tracked
+  (#159–#170, #143, #11). The review found a stored XSS in the staff web
+  (#159, P0).
 - CI security checks (#43).
   - `govulncheck` and `staticcheck` at pinned versions, and the Relay and
     Registry import-boundary tests as a named step.
