@@ -116,8 +116,8 @@ func Load(cfgFile string) error {
 	viper.SetDefault("listen_addr", ":8080")
 	viper.SetDefault("database_url", "postgres://wehelp:wehelp@localhost:5432/wehelp?sslmode=disable")
 	viper.SetDefault("log_level", "info")
-	viper.SetDefault("env", "dev")
-	viper.SetDefault("jwt_secret", "") // empty = ephemeral per-boot secret (dev only)
+	viper.SetDefault("env", "production") // dev, demo and appliance are set explicitly (#161)
+	viper.SetDefault("jwt_secret", "")    // empty = ephemeral per-boot secret (dev only)
 	viper.SetDefault("access_ttl", "15m")
 	viper.SetDefault("refresh_ttl", "720h")
 

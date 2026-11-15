@@ -25,10 +25,12 @@ func init() {
 		}
 	})
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ./wehelp.yaml or /etc/wehelp/wehelp.yaml)")
-	rootCmd.AddCommand(serveCmd, migrateCmd, seedCmd, initCmd, staffCmd, auditCmd)
+	rootCmd.AddCommand(serveCmd, migrateCmd, initCmd, staffCmd, auditCmd)
 }
 
 func main() {
+	// After every init() has run: seed.go's adds to demoCommands (#161).
+	rootCmd.AddCommand(demoCommands...)
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

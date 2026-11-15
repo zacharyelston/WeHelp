@@ -26,19 +26,19 @@ applies to.
 | V3 Web Frontend Security | 14 | 2 | 0 | 3 |
 | V4 API and Web Service | 3 | 6 | 0 | 1 |
 | V5 File Handling | 6 | 0 | 0 | 3 |
-| V6 Authentication | 15 | 5 | 0 | 15 |
+| V6 Authentication | 16 | 5 | 0 | 14 |
 | V7 Session Management | 6 | 3 | 1 | 8 |
 | V8 Authorization | 5 | 0 | 0 | 2 |
 | V9 Self-contained Tokens | 6 | 1 | 0 | 0 |
 | V10 OAuth and OIDC | 0 | 29 | 0 | 0 |
 | V11 Cryptography | 8 | 1 | 1 | 4 |
 | V12 Secure Communication | 3 | 1 | 0 | 5 |
-| V13 Configuration | 8 | 0 | 0 | 5 |
+| V13 Configuration | 9 | 0 | 0 | 4 |
 | V14 Data Protection | 6 | 0 | 0 | 3 |
-| V15 Secure Coding and Architecture | 6 | 0 | 0 | 7 |
+| V15 Secure Coding and Architecture | 7 | 0 | 0 | 6 |
 | V16 Security Logging and Error Handling | 6 | 0 | 0 | 10 |
 | V17 WebRTC | 2 | 4 | 0 | 1 |
-| **Total (253 rows)** | **120** | **62** | **2** | **69** |
+| **Total (253 rows)** | **123** | **62** | **2** | **66** |
 
 The stored XSS in the staff web (V1.2.3) was fixed in #159.
 
@@ -163,7 +163,7 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | V6.2.11 | Use the context-specific word list when setting passwords | Gap | No list exists and no check is made (see V6.1.2). |
 | V6.2.12 | Check new passwords against breached-password set | Gap | Not implemented. docs/SECURITY.md "Open security decisions" (local list or k-anonymity lookup) is undecided. |
 | V6.3.1 | Brute-force controls implemented as documented | Met | `recordFailure` (staff.go) and Registry `recordFailure` lock after 5 password or TOTP failures for 15 minutes and audit each failure. Covered by `TestStaffLockout`. |
-| V6.3.2 | No default accounts (admin, root) present or enabled | Gap | Migrations create no users. But `wehelpd seed` (cmd/wehelp/seed.go, internal/seed) creates admin@demo.wehelp and other accounts with fixed passwords and no TOTP, and has no env guard. A password alone then gives a TOTP-setup session. |
+| V6.3.2 | No default accounts (admin, root) present or enabled | Met | No default accounts in a field Back Office: migrations create none, and the seed command with its fixed demo logins exists only in demo builds (build tag `demo`, `cmd/wehelp/seed.go`), refuses unless `env` is `dev` or `demo`, and runs on a demo host only with `WEHELP_DEMO=1` (#161). CI checks the field image has no seed command or demo logins. |
 | V6.3.3 | MFA (or combined factors) required for access | Gap | Staff web, the staff bearer API and the Registry console require password+TOTP. Device sessions (patients and paired providers) need only the Secure Enclave key: `DeviceKey.create` sets no `.userPresence` access control, so the Face ID check in ios/WeHelp/AppLock.swift is client-side only. |
 | V6.3.4 | No undocumented auth pathways, and equal strength across them | Gap | An admin can issue a pairing QR for another provider or admin account (`pairTarget`, `TestStaffPairingScope`). That gives a session as that person without their password or TOTP, and the docs don't describe it. |
 | V6.4.1 | Initial codes random, expiring, single use, not the long-term secret | Met | Set-up links are 32 random bytes, last 24 hours, work once, and only a hash is stored (`issueStaffInvite`, `StaffSetup`). Pairing invites are 128 bits, last 10 minutes, work once (pairing.go). Both lead to a credential the user creates. |
@@ -302,15 +302,15 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | ID | Requirement (your words) | Status | Evidence / reasoning |
 |---|---|---|---|
 | V13.1.1 | All communication needs and external dependencies documented | Met | docs/ARCHITECTURE.md (topology, outbound SSH, APNs), docs/RELAY.md (listeners, ports, firewall, Let's Encrypt), docs/REGISTRY.md, docs/OBSERVABILITY.md (export destinations). No feature lets a user supply a URL the server then fetches. |
-| V13.2.1 | Backend component auth uses per-service, non-static credentials | Gap | Office-Relay uses SSH keys, office-Registry uses ed25519-signed requests (`internal/roster` SignRequest), and the Relay signs status reports (`internal/relay/report.go`). But the Back Office and Registry reach Postgres with a static shared password (`wehelp:wehelp`, `deploy/docker-compose.yml`). |
-| V13.2.2 | Backend connections use least-privilege accounts | Gap | The app uses the same Postgres user as Flyway migrations (`FLYWAY_USER: wehelp`, `deploy/docker-compose.yml:25,38`), so it owns the schema; triggers stop UPDATEs on audit/ledger, but the owner could drop them. The `distroless/static` image runs as root (`deploy/Dockerfile`, no `USER`). |
-| V13.2.3 | No default credentials for service authentication | Gap | Postgres user/password `wehelp`/`wehelp` is hard-coded in `deploy/docker-compose.yml:5-6,54-55` (used by the appliance) and in config defaults (`internal/config/config.go:116,124`). |
+| V13.2.1 | Backend component auth uses per-service, non-static credentials | Gap | Back Office: per-install generated Postgres passwords in `deploy/db.env`, mode 600, never in the repo or the server's environment (#161). Office-Relay SSH keys, office-Registry signed requests and Relay-signed reports are per-service. Registry: its Postgres still uses the shared dev password (#173). |
+| V13.2.2 | Backend connections use least-privilege accounts | Gap | Back Office: the server connects as `wehelp_app` (data only, no DDL, no UPDATE/DELETE on audit and ledger tables; `V23`, `TestRuntimeRole`), migrations as the owner; the image runs as uid 65532 (#161). Registry: still connects as its schema owner (#173). |
+| V13.2.3 | No default credentials for service authentication | Gap | Back Office appliance: no default credentials; `appliance.sh` generates both DB passwords and moves an existing install off the shared one (#161). The `wehelp`/`wehelp` default remains only for the dev stack, and for the Registry (#173). |
 | V13.2.4 | Allowlist of external systems the app may contact | Met | Outbound targets are fixed by config or signed data only: Registry URL and Relay from `registration.json` (`internal/office/install.go`), APNs host (`internal/relay/apns.go`), ACME restricted by `autocert.HostWhitelist` (`cmd/wehelp-relay/main.go`). TURN peers are limited to the Relay's own address (`internal/relay/turn.go:100`). |
 | V13.2.5 | Server loads data/files only from allowlisted sources | Met | No user-controlled fetches; static assets are embedded (`web/web.go`, `internal/registry/console.go` go:embed); sites are rendered from the office DB (`internal/site`) and served from the Relay's own bundle dir (`internal/relay/site.go` validSitePath). |
-| V13.3.1 | Secrets managed in a vault, never in source or builds | Gap | Secrets are mode-600 files and `.env` (`internal/keyfile`, `deploy/appliance.sh:42`), with no secrets manager. The default DB password is in the repo (`deploy/docker-compose.yml`) and demo passwords are compiled into `wehelpd` (`internal/seed/seed.go:36-46`). |
+| V13.3.1 | Secrets managed in a vault, never in source or builds | Gap | Back Office: demo logins out of field builds and DB passwords per install in mode-600 files (#161); keys are mode-600 files on the FileVault disk (SECURITY.md). Open: the Registry's default DB password (#173), and recording file-based secret storage as the accepted approach. |
 | V13.3.2 | Least-privilege access to secret material | Met | Keys are written 0600 in 0700 dirs and refused if group/other readable (`internal/keyfile/keyfile.go` Write/Read, `CheckPrivate` for TURN secret and TLS keys); the Mac mini holds only the age public key (docs/BACKUPS.md). |
 | V13.4.1 | No source-control metadata in deployments | Met | The runtime image is `distroless/static` holding only `/usr/local/bin/wehelpd` (`deploy/Dockerfile`); `COPY . .` is only in the build stage. |
-| V13.4.2 | Debug modes off in production | Gap | No pprof/expvar/debug routes and iOS Release is checked (`scripts/check-ios-release.sh`). But Back Office `env` defaults to `dev` (`internal/config/config.go:118`), which opens self-registration (`internal/server/auth.go:135`) and skips the HTTPS redirect (`cmd/wehelp/serve.go:134`); only the appliance compose sets `WEHELP_ENV: appliance`. |
+| V13.4.2 | Debug modes off in production | Met | `env` defaults to production (#161); `dev` (self-registration, no HTTPS redirect) must be set explicitly (`make run`, the dev compose stack). The appliance sets `appliance`. No pprof/expvar routes; iOS Release is checked. |
 | V13.4.3 | No directory listings | Met | Staff web serves four named embedded files (`internal/server/web.go` serveStatic); the Relay site handler uses `ServeContent` on validated paths (`internal/relay/site.go:277`); the console embed dir has an index.html and no subdirectories. |
 | V13.4.4 | HTTP TRACE not supported | Met | chi routes by method, with no TRACE handlers; the Relay CONNECT listener refuses every other method (`internal/relay/relay.go:286`). |
 | V13.4.5 | Internal API docs and monitoring endpoints not exposed | Met | OpenAPI files are not served; only `/healthz` and `/readyz` (`internal/server/server.go`, `internal/registry/server.go`), returning status only, by design. |
@@ -338,7 +338,7 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | V15.1.3 | Document resource-heavy functions and availability defenses | Gap | No document lists costly operations (argon2 sign-in, site publish, roster sync, audit verify, visit long-poll) or their limits. |
 | V15.2.1 | Components within documented remediation time frames | Gap | `govulncheck` v1.9.0 runs on every PR (`.github/workflows/ci.yml:37-38`) and the toolchain is pinned to go1.26.11, but there are no documented time frames to measure against (V15.1.1). |
 | V15.2.2 | Defenses against resource-exhaustion based on documented strategy | Gap | Partial controls: account lockout, Relay `MaxChannels`/push rate (`internal/relay/relay.go`), TURN quotas, 60 s handler timeout. But 18 Back Office handlers decode `r.Body` with no `MaxBytesReader` (e.g. `internal/server/auth.go` Register/Login), and there is no documented strategy. |
-| V15.2.3 | Production excludes test, sample and dev functionality | Gap | `wehelpd seed` with hard-coded demo passwords ships in the field binary (`cmd/wehelp/seed.go`, `internal/seed/seed.go:36-46`), contrary to SECURITY.md "never present in a field build". Self-registration is gated only by `env != "dev"`, and env defaults to dev. |
+| V15.2.3 | Production excludes test, sample and dev functionality | Met | Demo functionality is build-tagged out of the field image (#161): the seed command, `internal/seed` and the sign-in page's demo logins (now `/demo.js`, empty in field builds). CI's field image check fails on demo strings or a seed command. Demo hosts opt in with `WEHELP_DEMO=1`. |
 | V15.3.1 | Return only needed fields from data objects | Met | Responses use explicit view structs (e.g. `patientView` in `internal/server/patients.go:18`); no `select *` in code. |
 | V15.3.2 | Backend HTTP clients don't follow redirects unless intended | Gap | `http.Client`s for Registry install/roster (`cmd/wehelp/init.go:45`, `cmd/wehelp/serve.go:92`), Relay list sync (`internal/relay/relay.go:88`) and APNs (`internal/relay/apns.go:103`) set no `CheckRedirect`, so they follow up to 10 redirects. |
 | V15.3.3 | Mass-assignment protection: per-action allowed fields | Met | Each handler decodes into its own request struct holding only the fields that action may set (e.g. `createPatientRequest`, `internal/server/patients.go:67`); Registry uses `DisallowUnknownFields` (`internal/registry/server.go` install). |
@@ -408,7 +408,7 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | V6.2.4 | #162 |
 | V6.2.11 | #162 |
 | V6.2.12 | #162 |
-| V6.3.2 | #161 |
+| V6.3.2 | #161 (fixed) |
 | V6.3.3 | #163 |
 | V6.3.4 | #163 |
 | V6.4.3 | #162 |
@@ -434,11 +434,11 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | V12.2.2 | #166 |
 | V12.3.1 | #166 |
 | V12.3.3 | #166 |
-| V13.2.1 | #161 |
-| V13.2.2 | #161 |
-| V13.2.3 | #161 |
-| V13.3.1 | #161 |
-| V13.4.2 | #161 |
+| V13.2.1 | #161, #173 |
+| V13.2.2 | #161, #173 |
+| V13.2.3 | #161, #173 |
+| V13.3.1 | #161, #173 |
+| V13.4.2 | #161 (fixed) |
 | V14.1.2 | #167 |
 | V14.2.4 | #167 |
 | V14.3.2 | #160 |
@@ -447,7 +447,7 @@ The stored XSS in the staff web (V1.2.3) was fixed in #159.
 | V15.1.3 | #168 |
 | V15.2.1 | #168 |
 | V15.2.2 | #143 |
-| V15.2.3 | #161 |
+| V15.2.3 | #161 (fixed) |
 | V15.3.2 | #166 |
 | V16.1.1 | #167 |
 | V16.2.1 | #167 |

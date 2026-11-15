@@ -108,6 +108,30 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- Demo hosts and field installs are separate (#161).
+  - **Demo hosts:** `WEHELP_DEMO=1` in `deploy/.env` builds the image with
+    the `demo` tag. That brings the seed command (`appliance.sh seed`) and
+    the fixed demo logins on the sign-in page (`/demo.js`), so demos stay
+    easy. `appliance.sh demo-setup` does it in one step: it fills in
+    missing demo defaults in `.env` (`WEHELP_DEMO`, `WEHELP_STAFF_HOSTS`,
+    `WEHELP_TIMEZONE`), then runs `up` and `seed`.
+  - **Field installs:** neither the seed command nor the demo logins.
+  - **Seed:** refuses unless `env` is `dev` or `demo`.
+  - **`env`:** now defaults to production.
+  - **Database:** `appliance.sh` generates per-install passwords in
+    `deploy/db.env` (mode 600, not in the server's environment) and moves
+    an existing install over in place. The server connects as `wehelp_app`
+    (migration `V23`): data only, no schema changes, and no UPDATE or DELETE
+    on the audit and ledger tables.
+  - **Compose files:** never name the passwords. Each run writes them from
+    `db.env` into generated per-service env files (`db-owner.env`,
+    `db-server.env`), so secret scanners stay quiet. Without `db.env` the
+    stack won't start.
+  - **Container:** runs as non-root (uid 65532).
+  - **Backups:** include `db-env.age`, and a restore sets up the roles
+    first.
+  - **CI:** checks the field image has no demo logins or seed command and
+    runs as non-root.
 - Security checklists (#44) in `docs/security/`:
   - OWASP ASVS 5.0 Levels 1 and 2: 253 rows. 113 met, 62 not applicable,
     2 accepted, 76 gaps.

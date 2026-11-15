@@ -34,6 +34,8 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        BUILD_TAGS: demo # the dev stack includes the demo seed command (#161)
     environment:
       WEHELP_DATABASE_URL: postgres://wehelp:wehelp@db:5432/wehelp?sslmode=disable
       WEHELP_ENV: dev

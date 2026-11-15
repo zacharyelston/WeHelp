@@ -36,9 +36,8 @@ COPY_TO="${WEHELP_BACKUP_COPY_TO:-}"
 KEEP="${WEHELP_BACKUP_KEEP:-30}"
 HEALTH_URL="${WEHELP_HEALTH_URL:-http://127.0.0.1:${WEHELP_HTTP_PORT:-8080}/healthz}"
 
-compose() {
-  docker compose -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.appliance.yml" "$@"
-}
+DB_ENV="$DEPLOY_DIR/db.env"
+source "$DEPLOY_DIR/compose.sh" # compose()
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 size() { stat -f %z "$1" 2>/dev/null || stat -c %s "$1"; }
@@ -93,14 +92,18 @@ backup() {
   docker run --rm -v "${PROJECT}_officekeys:/k:ro" alpine:3 tar -C /k -cf - . | age -R "$RECIPIENTS" -o "$tmp/officekeys.tar.age" ||
     fail "reading the office keys volume failed"
   age -R "$RECIPIENTS" -o "$tmp/env.age" "$ENV_FILE" || fail "encrypting .env failed"
+  if [[ -f "$DB_ENV" ]]; then
+    age -R "$RECIPIENTS" -o "$tmp/db-env.age" "$DB_ENV" || fail "encrypting db.env failed"
+  fi
 
   local migration commit f total=0 files=""
   migration="$(compose exec -T db psql -U wehelp -d wehelp -Atc "select max(version::int) from flyway_schema_history where success" 2>/dev/null || echo "")"
   commit="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
-  for f in db.dump.age officekeys.tar.age env.age; do
+  for f in db.dump.age officekeys.tar.age env.age db-env.age; do
+    [[ -f "$tmp/$f" ]] || continue # db-env.age: installs from #161 on
     local n
     n="$(size "$tmp/$f")"
-    (( n > 200 )) || fail "$f is empty"
+    (( n > 150 )) || fail "$f is empty"
     head -c 40 "$tmp/$f" | grep -q 'age-encryption.org/v1' || fail "$f is not age-encrypted"
     total=$((total + n))
     files="$files${files:+,}{\"name\":\"$f\",\"bytes\":$n,\"sha256\":\"$(sha "$tmp/$f")\"}"
@@ -147,7 +150,8 @@ restore() {
 
   # Check every file against the manifest before touching anything.
   local f want got
-  for f in db.dump.age officekeys.tar.age env.age; do
+  for f in db.dump.age officekeys.tar.age env.age db-env.age; do
+    [[ -f "$src/$f" ]] || { [[ "$f" == db-env.age ]] && continue; }
     want="$(tr ',' '\n' < "$src/manifest.json" | grep -A2 "\"name\":\"$f\"" | sed -n 's/.*"sha256":"\([0-9a-f]*\)".*/\1/p' | head -1)"
     got="$(sha "$src/$f")"
     [[ -n "$want" && "$want" == "$got" ]] || { log "RESTORE REFUSED: $f doesn't match the manifest"; exit 1; }
@@ -166,20 +170,31 @@ restore() {
     [[ "$answer" == "RESTORE" ]] || { rm -f "$envtmp"; echo "cancelled"; exit 1; }
   fi
 
-  [[ -f "$ENV_FILE" ]] && cp -p "$ENV_FILE" "$ENV_FILE.before-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+  local stamp
+  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  [[ -f "$ENV_FILE" ]] && cp -p "$ENV_FILE" "$ENV_FILE.before-restore-$stamp"
   mv "$envtmp" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
+  # Database passwords (#161): the backup's, or new ones for an older backup.
+  [[ -f "$DB_ENV" ]] && cp -p "$DB_ENV" "$DB_ENV.before-restore-$stamp"
+  if [[ -f "$src/db-env.age" ]]; then
+    (umask 077; age -d -i "$identity" -o "$DB_ENV" "$src/db-env.age")
+  else
+    rm -f "$DB_ENV"
+  fi
 
   compose stop server >/dev/null 2>&1 || true
+  # Passwords and the runtime role first: db-roles creates db.env if needed,
+  # and the dump grants to wehelp_app, so it must exist before pg_restore.
+  /bin/bash "$DEPLOY_DIR/appliance.sh" db-roles
   compose up --no-start --build # creates the stack's volumes, so Compose owns them
-  compose up -d db
   wait_for_db
   compose exec -T db psql -q -U wehelp -d postgres -v ON_ERROR_STOP=1 \
     -c "drop database if exists wehelp with (force)" -c "create database wehelp owner wehelp"
   age -d -i "$identity" "$src/db.dump.age" | compose exec -T db pg_restore -U wehelp -d wehelp --no-owner --exit-on-error
   log "database restored"
   age -d -i "$identity" "$src/officekeys.tar.age" |
-    docker run --rm -i -v "${PROJECT}_officekeys:/k" alpine:3 sh -c 'find /k -mindepth 1 -delete && tar -C /k -xf -'
+    docker run --rm -i -v "${PROJECT}_officekeys:/k" alpine:3 sh -c 'find /k -mindepth 1 -delete && tar -C /k -xf - && chown -R 65532:65532 /k' # the server runs as nonroot (#161)
   log "office keys restored"
 
   compose up -d --build

@@ -32,6 +32,8 @@ jobs:
           cache: true
       - run: go build ./...
       - run: go vet ./...
+      # Demo builds (seed command, #161) must keep compiling.
+      - run: go vet -tags demo ./cmd/wehelp
       # Known vulnerabilities in the standard library and every module (#43).
       # Exits non-zero when our code reaches one.
       - name: govulncheck
@@ -70,7 +72,16 @@ jobs:
       - run: docker compose -f deploy/docker-compose.yml config --quiet
       - run: docker compose -f deploy/docker-compose.yml run --rm migrate
       - run: docker compose -f deploy/docker-compose.yml --profile registry run --rm registry-migrate
-      - run: docker build -f deploy/Dockerfile .
+      - run: docker build -f deploy/Dockerfile -t wehelpd:field .
+      # The field image has no demo seed command or demo logins, and runs as
+      # nonroot (#161).
+      - name: Field image check
+        run: |
+          [ "$(docker inspect -f '{{.Config.User}}' wehelpd:field)" = "65532" ] || { echo "image runs as root"; exit 1; }
+          id=$(docker create wehelpd:field) && docker cp "$id":/usr/local/bin/wehelpd /tmp/wehelpd && docker rm "$id"
+          if strings /tmp/wehelpd | grep -E 'wehelp-demo-|@demo\.wehelp'; then echo "demo logins in the field binary"; exit 1; fi
+          if docker run --rm wehelpd:field seed 2>&1 | grep -q 'Seed a demo'; then echo "seed command in the field image"; exit 1; fi
+          echo "field image ok"
 
   openapi:
     runs-on: ubuntu-latest
