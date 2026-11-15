@@ -110,6 +110,10 @@ All notable changes to WeHelp are documented here. Format follows
     an existing install over in place. The server connects as `wehelp_app`
     (migration `V23`): data only, no schema changes, and no UPDATE or DELETE
     on the audit and ledger tables.
+  - **Compose files:** never name the passwords. Each run writes them from
+    `db.env` into generated per-service env files (`db-owner.env`,
+    `db-server.env`), so secret scanners stay quiet. Without `db.env` the
+    stack won't start.
   - **Container:** runs as non-root (uid 65532).
   - **Backups:** include `db-env.age`, and a restore sets up the roles
     first.

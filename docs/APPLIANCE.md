@@ -140,9 +140,20 @@ passwords:
 - `wehelp_app` is what the server connects as. It can read and write data,
   but can't change the schema or alter audit and ledger rows.
 
-Nobody types these, and they aren't in `.env`, so the server's environment
-never holds the owner password. Every `up` and `boot` sets the database to
-match `db.env`. Backups include it (`db-env.age`).
+Nobody types these. Every `up` and `boot` sets the database to match
+`db.env`. Backups include it (`db-env.age`).
+
+The tracked compose files never name these passwords. On each run,
+`appliance.sh` (through `deploy/compose.sh`) writes them from `db.env` into
+two generated files, also mode 600 and gitignored:
+- `db-owner.env` for the database and migrations;
+- `db-server.env`, the server's `wehelp_app` connection URL.
+
+So the server never holds the owner password. Don't edit the generated
+files; they are rewritten on every run. Without `db.env` the stack refuses
+to start instead of falling back to the dev password. This also keeps the
+compose files clean for secret scanners: GitGuardian flagged the earlier
+`${WEHELP_DB_PASSWORD…}` lines on #174.
 
 The server image runs as a non-root user (uid 65532). `up` gives the
 office-keys volume to that user.
