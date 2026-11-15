@@ -42,7 +42,22 @@ WEHELP_REGISTRY_URL=https://registry.example deploy/appliance.sh init-office
 unset WEHELP_INSTALL_TOKEN
 ```
 
-**Demo topology (Registry on the dev laptop):** on macOS, Colima can't reach
+**Demo topology (Registry on Barnacle, #182):** the Registry runs on the
+same Mac mini, and Colima containers reach it at the Mac's LAN address, so
+the token never leaves the machine:
+
+```bash
+WEHELP_INSTALL_TOKEN="$(deploy/registry.sh cli token issue <practice-id> 2>/dev/null)"
+export WEHELP_INSTALL_TOKEN
+WEHELP_REGISTRY_URL=http://192.168.1.2:8090 deploy/appliance.sh init-office
+unset WEHELP_INSTALL_TOKEN
+docker restart deploy-server-1
+```
+
+`init-office` hands the token to the container by name (`-e
+WEHELP_INSTALL_TOKEN`), so it never appears in a command line.
+
+**Earlier demo topology (Registry on the dev laptop, retired):** on macOS, Colima can't reach
 LAN addresses until Local Network is approved on the Mac mini's screen
 (APPLIANCE.md, step 5). Until then the install fails with `connection
 refused`, and the token stays unused. To install anyway, carry the request

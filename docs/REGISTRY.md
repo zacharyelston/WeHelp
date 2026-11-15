@@ -62,7 +62,7 @@ on the Staff screen.
 ## Set up (dev laptop)
 
 ```bash
-make registry-db         # Postgres for the Registry on :5433 (compose profile "registry")
+make registry-db         # Postgres for the Registry on 127.0.0.1:5433 (compose profile "registry", dev password)
 make registry-migrate    # Flyway, db/registry
 make build               # bin/wehelpd and bin/wehelp-registry
 bin/wehelp-registry keygen    # ~/.wehelp/registry/signing.key (mode 600); prints the public key
@@ -78,6 +78,40 @@ Config (`WEHELP_*` env vars or `wehelp.yaml`; defaults in
 | `registry_database_url` | `postgres://wehelp:wehelp@localhost:5433/wehelp_registry` | Its own database, never the Back Office's |
 | `registry_signing_key` | `~/.wehelp/registry/signing.key` | Refused if group or others can read it |
 | `registry_tls_cert`, `registry_tls_key` | empty | Empty serves plain HTTP: development only |
+
+## Always-on host (#182)
+
+`deploy/registry.sh` runs the Registry as its own Compose project,
+`wehelp-registry` (`deploy/registry/docker-compose.yml`): Postgres, Flyway
+and `wehelp-registry serve`, restarting with Docker. It is plain TCP, so it
+runs in Colima on a Mac mini (unlike the Relay's TURN, see RELAY.md) as well
+as on a Linux container host. The demo Registry runs this way on Barnacle,
+next to the Relay and the office.
+
+```bash
+deploy/registry.sh up                 # first run: DB password, signing key (prints the public key), migrate, start
+deploy/registry.sh status             # containers and /healthz
+deploy/registry.sh logs
+deploy/registry.sh cli practice list  # any subcommand, run in the image
+deploy/registry.sh cli audit verify
+```
+
+- **DB password:** generated once into `deploy/registry/db.env` (mode 600,
+  gitignored). `deploy/compose.sh` renders `db-owner.env` and `server.env`
+  from it on every run, so no tracked file names it. The server still
+  connects as the owner; a runtime role is #173.
+- **Ports:** the Registry on `:8090` (`WEHELP_REGISTRY_PORT`,
+  `WEHELP_REGISTRY_BIND` in `deploy/registry/.env`), and Postgres on
+  `127.0.0.1:5433` only.
+- **Signing key:** on the `wehelp-registry_registrykeys` volume, owned by
+  the image's nonroot user. Back it up with `db.env` and the
+  `wehelp-registry_registrydata` volume; losing it means re-pinning every
+  Relay and office.
+- **`cli` stdin** is passed through, and the actor defaults to
+  `cli:<user>@<host>`. Pass a Relay's host key as text:
+  `cli relay add … --host-key "$(cat ~/.wehelp/relay/ssh_host_ed25519.pub)"`.
+- **Install tokens** never go on a command line: capture `cli token issue`
+  in a variable and pass it as `WEHELP_INSTALL_TOKEN` (OFFICE_KEYS.md).
 
 ## Register a practice and install its office
 
