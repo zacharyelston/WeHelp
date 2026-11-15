@@ -74,6 +74,7 @@ type Relay struct {
 	siteMu    sync.RWMutex           // swaps of a site directory vs. reads
 	turn      *turnState             // video-visit TURN (#6); nil = off
 	turnKeys  map[string]string      // TURN key ID → office ID, for offices on the list
+	caps      map[string]int         // office ID → live video visit cap from the list (#175); 0 = default
 }
 
 // New returns a Relay, loading the cached list if there is one.
@@ -378,7 +379,7 @@ func splice(client net.Conn, buffered io.Reader, ch ssh.Channel) (up, down int64
 // apply installs a verified list and disconnects offices no longer on it
 // (or whose key changed).
 func (r *Relay) apply(l officelist.List) {
-	allowed := map[string]string{}
+	allowed, caps := map[string]string{}, map[string]int{}
 	for _, o := range l.Offices {
 		if o.RelayID != r.cfg.RelayID {
 			continue
@@ -389,18 +390,29 @@ func (r *Relay) apply(l officelist.List) {
 			continue
 		}
 		allowed[string(pk.Marshal())] = o.OfficeID
+		if o.MaxVisits > 0 {
+			caps[o.OfficeID] = o.MaxVisits
+		}
 	}
 	var drop []*officeConn
+	resend := map[string]*officeConn{} // still connected, but its visit cap changed
 	r.mu.Lock()
-	r.allowed, r.version = allowed, l.Version
+	old := r.caps
+	r.allowed, r.version, r.caps = allowed, l.Version, caps
 	r.turnKeys = r.turnKeyIDs() // an office that leaves the list loses TURN at once
+	r.syncTURNLimits()
 	for id, oc := range r.offices {
 		if allowed[oc.key] != id {
 			drop = append(drop, oc)
 			delete(r.offices, id)
+		} else if old[id] != caps[id] {
+			resend[id] = oc
 		}
 	}
 	r.mu.Unlock()
+	for id, oc := range resend {
+		r.sendTURNKey(oc.conn, id) // the office learns its new cap; no reconnect
+	}
 	for _, oc := range drop {
 		slog.Info("relay: disconnecting office no longer listed", "office", oc.conn.User())
 		_ = oc.conn.Close()

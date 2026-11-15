@@ -258,7 +258,7 @@ A 1:1 video visit between a patient and their provider (#6). Media goes phone to
 - Any scheduled appointment can become a video visit. It can be joined from 10 minutes before `starts_at` until 30 minutes after `ends_at`.
 - **The provider starts it:** `POST /api/v1/appointments/{id}/visit/start`.
 - **The patient** sees "Your provider will start the visit" until the appointment's `visit_status` is `open` (in `GET /appointments`, or after the `visit_starting` push). Then they get **Join video visit**: `POST /api/v1/appointments/{id}/visit/join`. Before that, join returns 409 `not_started`.
-- **Codes to handle:** `not_started`, `outside_window`, `not_scheduled` and `ended` (409); `video_unavailable` (503, the practice's Relay connection is down: "The video service isn't reachable right now").
+- **Codes to handle:** `not_started`, `outside_window`, `not_scheduled` and `ended` (409); `video_unavailable` (503, the practice's Relay connection is down: "The video service isn't reachable right now"); `video_busy` (503 with `Retry-After`, the practice already has as many live visits as its Relay allows: "Video is busy right now. Try again in a few minutes"). Neither marks the visit failed.
 - The answer gives `visit_id`, `role`, `peer_present`, `after`, `ice_servers` and `expires_at`.
 
 **WebRTC**

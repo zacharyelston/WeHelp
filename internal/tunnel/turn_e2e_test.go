@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -233,5 +234,74 @@ func TestTURNKeyAndAllocation(t *testing.T) {
 	u4, p4 := turncred.Mint(key, "visit2", exp)
 	if _, _, err := turnClient(t, addr, u4, p4); err == nil {
 		t.Error("delisted office's credentials allocated")
+	}
+}
+
+// TestTURNVisitCapFromList is #175: each office's live visit cap comes from
+// the signed list (the Relay's setting is only the fallback), the office
+// learns its cap with its key and again when the list changes it, and an
+// optional total caps the whole Relay.
+func TestTURNVisitCapFromList(t *testing.T) {
+	h := newHarness(t)
+	a, b := h.newOffice(t), h.newOffice(t)
+	withCap := listed(a, h.relayID)
+	withCap.MaxVisits = 3
+	h.reg.publish(t, 2, withCap, listed(b, h.relayID)) // b: no cap in the list
+	eventually(t, "list v2", func() bool { return h.rl.Version() == 2 })
+
+	secret, err := relay.EnsureTURNSecret(filepath.Join(t.TempDir(), relay.TURNSecretFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := freePort(t)
+	if err := h.rl.StartTURN(relay.TURNOptions{Addr: addr, PublicIP: net.ParseIP("127.0.0.1").To4(),
+		PortMin: 50200, PortMax: 50299, Secret: secret, MaxVisits: 1, MaxTotalVisits: 4}); err != nil {
+		t.Fatal(err)
+	}
+	pusher := &tunnel.Pusher{}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() {
+		_ = tunnel.Run(ctx, a, http.NotFoundHandler(), tunnel.Options{Pusher: pusher,
+			MinBackoff: 20 * time.Millisecond, MaxBackoff: 100 * time.Millisecond, Keepalive: time.Second})
+	}()
+	var key turncred.Key
+	eventually(t, "TURN key with cap 3", func() bool { var ok bool; key, ok = pusher.TURNKey(); return ok && key.MaxVisits == 3 })
+
+	exp := time.Now().Add(time.Hour)
+	visit := func(k turncred.Key, token string) error {
+		u, p := turncred.Mint(k, token, exp)
+		_, _, err := turnClient(t, addr, u, p)
+		return err
+	}
+	// Office a: three visits from the list's cap, not the Relay's 1.
+	for i := 1; i <= 3; i++ {
+		if err := visit(key, "a"+strconv.Itoa(i)); err != nil {
+			t.Fatalf("office a visit %d: %v", i, err)
+		}
+	}
+	if visit(key, "a4") == nil {
+		t.Error("office a's fourth visit allowed past its cap of 3")
+	}
+	// Office b has no cap in the list, so the Relay's setting (1) applies.
+	bID := turncred.KeyID(secret, b.Registration.OfficeID)
+	keyB := turncred.Key{KeyID: bID, Secret: turncred.Secret(secret, bID)}
+	if err := visit(keyB, "b1"); err != nil {
+		t.Fatalf("office b visit: %v", err)
+	}
+	if visit(keyB, "b2") == nil {
+		t.Error("office b's second visit allowed past the Relay default of 1")
+	}
+
+	// Raising a's cap to 5: the Relay resends the key, but the total (4,
+	// now reached) still refuses a fifth visit on the Relay.
+	withCap.MaxVisits = 5
+	h.reg.publish(t, 3, withCap, listed(b, h.relayID))
+	eventually(t, "resent key with cap 5", func() bool { k, ok := pusher.TURNKey(); return ok && k.MaxVisits == 5 })
+	if visit(key, "a5") == nil {
+		t.Error("visit allowed past the Relay's total of 4")
+	}
+	if s := h.rl.TURNStats(); s.Visits != 4 {
+		t.Errorf("live visits = %d, want 4", s.Visits)
 	}
 }

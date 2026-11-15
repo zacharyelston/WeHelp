@@ -1769,7 +1769,7 @@ paths:
         "403": { description: "Not the provider, a browser session, or another role", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "404": { description: "No such appointment of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "409": { description: "Codes: not_scheduled, outside_window, ended; or video is turned off for the practice", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
-        "503": { description: "Code video_unavailable: no TURN key from the Relay (the tunnel is down)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "Code video_unavailable: no TURN key from the Relay (the tunnel is down). Code video_busy: the office already has as many live visits as its Relay allows (#175); Retry-After is set. The visit isn't marked failed.", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /api/v1/appointments/{appointmentID}/visit/join:
     post:
@@ -1786,7 +1786,7 @@ paths:
         "403": { description: "A browser session or another role", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "404": { description: "No such appointment of yours", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
         "409": { description: "Codes: not_started, not_scheduled, outside_window, ended; or video is turned off", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
-        "503": { description: "Code video_unavailable", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "Codes: video_unavailable; video_busy (the office is at its live visit cap, #175; Retry-After is set)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
 
   /api/v1/visits/{visitID}/signals:
     get:

@@ -135,7 +135,8 @@ the Relay's TURN server, which forwards ciphertext only. TURN is off until
 | `relay_turn_public_ip` | empty (off) | the IPv4 address phones reach; relay addresses use it too |
 | `relay_turn_addr` | `:3478` | UDP and TCP |
 | `relay_turn_ports` | `49160-49999` | relay port range, UDP |
-| `relay_turn_max_visits` | `4` | live visits per office |
+| `relay_turn_max_visits` | `4` | live visits per office when the office list gives none (#175); the list's `max_visits` wins |
+| `relay_turn_max_total_visits` | `0` (no cap) | live visits across every office on this Relay, to protect its bandwidth |
 | `relay_turn_secret_file` | `{relay_dir}/turn.secret` | master secret, created on first run, mode 600, never sent anywhere |
 | `relay_turn_tls_addr` | empty | TURN over TLS, normally `:443`, for networks that block UDP |
 | `relay_turn_hostname` | empty | public DNS name: the Relay gets a Let's Encrypt certificate itself (TLS-ALPN-01 on the TLS port, so no port 80), cached in `relay_acme_dir` |
@@ -146,8 +147,13 @@ the Relay's TURN server, which forwards ciphertext only. TURN is off until
   credentials from it and never asks the Relay for anything. The Relay
   accepts a credential only while its office is on the signed list, before
   it expires, and if it was minted no more than 12 hours ahead.
-- **Limits:** 8 allocations per visit credential and `relay_turn_max_visits`
-  live visits per office. Peers may only be this Relay's own relay address,
+- **Limits:** 8 allocations per visit credential, and per office the
+  `max_visits` from the signed list (one more than its providers, at least
+  4; see [REGISTRY.md](REGISTRY.md#the-signed-office-list)), or
+  `relay_turn_max_visits` for a list without it. `relay_turn_max_total_visits`
+  caps the whole Relay. The office gets its cap with its TURN key, and again
+  whenever a new list changes it, so it can answer `video_busy` before TURN
+  refuses. TURN still enforces both caps itself. Peers may only be this Relay's own relay address,
   so TURN can't reach the internet or the Relay's network. Allocations
   live 5 minutes unless refreshed, and permissions 2 minutes.
 - **TURN over TLS** needs a publicly trusted certificate, because libwebrtc
