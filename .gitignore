@@ -32,3 +32,9 @@ deploy/db.env
 deploy/db.env.before-restore-*
 deploy/db-owner.env
 deploy/db-server.env
+
+# Registry stack (#182): per-install DB password and the env files rendered from it.
+deploy/registry/.env
+deploy/registry/db.env
+deploy/registry/db-owner.env
+deploy/registry/server.env

@@ -1,5 +1,5 @@
-# Sourced by appliance.sh and backup.sh. Expects DEPLOY_DIR, ENV_FILE and
-# DB_ENV to be set.
+# Sourced by appliance.sh and backup.sh, which set DEPLOY_DIR, ENV_FILE and
+# DB_ENV for compose(), and by registry.sh for render_registry_env_files.
 #
 # Database passwords (#161) live only in deploy/db.env, the one copy that
 # backups keep. The tracked compose files never name or interpolate them.
@@ -22,6 +22,23 @@ render_db_env_files() {
     umask 077
     printf 'POSTGRES_PASSWORD=%s\nFLYWAY_PASSWORD=%s\n' "$owner" "$owner" > "$owner_file"
     printf 'WEHELP_DATABASE_URL=postgres://%s:%s@db:5432/wehelp?sslmode=disable\n' wehelp_app "$app" > "$server_file"
+  )
+}
+
+# render_registry_env_files does the same for the Registry stack (#182),
+# from deploy/registry/db.env (WEHELP_REGISTRY_DB_PASSWORD):
+#   db-owner.env  POSTGRES_PASSWORD and FLYWAY_PASSWORD, for db and migrate;
+#   server.env    WEHELP_REGISTRY_DATABASE_URL, for the Registry server.
+# Takes the Registry deploy folder (deploy/registry).
+render_registry_env_files() {
+  local dir="$1" pw
+  [[ -f "$dir/db.env" ]] || { echo "missing $dir/db.env (deploy/registry.sh creates it)" >&2; return 1; }
+  pw="$(sed -n 's/^WEHELP_REGISTRY_DB_PASSWORD=//p' "$dir/db.env")"
+  [[ -n "$pw" ]] || { echo "no WEHELP_REGISTRY_DB_PASSWORD in $dir/db.env" >&2; return 1; }
+  (
+    umask 077
+    printf 'POSTGRES_PASSWORD=%s\nFLYWAY_PASSWORD=%s\n' "$pw" "$pw" > "$dir/db-owner.env"
+    printf 'WEHELP_REGISTRY_DATABASE_URL=postgres://wehelp:%s@db:5432/wehelp_registry?sslmode=disable\n' "$pw" > "$dir/server.env"
   )
 }
 

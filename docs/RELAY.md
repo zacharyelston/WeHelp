@@ -76,6 +76,27 @@ Relay's pins don't change.
 - **On Barnacle:** the office's staff web has :8443, so phones `CONNECT` on
   :9443 (`WEHELP_RELAY_CONNECT_ADDR=:9443`). SSH stays on :2222, sites on
   :8444 and TURN on :3478. The Relay uses the wired address, 192.168.1.2.
+  The Registry runs on Barnacle too (REGISTRY.md, "Always-on host"), so
+  `WEHELP_REGISTRY_URL=http://127.0.0.1:8090`.
+
+### Re-registering with a fresh Registry (#182)
+
+On 2026-11-15 the demo moved to a new, empty Registry on Barnacle (new
+signing key, new Relay and practice IDs; the laptop's was retired). The
+Relay's own keys stayed, so only its registration changed:
+1. `deploy/relay.sh init` prints the TLS pin (it never replaces a key).
+2. `registry.sh cli relay add --name barnacle --ssh-address 192.168.1.2:2222
+   --connect-address 192.168.1.2:9443 --host-key "$(cat
+   ~/.wehelp/relay/ssh_host_ed25519.pub)" --tls-pin <pin>`, then
+   `cli practice add --name "WeHelp Demo Practice" --relay barnacle`.
+3. In `relay.env`: `WEHELP_RELAY_ID`, `WEHELP_RELAY_REGISTRY_KEY` (from
+   `cli pubkey`) and `WEHELP_REGISTRY_URL`. Move the old `office-list.json`
+   aside: it is signed by the old key, and its version (6) is higher than the
+   new Registry's first lists. Then `relay.sh install-launchd`.
+4. Reinstall the office with a token from the new Registry (OFFICE_KEYS.md)
+   and restart `deploy-server-1`. The office keeps its keys but gets a new
+   office ID, because the practice is new.
+5. Phones pair again.
 
 ### Moving a Relay to another machine
 
@@ -136,8 +157,12 @@ registered Relay SSH address (demos, port forwards).
 
 ```bash
 # A request through the Relay to the office (curl doesn't check our pins; the app does):
-curl --proxy https://192.168.1.20:8443 --proxy-insecure -k https://<office-id>.wehelp.invalid/api/v1/ping
+curl --proxy https://192.168.1.2:9443 --proxy-insecure -k https://<office-id>.wehelp.invalid/api/v1/ping
 ```
+
+On 2026-11-15, after the fresh Registry (#182): the Relay took list
+version 2, Barnacle's office connected a second later, and the ping above
+answered `{"message":"pong"}`.
 
 On 2026-11-14 in the Demo topology (Relay on the laptop, Barnacle as the
 office):

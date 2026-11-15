@@ -5,7 +5,23 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- The Registry runs on an always-on host (#182): `deploy/registry.sh`
+  (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
+  `deploy/registry/` (Postgres, Flyway and a distroless nonroot
+  `wehelp-registry` image). The DB password is generated per install into
+  gitignored `deploy/registry/db.env`, and `deploy/compose.sh` renders the
+  env files the services load, so no tracked file names it. Postgres listens
+  on 127.0.0.1 only. The first `up` creates the signing key on a named
+  volume. The demo topology now runs a fresh Registry on Barnacle on :8090,
+  with the Relay and the office re-registered (new key and IDs; phones
+  re-pair).
+
 ### Changed
+- `appliance.sh init-office` passes the install token to the container by
+  name, so it never appears in a command line (#182).
+- The dev `registry` Compose profile publishes Postgres on 127.0.0.1:5433
+  only (#182).
 - The cap on live video visits per office now fits the practice instead of
   a fixed 4 (#175). The Registry puts `max_visits` in each office's signed
   list entry: one more than the practice's active providers, at least 4, or

@@ -26,7 +26,8 @@ backlog in alzacai/WeHelp was copied over and is referenced as
 
 - Build server: `make build` → `bin/wehelpd`, `bin/wehelp-registry` and
   `bin/wehelp-relay` (Relay runbook: `docs/RELAY.md`)
-- Registry (#60): `make registry-db registry-migrate`, then see
+- Registry (#60): dev `make registry-db registry-migrate`; always-on host
+  `deploy/registry.sh up` (#182). Then see
   `docs/REGISTRY.md`. Registry migrations live in `db/registry/`.
 - DB integration tests run when `WEHELP_TEST_DATABASE_URL` is set (a
   user that can create databases); CI sets it.
