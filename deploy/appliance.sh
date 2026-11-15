@@ -171,8 +171,11 @@ case "$cmd" in
     init_env
     init_db_env
     own_volumes
+    # -e with a name only: Compose takes the value from this environment, so
+    # the token never appears in a command line (ps) (#182).
+    export WEHELP_INSTALL_TOKEN="${WEHELP_INSTALL_TOKEN:-}"
     compose run --rm --no-deps \
-      -e WEHELP_INSTALL_TOKEN="${WEHELP_INSTALL_TOKEN:-}" \
+      -e WEHELP_INSTALL_TOKEN \
       -e WEHELP_REGISTRY_URL="${WEHELP_REGISTRY_URL:-http://localhost:8090}" \
       server init
     ;;

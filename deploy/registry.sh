@@ -54,8 +54,6 @@ compose() {
 cmd="${1:-}"
 case "$cmd" in
   up)
-    compose up -d --build --wait db
-    compose run --rm migrate
     compose build registry
     # The first start creates the signing key (keygen never replaces one) and
     # prints the public key that Relays and offices pin.
