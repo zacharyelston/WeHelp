@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Installed by `deploy/relay.sh install-launchd`; placeholders are filled in then.
+     The Relay binary is the program itself, so macOS asks for Local Network
+     access for wehelp-relay (not for bash). Settings come from relay.env,
+     copied into EnvironmentVariables at install. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.wehelp.relay</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__BINARY__</string>
+		<string>serve</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+__ENV__
+	</dict>
+	<key>WorkingDirectory</key>
+	<string>__HOME__</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG__</string>
+</dict>
+</plist>

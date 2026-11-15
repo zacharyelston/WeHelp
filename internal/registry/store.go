@@ -153,6 +153,61 @@ func checkPin(pin string) error {
 	return nil
 }
 
+// RelayUpdate is a change to a Relay's name or addresses; empty fields keep
+// their current value.
+type RelayUpdate struct {
+	Name, SSHAddress, ConnectAddress string
+}
+
+// UpdateRelay renames a Relay or changes its addresses, for moving a Relay
+// to another machine with its keys (#180). Offices pick up the new
+// addresses when they reinstall, and phones when they pair again.
+func (s *Store) UpdateRelay(ctx context.Context, actor, name string, u RelayUpdate) (Relay, error) {
+	u.Name = strings.TrimSpace(u.Name)
+	if u.SSHAddress != "" {
+		if err := checkHostPort("ssh address", u.SSHAddress); err != nil {
+			return Relay{}, err
+		}
+	}
+	if u.ConnectAddress != "" {
+		if err := checkHostPort("connect address", u.ConnectAddress); err != nil {
+			return Relay{}, err
+		}
+	}
+	var r Relay
+	err := s.withTx(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `select id, name, ssh_address, connect_address, ssh_host_key, tls_pin
+			from relays where name = $1 for update`, name).
+			Scan(&r.ID, &r.Name, &r.SSHAddress, &r.ConnectAddress, &r.SSHHostKey, &r.TLSPin)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: relay %q", ErrNotFound, name)
+		}
+		if err != nil {
+			return err
+		}
+		detail := map[string]string{}
+		set := func(field string, cur *string, v string) {
+			if v != "" && v != *cur {
+				detail[field+"_from"], detail[field+"_to"] = *cur, v
+				*cur = v
+			}
+		}
+		set("name", &r.Name, u.Name)
+		set("ssh_address", &r.SSHAddress, u.SSHAddress)
+		set("connect_address", &r.ConnectAddress, u.ConnectAddress)
+		if len(detail) == 0 {
+			return ErrNoChange
+		}
+		if _, err := tx.Exec(ctx, `update relays set name = $2, ssh_address = $3, connect_address = $4 where id = $1`,
+			r.ID, r.Name, r.SSHAddress, r.ConnectAddress); err != nil {
+			return err
+		}
+		return record(ctx, tx, Event{Actor: actor, Action: "relay.update", ResourceType: "relay",
+			ResourceID: r.ID.String(), Detail: detail})
+	})
+	return r, err
+}
+
 // SetRelayTLSPin records a Relay's TLS pin (after the Relay's TLS key is
 // created or rotated). Offices learn it at their next install.
 func (s *Store) SetRelayTLSPin(ctx context.Context, actor, name, pin string) error {

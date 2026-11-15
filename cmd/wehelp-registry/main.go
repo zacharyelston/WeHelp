@@ -204,6 +204,30 @@ func relayCmd() *cobra.Command {
 			return st.SetRelayTLSPin(cmd.Context(), actor, args[0], args[1])
 		},
 	}
+	var upd registry.RelayUpdate
+	update := &cobra.Command{
+		Use:   "update <relay-name>",
+		Short: "Rename a Relay or change its addresses (moving it with its keys)",
+		Long: "Rename a Relay or change its addresses, for moving a Relay to another machine with its keys.\n" +
+			"Offices on it reinstall to pick up new addresses, and phones pair again (docs/RELAY.md).",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, closeDB, err := open(cmd.Context(), false)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+			r, err := st.UpdateRelay(cmd.Context(), actor, args[0], upd)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\t%s\tssh %s\tconnect %s\n", r.ID, r.Name, r.SSHAddress, r.ConnectAddress)
+			return nil
+		},
+	}
+	update.Flags().StringVar(&upd.Name, "name", "", "new Relay name")
+	update.Flags().StringVar(&upd.SSHAddress, "ssh-address", "", "new host:port offices dial over SSH")
+	update.Flags().StringVar(&upd.ConnectAddress, "connect-address", "", "new host:port phones dial with CONNECT")
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List Relays",
@@ -225,7 +249,7 @@ func relayCmd() *cobra.Command {
 			return tw.Flush()
 		},
 	}
-	cmd.AddCommand(add, list, setPin)
+	cmd.AddCommand(add, update, list, setPin)
 	return cmd
 }
 
