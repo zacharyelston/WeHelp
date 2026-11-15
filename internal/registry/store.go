@@ -397,6 +397,31 @@ func (s *Store) Install(ctx context.Context, token, sshPublicKey string) (res In
 	return res, "", nil
 }
 
+// maxVisitsExpr is a practice's live video visit cap on the Relay (#175), for
+// a query with practices aliased p: support's number if set, otherwise one
+// more than its active providers, and never under 4.
+const maxVisitsExpr = `coalesce(p.turn_max_visits, greatest(4, 1 + (select count(*) from practice_providers pp
+		where pp.practice_id = p.id and pp.role = 'provider' and pp.removed_at is null)))::int`
+
+// maxVisitsOf is maxVisitsExpr for one practice, and whether it has an office.
+func maxVisitsOf(ctx context.Context, tx pgx.Tx, practiceID uuid.UUID) (n int, installed bool, err error) {
+	err = tx.QueryRow(ctx, `select `+maxVisitsExpr+`, exists(select 1 from offices o where o.practice_id = p.id)
+		from practices p where p.id = $1`, practiceID).Scan(&n, &installed)
+	return n, installed, err
+}
+
+// republishOnCapChange publishes a new list when a practice's visit cap moved
+// from before, so its Relay learns the new cap. Before install there is no
+// office in the list, so nothing to publish.
+func (s *Store) republishOnCapChange(ctx context.Context, tx pgx.Tx, actor string, practiceID uuid.UUID, before int) error {
+	after, installed, err := maxVisitsOf(ctx, tx, practiceID)
+	if err != nil || after == before || !installed {
+		return err
+	}
+	_, err = s.publish(ctx, tx, actor)
+	return err
+}
+
 // publish signs and stores a new office list from the current state, inside
 // the caller's transaction. Versions are serialized by an advisory lock.
 func (s *Store) publish(ctx context.Context, tx pgx.Tx, actor string) (int64, error) {
@@ -407,7 +432,7 @@ func (s *Store) publish(ctx context.Context, tx pgx.Tx, actor string) (int64, er
 		return 0, err
 	}
 	rows, err := tx.Query(ctx, `
-		select o.id::text, o.ssh_public_key, p.relay_id::text
+		select o.id::text, o.ssh_public_key, p.relay_id::text, `+maxVisitsExpr+`
 		from offices o join practices p on p.id = o.practice_id
 		where p.status = 'active'
 		order by o.id`)
@@ -416,7 +441,7 @@ func (s *Store) publish(ctx context.Context, tx pgx.Tx, actor string) (int64, er
 	}
 	offices, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (officelist.Office, error) {
 		var o officelist.Office
-		err := row.Scan(&o.OfficeID, &o.SSHPublicKey, &o.RelayID)
+		err := row.Scan(&o.OfficeID, &o.SSHPublicKey, &o.RelayID, &o.MaxVisits)
 		return o, err
 	})
 	if err != nil {

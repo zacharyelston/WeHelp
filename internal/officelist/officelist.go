@@ -22,6 +22,10 @@ type Office struct {
 	OfficeID     string `json:"office_id"`
 	SSHPublicKey string `json:"ssh_public_key"` // authorized_keys line
 	RelayID      string `json:"relay_id"`
+	// MaxVisits is how many live video visits the office may have on the
+	// Relay's TURN at once (#175). Zero (older lists) means the Relay's
+	// configured default.
+	MaxVisits int `json:"max_visits,omitempty"`
 }
 
 // List is the signed payload.

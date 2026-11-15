@@ -47,9 +47,12 @@ type TURNOptions struct {
 	PortMin   int         // relay port range
 	PortMax   int
 	Secret    []byte // master secret, never sent anywhere
-	MaxVisits int    // live visit credentials per office; default 4
-	MaxAllocs int    // allocations per visit credential; default 8
-	MaxLife   time.Duration
+	MaxVisits int    // live visits per office when the list gives no cap; default 4
+	// MaxTotalVisits caps live visits across every office on this Relay, to
+	// protect its bandwidth (#175). 0 means no total cap.
+	MaxTotalVisits int
+	MaxAllocs      int // allocations per visit credential; default 8
+	MaxLife        time.Duration
 }
 
 const (
@@ -68,6 +71,7 @@ type turnState struct {
 	mu     sync.Mutex
 	allocs map[string]int            // "keyID:token" → live allocations
 	visits map[string]map[string]int // keyID → token → live allocations
+	limits map[string]int            // keyID → visit cap from the office list; absent = opt.MaxVisits
 	total  int
 	done   chan struct{}
 }
@@ -89,7 +93,8 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 	if opt.MaxLife <= 0 {
 		opt.MaxLife = turnMaxCredLife
 	}
-	ts := &turnState{opt: opt, allocs: map[string]int{}, visits: map[string]map[string]int{}, done: make(chan struct{})}
+	ts := &turnState{opt: opt, allocs: map[string]int{}, visits: map[string]map[string]int{}, limits: map[string]int{},
+		done: make(chan struct{})}
 
 	gen := func() turn.RelayAddressGenerator {
 		return &turn.RelayAddressGeneratorPortRange{RelayAddress: opt.PublicIP, Address: "0.0.0.0",
@@ -143,6 +148,7 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 	r.mu.Lock()
 	r.turn = ts
 	r.turnKeys = r.turnKeyIDs()
+	r.syncTURNLimits()
 	r.mu.Unlock()
 	slog.Info("relay: TURN on", "addr", opt.Addr, "tls", opt.TLSAddr != "" && opt.TLSConfig != nil,
 		"public_ip", opt.PublicIP.String(), "ports", fmt.Sprintf("%d-%d", opt.PortMin, opt.PortMax))
@@ -160,6 +166,29 @@ func (r *Relay) turnKeyIDs() map[string]string {
 		m[turncred.KeyID(r.turn.opt.Secret, office)] = office
 	}
 	return m
+}
+
+// syncTURNLimits gives TURN each listed office's visit cap, by key ID. Call
+// with r.mu held.
+func (r *Relay) syncTURNLimits() {
+	if r.turn == nil {
+		return
+	}
+	limits := make(map[string]int, len(r.caps))
+	for office, n := range r.caps {
+		limits[turncred.KeyID(r.turn.opt.Secret, office)] = n
+	}
+	r.turn.mu.Lock()
+	r.turn.limits = limits
+	r.turn.mu.Unlock()
+}
+
+// maxVisitsLocked is the office's visit cap. Call with ts.mu held.
+func (ts *turnState) maxVisitsLocked(keyID string) int {
+	if n := ts.limits[keyID]; n > 0 {
+		return n
+	}
+	return ts.opt.MaxVisits
 }
 
 // turnAuth checks a credential: an office on the list, not expired, not
@@ -181,7 +210,8 @@ func (r *Relay) turnAuth(ra *turn.RequestAttributes) (string, []byte, bool) {
 }
 
 // quota refuses a new allocation past the per-credential quota, or for a
-// new visit when the office already has its maximum live.
+// new visit when the office already has its cap live, or when the Relay
+// already has its total live.
 func (ts *turnState) quota(userID, _ string, _ net.Addr) bool {
 	keyID, token, ok := strings.Cut(userID, ":")
 	if !ok {
@@ -193,9 +223,23 @@ func (ts *turnState) quota(userID, _ string, _ net.Addr) bool {
 		slog.Warn("relay: TURN allocation quota reached", "key", keyID)
 		return false
 	}
-	if v := ts.visits[keyID]; v[token] == 0 && len(v) >= ts.opt.MaxVisits {
-		slog.Warn("relay: TURN visit limit reached", "key", keyID, "visits", len(v))
+	v := ts.visits[keyID]
+	if v[token] > 0 {
+		return true // a visit already live may add allocations up to its quota
+	}
+	if max := ts.maxVisitsLocked(keyID); len(v) >= max {
+		slog.Warn("relay: TURN visit limit reached", "key", keyID, "visits", len(v), "max", max)
 		return false
+	}
+	if ts.opt.MaxTotalVisits > 0 {
+		total := 0
+		for _, ov := range ts.visits {
+			total += len(ov)
+		}
+		if total >= ts.opt.MaxTotalVisits {
+			slog.Warn("relay: TURN total visit limit reached", "visits", total)
+			return false
+		}
 	}
 	return true
 }
@@ -257,6 +301,9 @@ func (r *Relay) turnKeyFor(officeID string) (turncred.Key, bool) {
 		return turncred.Key{}, false
 	}
 	id := turncred.KeyID(ts.opt.Secret, officeID)
+	ts.mu.Lock()
+	max := ts.maxVisitsLocked(id)
+	ts.mu.Unlock()
 	_, port, _ := net.SplitHostPort(ts.opt.Addr)
 	host := ts.opt.PublicIP.String()
 	urls := []string{"turn:" + net.JoinHostPort(host, port) + "?transport=udp",
@@ -265,7 +312,7 @@ func (r *Relay) turnKeyFor(officeID string) (turncred.Key, bool) {
 		_, tport, _ := net.SplitHostPort(ts.opt.TLSAddr)
 		urls = append(urls, "turns:"+net.JoinHostPort(ts.opt.Hostname, tport)+"?transport=tcp")
 	}
-	return turncred.Key{KeyID: id, Secret: turncred.Secret(ts.opt.Secret, id), URLs: urls}, true
+	return turncred.Key{KeyID: id, Secret: turncred.Secret(ts.opt.Secret, id), URLs: urls, MaxVisits: max}, true
 }
 
 // sendTURNKey gives a newly connected office its TURN key. It is an update,

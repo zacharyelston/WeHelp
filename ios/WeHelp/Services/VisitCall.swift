@@ -343,6 +343,7 @@ final class VisitCall: NSObject {
         case "ended": return "This visit has ended."
         case "not_scheduled": return "This appointment is no longer scheduled."
         case "video_unavailable": return "The video service isn't reachable right now. Try again in a minute."
+        case "video_busy": return "Video is busy right now. Try again in a few minutes."
         default: return status == 409 ? msg : "The visit couldn't start: \(msg)"
         }
     }
