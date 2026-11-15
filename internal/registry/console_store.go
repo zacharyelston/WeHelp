@@ -36,7 +36,11 @@ type PracticeDetail struct {
 	Subscription string     `json:"subscription"`
 	InstalledAt  *time.Time `json:"installed_at"`
 	CreatedAt    time.Time  `json:"created_at"`
-	Providers    []Provider `json:"providers,omitempty"`
+	// TURNMaxVisits is support's override of the video visit cap (#175);
+	// null means automatic. MaxVisits is the cap in force either way.
+	TURNMaxVisits *int       `json:"turn_max_visits"`
+	MaxVisits     int        `json:"max_visits"`
+	Providers     []Provider `json:"providers,omitempty"`
 }
 
 type Provider struct {
@@ -50,12 +54,12 @@ type Provider struct {
 }
 
 const practiceDetailCols = `p.id, p.name, p.status, r.name, o.id, p.relay_id, p.contact_name, p.contact_email,
-	p.contact_phone, p.subscription, o.installed_at, p.created_at`
+	p.contact_phone, p.subscription, o.installed_at, p.created_at, p.turn_max_visits, ` + maxVisitsExpr
 
 func scanPracticeDetail(row pgx.Row) (PracticeDetail, error) {
 	var p PracticeDetail
 	err := row.Scan(&p.ID, &p.Name, &p.Status, &p.Relay, &p.OfficeID, &p.RelayID, &p.ContactName, &p.ContactEmail,
-		&p.ContactPhone, &p.Subscription, &p.InstalledAt, &p.CreatedAt)
+		&p.ContactPhone, &p.Subscription, &p.InstalledAt, &p.CreatedAt, &p.TURNMaxVisits, &p.MaxVisits)
 	return p, err
 }
 
@@ -91,6 +95,9 @@ type PracticeUpdate struct {
 	ContactEmail *string `json:"contact_email"`
 	ContactPhone *string `json:"contact_phone"`
 	Subscription *string `json:"subscription"`
+	// TURNMaxVisits sets the video visit cap (#175): 1-200, or 0 for
+	// automatic (one more than the active providers, at least 4).
+	TURNMaxVisits *int `json:"turn_max_visits"`
 }
 
 func checkEmail(field, v string) error {
@@ -137,10 +144,30 @@ func (s *Store) UpdatePractice(ctx context.Context, actor string, id uuid.UUID, 
 	add("contact_email", u.ContactEmail)
 	add("contact_phone", u.ContactPhone)
 	add("subscription", u.Subscription)
+	if u.TURNMaxVisits != nil {
+		n := *u.TURNMaxVisits
+		if n < 0 || n > 200 {
+			return fmt.Errorf("%w: video visit cap must be 1-200, or 0 for automatic", ErrInvalidInput)
+		}
+		var v any // 0 → null: automatic
+		if n > 0 {
+			v = n
+		}
+		args = append(args, v)
+		sets = append(sets, fmt.Sprintf("turn_max_visits = $%d", len(args)))
+		changed = append(changed, "turn_max_visits")
+	}
 	if len(sets) == 0 {
 		return fmt.Errorf("%w: nothing to change", ErrInvalidInput)
 	}
 	return s.withTx(ctx, func(tx pgx.Tx) error {
+		before, _, err := maxVisitsOf(ctx, tx, id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: practice %s", ErrNotFound, id)
+		}
+		if err != nil {
+			return err
+		}
 		tag, err := tx.Exec(ctx, `update practices set `+strings.Join(sets, ", ")+`, updated_at = now() where id = $1`, args...)
 		if err != nil {
 			return err
@@ -152,8 +179,14 @@ func (s *Store) UpdatePractice(ctx context.Context, actor string, id uuid.UUID, 
 		if u.Subscription != nil {
 			detail["subscription"] = *u.Subscription
 		}
-		return record(ctx, tx, Event{Actor: actor, Action: "practice.update", ResourceType: "practice",
-			ResourceID: id.String(), Detail: detail})
+		if u.TURNMaxVisits != nil {
+			detail["turn_max_visits"] = *u.TURNMaxVisits
+		}
+		if err := record(ctx, tx, Event{Actor: actor, Action: "practice.update", ResourceType: "practice",
+			ResourceID: id.String(), Detail: detail}); err != nil {
+			return err
+		}
+		return s.republishOnCapChange(ctx, tx, actor, id, before)
 	})
 }
 
@@ -235,7 +268,14 @@ func (s *Store) AddProvider(ctx context.Context, actor string, p Provider) (Prov
 		return p, err
 	}
 	err := s.withTx(ctx, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `insert into practice_providers (practice_id, name, email, role, credentials, licence_number)
+		before, _, err := maxVisitsOf(ctx, tx, p.PracticeID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: practice %s", ErrNotFound, p.PracticeID)
+		}
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRow(ctx, `insert into practice_providers (practice_id, name, email, role, credentials, licence_number)
 			values ($1, $2, $3, $4, $5, $6) returning id`,
 			p.PracticeID, p.Name, p.Email, p.Role, p.Credentials, p.LicenceNumber).Scan(&p.ID)
 		var pg *pgconn.PgError
@@ -247,8 +287,11 @@ func (s *Store) AddProvider(ctx context.Context, actor string, p Provider) (Prov
 		case err != nil:
 			return err
 		}
-		return record(ctx, tx, Event{Actor: actor, Action: "provider.add", ResourceType: "provider",
-			ResourceID: p.ID.String(), Detail: map[string]string{"practice_id": p.PracticeID.String(), "role": p.Role}})
+		if err := record(ctx, tx, Event{Actor: actor, Action: "provider.add", ResourceType: "provider",
+			ResourceID: p.ID.String(), Detail: map[string]string{"practice_id": p.PracticeID.String(), "role": p.Role}}); err != nil {
+			return err
+		}
+		return s.republishOnCapChange(ctx, tx, actor, p.PracticeID, before)
 	})
 	return p, err
 }
@@ -258,7 +301,19 @@ func (s *Store) UpdateProvider(ctx context.Context, actor string, p Provider) (P
 		return p, err
 	}
 	err := s.withTx(ctx, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `update practice_providers set name = $2, email = $3, role = $4, credentials = $5, licence_number = $6
+		err := tx.QueryRow(ctx, `select practice_id from practice_providers where id = $1 and removed_at is null for update`,
+			p.ID).Scan(&p.PracticeID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: provider %s", ErrNotFound, p.ID)
+		}
+		if err != nil {
+			return err
+		}
+		before, _, err := maxVisitsOf(ctx, tx, p.PracticeID)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRow(ctx, `update practice_providers set name = $2, email = $3, role = $4, credentials = $5, licence_number = $6
 			where id = $1 and removed_at is null returning practice_id`,
 			p.ID, p.Name, p.Email, p.Role, p.Credentials, p.LicenceNumber).Scan(&p.PracticeID)
 		switch {
@@ -269,8 +324,11 @@ func (s *Store) UpdateProvider(ctx context.Context, actor string, p Provider) (P
 		case err != nil:
 			return err
 		}
-		return record(ctx, tx, Event{Actor: actor, Action: "provider.update", ResourceType: "provider",
-			ResourceID: p.ID.String(), Detail: map[string]string{"practice_id": p.PracticeID.String(), "role": p.Role}})
+		if err := record(ctx, tx, Event{Actor: actor, Action: "provider.update", ResourceType: "provider",
+			ResourceID: p.ID.String(), Detail: map[string]string{"practice_id": p.PracticeID.String(), "role": p.Role}}); err != nil {
+			return err
+		}
+		return s.republishOnCapChange(ctx, tx, actor, p.PracticeID, before)
 	})
 	return p, err
 }
@@ -278,16 +336,26 @@ func (s *Store) UpdateProvider(ctx context.Context, actor string, p Provider) (P
 func (s *Store) RemoveProvider(ctx context.Context, actor string, id uuid.UUID) error {
 	return s.withTx(ctx, func(tx pgx.Tx) error {
 		var practice uuid.UUID
-		err := tx.QueryRow(ctx, `update practice_providers set removed_at = now() where id = $1 and removed_at is null
-			returning practice_id`, id).Scan(&practice)
+		err := tx.QueryRow(ctx, `select practice_id from practice_providers where id = $1 and removed_at is null for update`,
+			id).Scan(&practice)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("%w: provider %s", ErrNotFound, id)
 		}
 		if err != nil {
 			return err
 		}
-		return record(ctx, tx, Event{Actor: actor, Action: "provider.remove", ResourceType: "provider",
-			ResourceID: id.String(), Detail: map[string]string{"practice_id": practice.String()}})
+		before, _, err := maxVisitsOf(ctx, tx, practice)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `update practice_providers set removed_at = now() where id = $1`, id); err != nil {
+			return err
+		}
+		if err := record(ctx, tx, Event{Actor: actor, Action: "provider.remove", ResourceType: "provider",
+			ResourceID: id.String(), Detail: map[string]string{"practice_id": practice.String()}}); err != nil {
+			return err
+		}
+		return s.republishOnCapChange(ctx, tx, actor, practice, before)
 	})
 }
 

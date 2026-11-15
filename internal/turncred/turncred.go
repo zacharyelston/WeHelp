@@ -37,6 +37,10 @@ type Key struct {
 	KeyID  string   `json:"key_id"`
 	Secret string   `json:"secret"`
 	URLs   []string `json:"urls"`
+	// MaxVisits is how many live visits the Relay lets this office have at
+	// once (#175), so the office can say "busy" before TURN refuses. The
+	// Relay resends the key when it changes. 0 (an older Relay) means unknown.
+	MaxVisits int `json:"max_visits,omitempty"`
 }
 
 var b32 = base32.StdEncoding.WithPadding(base32.NoPadding)

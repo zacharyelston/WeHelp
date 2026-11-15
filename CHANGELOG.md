@@ -6,6 +6,17 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The cap on live video visits per office now fits the practice instead of
+  a fixed 4 (#175). The Registry puts `max_visits` in each office's signed
+  list entry: one more than the practice's active providers, at least 4, or
+  a number support sets in the console. The Relay enforces it per office
+  (`relay_turn_max_visits` is only the fallback for an older list), can cap
+  its total with `relay_turn_max_total_visits`, and sends the office its cap
+  with the TURN key, again whenever it changes. At the cap, joining a new
+  visit answers 503 `video_busy` with `Retry-After`, audited as
+  `visit.turn_busy`, and the app says "Video is busy right now" instead of a
+  call that fails inside TURN. A visit nobody has polled for a minute stops
+  counting. Registry migration V4 adds `practices.turn_max_visits`.
 - The ecosystem diagram shows the practice side of the Relay: the Back Office
   as a mini PC appliance, and the front desk as a laptop using the staff web
   over the office Wi-Fi, where the pairing QR code is shown. The

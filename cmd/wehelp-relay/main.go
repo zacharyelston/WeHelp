@@ -199,7 +199,8 @@ func startTURN(r *relay.Relay, cfg config.Config) error {
 		return err
 	}
 	opt := relay.TURNOptions{Addr: cfg.RelayTURNAddr, TLSAddr: cfg.RelayTURNTLSAddr, Hostname: cfg.RelayTURNHostname,
-		PublicIP: ip.To4(), PortMin: lo, PortMax: hi, Secret: secret, MaxVisits: cfg.RelayTURNMaxVisits}
+		PublicIP: ip.To4(), PortMin: lo, PortMax: hi, Secret: secret, MaxVisits: cfg.RelayTURNMaxVisits,
+		MaxTotalVisits: cfg.RelayTURNMaxTotalVisits}
 	switch {
 	case cfg.RelayTURNTLSAddr == "":
 	case cfg.RelayTURNTLSCert != "":

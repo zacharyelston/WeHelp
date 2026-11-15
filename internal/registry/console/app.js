@@ -218,6 +218,11 @@ async function showPractice(id, relays) {
         <div class="form-group"><label>Contact email</label><input id="ep-cemail" type="email" value="${esc(p.contact_email)}"></div>
         <div class="form-group"><label>Contact phone</label><input id="ep-cphone" value="${esc(p.contact_phone)}"></div>
       </div>
+      <div class="form-row">
+        <div class="form-group"><label>Video visits at once</label><input id="ep-visits" type="number" min="1" max="200"
+          value="${p.turn_max_visits == null ? "" : esc(String(p.turn_max_visits))}" placeholder="Automatic (${esc(String(p.max_visits))})"></div>
+      </div>
+      <p class="hint">Live video visits this practice can have on its Relay at once. Leave it empty for automatic: one more than its providers, at least 4. Now ${esc(String(p.max_visits))}.</p>
       <button class="btn" type="submit">Save</button>
     </form>
     <div class="actions">
@@ -264,6 +269,7 @@ async function showPractice(id, relays) {
     await act(() => api("PATCH", `/practices/${p.id}`, {
       name: $("ep-name").value, subscription: $("ep-sub").value,
       contact_name: $("ep-cname").value, contact_email: $("ep-cemail").value, contact_phone: $("ep-cphone").value,
+      turn_max_visits: $("ep-visits").value === "" ? 0 : Number($("ep-visits").value),
     }), "Saved");
   };
   $("new-provider").onsubmit = async (e) => {

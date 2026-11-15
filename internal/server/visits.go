@@ -33,8 +33,12 @@ const (
 	visitEarly      = 10 * time.Minute // joinable this long before the start
 	visitLate       = 30 * time.Minute // and this long after the end
 	visitMaxSignals = 400
-	visitMaxSDP     = 16 << 10
-	visitMaxCand    = 2 << 10
+	// visitLiveGrace is how long a room counts as live after its last join
+	// or poll, for the visit cap (#175). Phones poll at least every 15 s, so
+	// a phone that crashed stops counting within a minute.
+	visitLiveGrace = time.Minute
+	visitMaxSDP    = 16 << 10
+	visitMaxCand   = 2 << 10
 )
 
 // visitPollWait is how long a signal poll waits for something new (a var for tests).
@@ -68,6 +72,7 @@ type visitRoom struct {
 	devices  map[string]uuid.UUID // role → the device in the call
 	replaced map[uuid.UUID]bool   // devices another of the same person's devices took over from
 	wake     chan struct{}        // closed and replaced on every change
+	seen     time.Time            // last join or poll, for the visit cap
 }
 
 type visitHub struct {
@@ -110,6 +115,7 @@ func (h *visitHub) join(id uuid.UUID, role string, device uuid.UUID) (peerPresen
 	}
 	delete(rm.replaced, device)
 	rm.devices[role] = device
+	rm.seen = time.Now()
 	after = rm.seq
 	rm.addLocked(visitSignal{From: role, Type: "joined"})
 	_, peerPresent = rm.devices[otherRole(role)]
@@ -174,12 +180,27 @@ func (h *visitHub) since(id uuid.UUID, role string, after int64) (out []visitSig
 	if rm == nil {
 		return nil, nil, false
 	}
+	rm.seen = time.Now()
 	for _, s := range rm.signals {
 		if s.Seq > after && s.From != role && (s.to == "" || s.to == role) {
 			out = append(out, s)
 		}
 	}
 	return out, rm.wake, true
+}
+
+// liveExcept counts the visits with someone in them and a join or poll in
+// the last visitLiveGrace, leaving out visit id (the one being entered).
+func (h *visitHub) liveExcept(id uuid.UUID, now time.Time) int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	n := 0
+	for vid, rm := range h.rooms {
+		if vid != id && len(rm.devices) > 0 && now.Sub(rm.seen) < visitLiveGrace {
+			n++
+		}
+	}
+	return n
 }
 
 func otherRole(role string) string {
@@ -322,6 +343,32 @@ func (s *Server) enterVisit(w http.ResponseWriter, r *http.Request, start bool) 
 	}
 	if s.turnKeys == nil || !ok {
 		writeErrCode(w, http.StatusServiceUnavailable, "video_unavailable", "the video service isn't reachable right now")
+		return
+	}
+	// The Relay's cap on live visits for this office (#175). Saying so here
+	// gives the phone a clear message; past this, TURN would just refuse.
+	var current uuid.UUID
+	if a.VisitID != nil {
+		current = *a.VisitID
+	}
+	if key.MaxVisits > 0 && s.visits.liveExcept(current, time.Now()) >= key.MaxVisits {
+		resource := "appointment"
+		rid := a.ID.String()
+		if a.VisitID != nil {
+			resource, rid = "visit", a.VisitID.String()
+		}
+		if err := audit.Record(ctx, tx, audit.Event{TenantID: id.TenantID, ActorID: &id.UserID, Action: "visit.turn_busy",
+			ResourceType: resource, ResourceID: rid,
+			Detail: mustJSON(map[string]any{"role": role, "max_visits": key.MaxVisits})}); err != nil {
+			writeErr(w, http.StatusInternalServerError, "audit failed")
+			return
+		}
+		if err := tx.Commit(ctx); err != nil {
+			writeErr(w, http.StatusInternalServerError, "commit failed")
+			return
+		}
+		w.Header().Set("Retry-After", "120")
+		writeErrCode(w, http.StatusServiceUnavailable, "video_busy", "video is busy right now, try again in a few minutes")
 		return
 	}
 

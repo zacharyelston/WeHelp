@@ -25,7 +25,7 @@ minutes. Sessions end after 30 idle minutes or 12 hours.
 
 | Role | Can |
 |---|---|
-| `support` | create and edit practices: name, admin contact, subscription (trial, active, past due, cancelled); add, edit and remove providers and admins (name, email, credentials, licence number); issue install tokens; see Relays, health and the audit log |
+| `support` | create and edit practices: name, admin contact, subscription (trial, active, past due, cancelled); add, edit and remove providers and admins (name, email, credentials, licence number); set a practice's video visit cap (#175); issue install tokens; see Relays, health and the audit log |
 | `registry-admin` | also suspend and reactivate practices, move a practice that isn't installed yet to another Relay, and set Relay capacity |
 
 - **Moving an installed office** to another Relay isn't supported yet. The
@@ -110,8 +110,15 @@ payload is JSON:
 
 ```json
 {"version": 7, "issued_at": "2026-11-14T03:02:46Z",
- "offices": [{"office_id": "…", "ssh_public_key": "ssh-ed25519 …", "relay_id": "…"}]}
+ "offices": [{"office_id": "…", "ssh_public_key": "ssh-ed25519 …", "relay_id": "…", "max_visits": 5}]}
 ```
+
+`max_visits` is the office's cap on live video visits through its Relay's
+TURN (#175). It's one more than the practice's active providers (admins
+don't count), at least 4, unless support sets a number on the practice
+(`turn_max_visits`, 1–200; 0 or empty is automatic, and the change is audited
+as `practice.update`). Adding, removing or changing a provider, or changing
+the override, publishes a new list only when the cap actually moves.
 
 A Relay (#4):
 1. verifies the ed25519 signature over the decoded payload bytes with the

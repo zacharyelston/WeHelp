@@ -300,7 +300,7 @@ paths:
               schema: { $ref: "#/components/schemas/PracticeDetail" }
         "404": { $ref: "#/components/responses/NotFound" }
     patch:
-      summary: Edit name, admin contact or subscription
+      summary: Edit name, admin contact, subscription or video visit cap
       requestBody:
         required: true
         content:
@@ -313,6 +313,11 @@ paths:
                 contact_email: { type: string }
                 contact_phone: { type: string }
                 subscription: { type: string, enum: [trial, active, past_due, cancelled] }
+                turn_max_visits:
+                  type: integer
+                  minimum: 0
+                  maximum: 200
+                  description: Live video visits at once on the Relay (#175). 0 means automatic (one more than the active providers, at least 4). A change that moves the cap publishes a new office list.
       responses:
         "200":
           description: Updated practice
@@ -579,6 +584,8 @@ components:
         contact_phone: { type: string }
         subscription: { type: string, enum: [trial, active, past_due, cancelled] }
         created_at: { type: string, format: date-time }
+        turn_max_visits: { type: integer, nullable: true, description: "Support's video visit cap override; null means automatic" }
+        max_visits: { type: integer, description: The video visit cap in force (#175) }
         providers:
           type: array
           items: { $ref: "#/components/schemas/Provider" }
@@ -669,7 +676,8 @@ components:
           format: byte
           description: |
             Base64 of the signed JSON bytes:
-            `{"version": int, "issued_at": RFC 3339, "offices": [{"office_id", "ssh_public_key", "relay_id"}]}`.
+            `{"version": int, "issued_at": RFC 3339, "offices": [{"office_id", "ssh_public_key", "relay_id", "max_visits"}]}`.
+            `max_visits` is the office's live video visit cap on the Relay's TURN (#175); absent means the Relay's default.
         signature:
           type: string
           format: byte
