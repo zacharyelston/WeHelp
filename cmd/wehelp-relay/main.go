@@ -80,7 +80,7 @@ func serveCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Accept offices over SSH and phones over CONNECT",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg := config.C()
+			cfg := inRelayDir(config.C())
 			if cfg.RelayID == "" || cfg.RelayRegistryKey == "" {
 				return errors.New("set relay_id (from wehelp-registry relay add) and relay_registry_key (from wehelp-registry pubkey)")
 			}

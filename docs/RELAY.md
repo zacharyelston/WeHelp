@@ -39,6 +39,64 @@ phone ──TLS──► Relay :8443   CONNECT <office-id>.wehelp.invalid:443
   of refused offices. No device addresses: the HTTP server's own error log,
   which would name client IPs, is discarded.
 
+## Always-on Relay (#180)
+
+The Relay runs on an always-on machine, out of one folder,
+`WEHELP_RELAY_HOME` (default `~/.wehelp/relay`). The folder holds:
+- the SSH host key, the TLS key and `turn.secret`;
+- the APNs key;
+- `office-list.json`, `sites/` and `logs/`;
+- `relay.env`, its settings as `WEHELP_*=value` lines.
+
+Relative paths in `relay.env`, such as `WEHELP_RELAY_APNS_KEY=apns.p8`, are
+inside the folder. So the folder moves between machines as it is, and the
+Relay's pins don't change.
+
+`deploy/relay.sh` runs it:
+
+| Host | How | Commands |
+|---|---|---|
+| **Mac mini** (Barnacle) | A launchd job (`com.wehelp.relay`, KeepAlive, starts at login) running the binary natively | `relay.sh build-mac`, then `relay.sh install-launchd`. Run `install-launchd` again after editing `relay.env` or rebuilding. |
+| **Linux** (the Ubuntu Mac mini, later) | `deploy/relay/docker-compose.yml`, host networking, image runs as uid 65532 | `relay.sh up`, `relay.sh down` |
+
+`relay.sh status` and `relay.sh logs` work on both.
+
+- **Why not Docker on the Mac:** Docker on macOS runs in a VM without host
+  networking. Colima doesn't forward UDP at all (checked on Barnacle,
+  2026-11-15), so TURN media couldn't reach a containerized Relay. Even
+  where UDP is forwarded, every packet would go through a user-space proxy,
+  and a load test would measure that proxy. On Linux, host networking has
+  neither problem.
+- **`build-mac`** compiles in the Go container that `go.mod` names, so the
+  Mac mini needs no Go.
+- **Local Network permission** (macOS 15 and later): the job runs the
+  binary itself, so macOS asks about `wehelp-relay`. Approve it on the Mac's
+  screen. The Relay needs it to reach a Registry on the LAN and to send
+  TURN media to phones. A rebuilt binary may ask again.
+- **On Barnacle:** the office's staff web has :8443, so phones `CONNECT` on
+  :9443 (`WEHELP_RELAY_CONNECT_ADDR=:9443`). SSH stays on :2222, sites on
+  :8444 and TURN on :3478. The Relay uses the wired address, 192.168.1.2.
+
+### Moving a Relay to another machine
+
+How the Demo Relay moved from the laptop to Barnacle on 2026-11-15:
+1. On the new host, `relay.sh build-mac` (or nothing, on Linux).
+2. Copy the Relay folder without `logs/`, and edit `relay.env`: the
+   addresses, `WEHELP_RELAY_TURN_PUBLIC_IP` and `WEHELP_REGISTRY_URL`.
+3. Stop the old Relay, then `relay.sh install-launchd` (or `relay.sh up`).
+4. `wehelp-registry relay update <name> [--name …] --ssh-address host:2222
+   --connect-address host:9443`. The change is audited (`relay.update`). The
+   keys are unchanged.
+5. Reinstall each office on the Relay with a new install token: run
+   `appliance.sh init-office` with `WEHELP_INSTALL_TOKEN` set. It keeps the
+   office ID and keys and stores the new addresses. Then restart its server
+   so the tunnel dials the new address.
+6. **Phones pair again.** They keep the Relay address from pairing. Their
+   pins on the Relay and the office still match, but the address doesn't.
+
+Nothing in steps 5 and 6 happens by itself yet. A production Relay move
+needs offices and phones to follow a Relay's new address on their own.
+
 ## Set up (dev laptop, Demo topology)
 
 ```bash

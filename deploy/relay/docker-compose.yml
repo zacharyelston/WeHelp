@@ -1,0 +1,25 @@
+# WeHelp Relay on a Linux container host (#180), such as the Ubuntu Mac mini.
+# Run it through deploy/relay.sh (up, down, status, logs). See docs/RELAY.md.
+#
+# Host networking: TURN relays UDP media on a range of ports (49160-49999 by
+# default), and the Relay must see the phones' real addresses. That only
+# works on Linux. On macOS, Docker runs in a VM that can't do host
+# networking (Colima doesn't even forward UDP), so a Mac mini runs the same
+# binary as a launchd job instead (relay.sh install-launchd).
+services:
+  relay:
+    build:
+      context: ../..
+      dockerfile: deploy/relay/Dockerfile
+    image: wehelp-relay:local
+    network_mode: host
+    restart: unless-stopped
+    # The Relay's folder: SSH host key, TLS key, TURN secret, APNs key,
+    # office-list cache, sites, logs, and relay.env. Owned by uid 65532.
+    volumes:
+      - ${WEHELP_RELAY_HOME:?set WEHELP_RELAY_HOME to the Relay folder}:/var/lib/wehelp-relay
+    env_file:
+      - path: ${WEHELP_RELAY_HOME}/relay.env
+        required: true
+    environment:
+      WEHELP_RELAY_DIR: /var/lib/wehelp-relay
