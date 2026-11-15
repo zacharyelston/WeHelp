@@ -112,7 +112,9 @@ All notable changes to WeHelp are documented here. Format follows
   - **Demo hosts:** `WEHELP_DEMO=1` in `deploy/.env` builds the image with
     the `demo` tag. That brings the seed command (`appliance.sh seed`) and
     the fixed demo logins on the sign-in page (`/demo.js`), so demos stay
-    easy.
+    easy. `appliance.sh demo-setup` does it in one step: it fills in
+    missing demo defaults in `.env` (`WEHELP_DEMO`, `WEHELP_STAFF_HOSTS`,
+    `WEHELP_TIMEZONE`), then runs `up` and `seed`.
   - **Field installs:** neither the seed command nor the demo logins.
   - **Seed:** refuses unless `env` is `dev` or `demo`.
   - **`env`:** now defaults to production.

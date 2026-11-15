@@ -128,6 +128,21 @@ Then seed it (idempotent):
 deploy/appliance.sh seed
 ```
 
+Or do it all in one step:
+
+```
+deploy/appliance.sh demo-setup
+```
+
+It adds demo defaults to `deploy/.env`, but only for keys that aren't
+already set:
+- `WEHELP_DEMO=1`;
+- `WEHELP_STAFF_HOSTS`: this Mac's `.local` name, `localhost` and its LAN
+  address;
+- `WEHELP_TIMEZONE`: the Mac's own.
+
+Then it runs `up` and `seed`. It's safe to run again.
+
 Without the line, the image has neither, and `appliance.sh seed` refuses.
 CI checks the field image for demo logins and the seed command. Never set
 `WEHELP_DEMO=1` on a practice's Back Office.

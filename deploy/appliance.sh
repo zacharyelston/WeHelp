@@ -12,6 +12,7 @@
 #   appliance.sh stop-for-reboot  stop the stack and Colima cleanly before a reboot
 #   appliance.sh install-login    install the login-time job (macOS launchd)
 #   appliance.sh status           show containers and /healthz
+#   appliance.sh demo-setup       demo hosts only: demo defaults in .env, then up and seed
 #   appliance.sh seed             demo hosts only (WEHELP_DEMO=1): add the demo practice and logins
 #   appliance.sh db-roles         set the database role passwords from deploy/db.env
 #   appliance.sh backup           encrypted backup now (nightly job: install-backup)
@@ -45,6 +46,13 @@ init_env() {
   umask 077
   printf 'WEHELP_JWT_SECRET=%s\n' "$(openssl rand -hex 32)" > "$ENV_FILE"
   log "created $ENV_FILE (mode 600)"
+}
+
+# env_default adds KEY=VALUE to .env when KEY isn't set there yet.
+env_default() {
+  grep -q "^$1=" "$ENV_FILE" && return 0
+  printf '%s=%s\n' "$1" "$2" >> "$ENV_FILE"
+  log "set $1=$2 in $ENV_FILE"
 }
 
 # init_db_env creates deploy/db.env (mode 600) once, with a random password
@@ -220,6 +228,21 @@ case "$cmd" in
     init_db_env
     db_roles
     ;;
+  demo-setup)
+    # One step for a demo host: fill in demo defaults in .env (only keys that
+    # are missing; existing values are kept), build with the demo tag, start,
+    # and seed the demo practice. Never run this on a practice's Back Office.
+    init_env
+    env_default WEHELP_DEMO 1
+    host="$(hostname -s | tr '[:upper:]' '[:lower:]')"
+    ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
+    env_default WEHELP_STAFF_HOSTS "$host.local,localhost${ip:+,$ip}"
+    tz="$(readlink /etc/localtime 2>/dev/null | sed -n 's#.*/zoneinfo/##p')"
+    [[ -n "$tz" ]] && env_default WEHELP_TIMEZONE "$tz"
+    /bin/bash "$0" up
+    /bin/bash "$0" seed
+    log "demo host ready: https://$host.local:${WEHELP_HTTPS_PORT:-8443} (demo logins are on the sign-in page)"
+    ;;
   seed)
     # Demo hosts only (WEHELP_DEMO=1 in .env): fixed demo logins, no real data.
     grep -q '^WEHELP_DEMO=1' "$ENV_FILE" 2>/dev/null ||
@@ -231,7 +254,7 @@ case "$cmd" in
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,20p' "$0"
+    sed -n '2,21p' "$0"
     exit 2
     ;;
 esac
