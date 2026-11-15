@@ -108,6 +108,17 @@ All notable changes to WeHelp are documented here. Format follows
   when it sat at the container's CWD and tried to parse it as YAML.
 
 ### Added
+- The Relay runs on an always-on host (#180). The Demo Relay moved from the
+  dev laptop to Barnacle.
+  - **`deploy/relay.sh`:** a launchd job on a Mac mini, built in a Go
+    container, so the Mac needs no Go. On Linux it runs
+    `deploy/relay/docker-compose.yml` with host networking, the way the
+    Ubuntu Mac mini will. Docker on macOS can't carry TURN's UDP.
+  - **The Relay folder** holds its keys, `relay.env`, cache, sites and logs.
+    Relative paths in `relay.env` are inside it, so the folder moves between
+    hosts as it is.
+  - **`wehelp-registry relay update`:** changes a Relay's name or addresses
+    (audited), for moving it with its keys.
 - Demo hosts and field installs are separate (#161).
   - **Demo hosts:** `WEHELP_DEMO=1` in `deploy/.env` builds the image with
     the `demo` tag. That brings the seed command (`appliance.sh seed`) and

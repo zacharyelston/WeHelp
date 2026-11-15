@@ -89,6 +89,10 @@ bin/wehelp-registry practice add --name "Demo Naturopathy" --relay laptop   # pr
 bin/wehelp-registry token issue <practice-id>   # prints the token once; valid 24 h, single use
 ```
 
+A Relay that moves to another machine with its keys keeps its record:
+`wehelp-registry relay update <name> --ssh-address … --connect-address …`
+(see RELAY.md, "Moving a Relay to another machine").
+
 Give the token to whoever installs the Back Office. `wehelpd init
 --install-token …` (#35) sends it with the office SSH public key to
 `POST /v1/install` and stores the office ID, Relay address, Relay host key and
