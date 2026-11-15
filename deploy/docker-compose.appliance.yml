@@ -2,17 +2,31 @@
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.appliance.yml ...
 # Use `deploy/appliance.sh` (or the `make appliance-*` targets), which pass both.
 # See docs/APPLIANCE.md.
+# Database passwords (#161) come from deploy/db.env, which appliance.sh
+# creates (mode 600) and passes to Compose with --env-file. They are never in
+# .env, so the server's environment holds only its own runtime password.
 services:
   db:
     restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${WEHELP_DB_PASSWORD:?run deploy/appliance.sh up, which creates deploy/db.env}
     # Postgres is reachable only from this host, never from the office LAN.
     # The port is overridable for a second stack on one machine, such as a
     # restore test (docs/BACKUPS.md).
     ports: !override
       - "127.0.0.1:${WEHELP_DB_PORT:-5432}:5432"
 
+  migrate:
+    environment:
+      FLYWAY_PASSWORD: ${WEHELP_DB_PASSWORD:?run deploy/appliance.sh up, which creates deploy/db.env}
+
   server:
     restart: unless-stopped
+    # Demo hosts (WEHELP_DEMO=1 in .env) include the seed command and fixed
+    # demo logins; field installs never do (#161).
+    build:
+      args:
+        BUILD_TAGS: ${WEHELP_DEMO:+demo}
     # Created by `appliance.sh init-env` with mode 600; holds a persistent
     # WEHELP_JWT_SECRET so sessions survive restarts.
     env_file:
@@ -20,6 +34,9 @@ services:
         required: true
     environment:
       WEHELP_ENV: appliance
+      # The server connects as wehelp_app: data only, no schema changes, and
+      # no UPDATE or DELETE on the audit and ledger tables (#161, V23).
+      WEHELP_DATABASE_URL: postgres://wehelp_app:${WEHELP_DB_APP_PASSWORD:?run deploy/appliance.sh up}@db:5432/wehelp?sslmode=disable
       WEHELP_OFFICE_DIR: /var/lib/wehelp/office
       # A restore test turns the tunnel off, so a copy of an office never
       # takes over the real one's Relay connection (docs/BACKUPS.md).

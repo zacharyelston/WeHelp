@@ -12,6 +12,8 @@
 #   appliance.sh stop-for-reboot  stop the stack and Colima cleanly before a reboot
 #   appliance.sh install-login    install the login-time job (macOS launchd)
 #   appliance.sh status           show containers and /healthz
+#   appliance.sh seed             demo hosts only (WEHELP_DEMO=1): add the demo practice and logins
+#   appliance.sh db-roles         set the database role passwords from deploy/db.env
 #   appliance.sh backup           encrypted backup now (nightly job: install-backup)
 #   appliance.sh restore DIR ID   restore a backup with an age identity (docs/BACKUPS.md)
 #   appliance.sh install-backup   install the nightly backup job (macOS launchd, 02:30)
@@ -26,8 +28,17 @@ ENV_FILE="$DEPLOY_DIR/.env"
 HEALTH_URL="${WEHELP_HEALTH_URL:-http://127.0.0.1:8080/healthz}"
 LABEL="com.wehelp.appliance"
 
+DB_ENV="$DEPLOY_DIR/db.env"
+PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$DEPLOY_DIR")}"
+
+# Compose reads .env (settings, WEHELP_DEMO) and db.env (database passwords,
+# #161) for interpolation. db.env is never an env_file, so the server's
+# environment holds only its own runtime password, inside its database URL.
 compose() {
-  docker compose -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.appliance.yml" "$@"
+  local envs=()
+  [[ -f "$ENV_FILE" ]] && envs+=(--env-file "$ENV_FILE")
+  [[ -f "$DB_ENV" ]] && envs+=(--env-file "$DB_ENV")
+  docker compose ${envs[@]+"${envs[@]}"} -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.appliance.yml" "$@"
 }
 
 log() { printf '%s appliance: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
@@ -41,6 +52,55 @@ init_env() {
   umask 077
   printf 'WEHELP_JWT_SECRET=%s\n' "$(openssl rand -hex 32)" > "$ENV_FILE"
   log "created $ENV_FILE (mode 600)"
+}
+
+# init_db_env creates deploy/db.env (mode 600) once, with a random password
+# for the owner role (wehelp, used by migrations) and one for the server's
+# runtime role (wehelp_app) (#161). Nobody types them.
+init_db_env() {
+  if [[ -f "$DB_ENV" ]]; then
+    chmod 600 "$DB_ENV"
+    return
+  fi
+  (umask 077; printf 'WEHELP_DB_PASSWORD=%s\nWEHELP_DB_APP_PASSWORD=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > "$DB_ENV")
+  log "created $DB_ENV (mode 600)"
+}
+
+# db_roles makes the running database match db.env: the owner's password
+# (an install from before #161 still has the old shared one), and wehelp_app
+# with login. Idempotent. Passwords go over stdin, never on a command line.
+db_roles() {
+  local owner app waited=0
+  owner="$(sed -n 's/^WEHELP_DB_PASSWORD=//p' "$DB_ENV")"
+  app="$(sed -n 's/^WEHELP_DB_APP_PASSWORD=//p' "$DB_ENV")"
+  [[ -n "$owner" && -n "$app" ]] || { log "$DB_ENV is missing a password"; return 1; }
+  compose up -d db >/dev/null 2>&1
+  until compose exec -T db pg_isready -U wehelp >/dev/null 2>&1; do
+    (( waited >= 120 )) && { log "database not ready after 120s"; return 1; }
+    sleep 2
+    waited=$((waited + 2))
+  done
+  printf '%s\n' "\\set owner '$owner'" "\\set app '$app'" \
+    "alter role wehelp password :'owner';" \
+    "select format('create role wehelp_app login password %L', :'app') where not exists (select from pg_roles where rolname = 'wehelp_app') \\gexec" \
+    "alter role wehelp_app login password :'app';" |
+    compose exec -T db psql -q -U wehelp -d postgres -v ON_ERROR_STOP=1 >/dev/null
+  log "database roles ready (wehelp, wehelp_app)"
+}
+
+# own_volumes gives the office keys volume to the image's nonroot user
+# (uid 65532, #161); installs from before #161 wrote it as root.
+own_volumes() {
+  compose up --no-start --build >/dev/null 2>&1 || compose up --no-start --build
+  docker run --rm -v "${PROJECT}_officekeys:/k" alpine:3 chown -R 65532:65532 /k
+}
+
+# prepare is everything a start needs, in order. Idempotent.
+prepare() {
+  init_env
+  init_db_env
+  own_volumes
+  db_roles
 }
 
 wait_for_docker() {
@@ -108,6 +168,8 @@ case "$cmd" in
     # Runs `wehelpd init` in the server image against the officekeys volume.
     # The token comes from the environment (see docs/OFFICE_KEYS.md: read -rs).
     init_env
+    init_db_env
+    own_volumes
     compose run --rm --no-deps \
       -e WEHELP_INSTALL_TOKEN="${WEHELP_INSTALL_TOKEN:-}" \
       -e WEHELP_REGISTRY_URL="${WEHELP_REGISTRY_URL:-http://localhost:8090}" \
@@ -116,10 +178,10 @@ case "$cmd" in
   export-ca)
     # Staff browsers trust the staff HTTPS page through this CA (#38).
     # The server image is distroless (no shell), so read the volume with alpine.
-    docker run --rm -v "${COMPOSE_PROJECT_NAME:-$(basename "$DEPLOY_DIR")}_officekeys:/k:ro" alpine:3 cat /k/ca.crt
+    docker run --rm -v "${PROJECT}_officekeys:/k:ro" alpine:3 cat /k/ca.crt
     ;;
   up)
-    init_env
+    prepare
     compose up -d --build
     wait_for_health 180
     ;;
@@ -133,6 +195,7 @@ case "$cmd" in
     log "boot: starting"
     wait_for_docker 600
     [[ -f "$ENV_FILE" ]] || { log "missing $ENV_FILE; run 'appliance.sh init-env'"; exit 1; }
+    prepare
     compose up -d
     wait_for_health 300
     ;;
@@ -159,12 +222,23 @@ case "$cmd" in
     # Encrypted backups and restore (#41): deploy/backup.sh.
     exec /bin/bash "$DEPLOY_DIR/backup.sh" "$@"
     ;;
+  db-roles)
+    # Used by restore (deploy/backup.sh) before pg_restore.
+    init_db_env
+    db_roles
+    ;;
+  seed)
+    # Demo hosts only (WEHELP_DEMO=1 in .env): fixed demo logins, no real data.
+    grep -q '^WEHELP_DEMO=1' "$ENV_FILE" 2>/dev/null ||
+      { echo "seed is for demo hosts: set WEHELP_DEMO=1 in $ENV_FILE, then appliance.sh up"; exit 1; }
+    compose run --rm --no-deps -e WEHELP_ENV=demo server seed
+    ;;
   status)
     compose ps
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,18p' "$0"
+    sed -n '2,20p' "$0"
     exit 2
     ;;
 esac

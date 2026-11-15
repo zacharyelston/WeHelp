@@ -107,22 +107,58 @@ Flyway applies any new migrations before the server starts. Applied
 migrations are never edited (checksums are enforced), so a redeploy keeps
 existing data.
 
-## Seeding demo data (Demo hosts only)
+## Demo hosts and field installs (#161)
 
-Postgres listens only on the Mac mini's own loopback, so seed from a dev
-machine through an SSH tunnel:
+A **demo host** (like Barnacle) is for showing WeHelp, with fixed logins
+anyone can use. A **field install** is a practice's Back Office and never has
+them. The difference is one line in `deploy/.env`:
 
 ```
-ssh -f -N -L 15432:127.0.0.1:5432 <user>@<host>.local
-WEHELP_DATABASE_URL='postgres://wehelp:wehelp@127.0.0.1:15432/wehelp?sslmode=disable' bin/wehelpd seed
+WEHELP_DEMO=1
 ```
 
-Never seed a field Back Office.
+With it, `appliance.sh up` builds the image with the `demo` tag. That adds:
+- the seed command, which creates the Demo Clinic practice, its staff and
+  patients, all with fixed passwords;
+- the demo logins, listed on the staff web's sign-in page.
+
+Then seed it (idempotent):
+
+```
+deploy/appliance.sh seed
+```
+
+Without the line, the image has neither, and `appliance.sh seed` refuses.
+CI checks the field image for demo logins and the seed command. Never set
+`WEHELP_DEMO=1` on a practice's Back Office.
+
+## Database passwords and roles (#161)
+
+`appliance.sh up` creates `deploy/db.env` (mode 600) once, with two random
+passwords:
+- `wehelp` owns the schema and runs migrations;
+- `wehelp_app` is what the server connects as. It can read and write data,
+  but can't change the schema or alter audit and ledger rows.
+
+Nobody types these, and they aren't in `.env`, so the server's environment
+never holds the owner password. Every `up` and `boot` sets the database to
+match `db.env`. Backups include it (`db-env.age`).
+
+The server image runs as a non-root user (uid 65532). `up` gives the
+office-keys volume to that user.
+
+**Upgrading an install from before #161:** just run `appliance.sh up`. It
+does all of this in place, and the old shared password stops working. To roll
+back to an older version, first set the old password again:
+
+```
+docker compose -f deploy/docker-compose.yml exec db psql -U wehelp -c "alter role wehelp password 'wehelp'"
+```
 
 **Pitfall:** on a dev Mac with Homebrew Postgres running, `localhost:5432` is
 that Postgres, not the compose database. `make seed` then fails with
 `role "wehelp" does not exist`. Point `WEHELP_DATABASE_URL` at the compose
-database explicitly, as above (or at the Mac's LAN address in dev).
+database explicitly, or use `appliance.sh seed`.
 
 ## Checks
 

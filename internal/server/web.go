@@ -24,6 +24,7 @@ func (s *Server) webRoutes(r chi.Router) {
 	r.Get("/app.js", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "app.js")
 	})
+	r.Get("/demo.js", serveDemoJS) // demo logins on demo hosts only (#161)
 	r.Get("/staff.js", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "staff.js")
 	})

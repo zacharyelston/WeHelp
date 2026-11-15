@@ -13,6 +13,7 @@ Each backup is a folder `wehelp-backup-<UTC time>/`:
 | `db.dump.age` | `pg_dump` of the database | patients, messages, appointments, staff accounts, the audit log |
 | `officekeys.tar.age` | the office keys volume | the office identity, the TLS key paired phones pin, the staff-web CA. Without it every phone must be paired again |
 | `env.age` | `deploy/.env` | the session signing secret |
+| `db-env.age` | `deploy/db.env` | the database passwords (#161). Backups from before #161 don't have it; a restore then makes new ones |
 | `manifest.json` | sizes, SHA-256 of each file, migration version, recipients | lets a restore check the files before touching anything |
 
 Each file is encrypted with [age](https://age-encryption.org) to the practice
@@ -79,7 +80,8 @@ The restore:
 2. decrypts `.env` first, so a wrong key is refused before anything changes;
 3. asks you to type `RESTORE`;
 4. keeps the old `.env` as `.env.before-restore-<time>`;
-5. replaces the database, office keys and `.env`;
+5. replaces the database, office keys, `.env` and `db.env`, setting up the
+   database roles before restoring the data (#161);
 6. starts the stack, which applies any newer migrations, and waits for it to
    be healthy.
 

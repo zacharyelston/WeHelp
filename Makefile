@@ -4,8 +4,10 @@ BIN := bin/wehelpd
 	registry-db registry-migrate registry-run \
 	appliance-up appliance-down appliance-status appliance-install-login appliance-stop-for-reboot
 
+# Developer builds include the demo seed command (build tag demo); the field
+# image (deploy/Dockerfile) never does (#161).
 build:
-	go build -o $(BIN) ./cmd/wehelp
+	go build -tags demo -o $(BIN) ./cmd/wehelp
 	go build -o bin/wehelp-registry ./cmd/wehelp-registry
 	go build -o bin/wehelp-relay ./cmd/wehelp-relay
 
@@ -26,7 +28,7 @@ vet:
 	go vet ./...
 
 run: build
-	$(BIN) serve
+	WEHELP_ENV=dev $(BIN) serve
 
 migrate: build
 	$(BIN) migrate
@@ -36,7 +38,7 @@ db-migrate:
 	docker compose -f deploy/docker-compose.yml run --rm migrate
 
 seed: build
-	$(BIN) seed
+	WEHELP_ENV=dev $(BIN) seed
 
 compose-up:
 	docker compose -f deploy/docker-compose.yml up --build -d

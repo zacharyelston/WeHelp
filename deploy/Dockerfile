@@ -5,9 +5,13 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /out/wehelpd ./cmd/wehelp
+# BUILD_TAGS=demo adds the seed command and its fixed demo logins, for demo
+# hosts only. A field image is built without it (#161).
+ARG BUILD_TAGS=""
+RUN CGO_ENABLED=0 go build -trimpath -tags "$BUILD_TAGS" -o /out/wehelpd ./cmd/wehelp
 
-FROM gcr.io/distroless/static-debian12
+# Runs as the distroless nonroot user (uid 65532), not root (#161).
+FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /out/wehelpd /usr/local/bin/wehelpd
 EXPOSE 8080

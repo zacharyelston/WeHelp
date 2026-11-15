@@ -308,7 +308,7 @@ Before the audit:
 
    | Checklist | Met | N/A | Accepted | Gap |
    |---|---|---|---|---|
-   | [ASVS 5.0 L2](security/asvs-l2.md), 253 rows | 120 | 62 | 2 | 69 |
+   | [ASVS 5.0 L2](security/asvs-l2.md), 253 rows | 123 | 62 | 2 | 66 |
    | [MASVS v2](security/masvs-l2.md), 24 controls | 9 | 1 | 2 | 12 |
    | [HIPAA §164.312](security/hipaa.md), 12 rows | 8 | 0 | 0 | 4 |
 

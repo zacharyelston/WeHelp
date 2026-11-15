@@ -3,7 +3,8 @@ services:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: wehelp
-      POSTGRES_PASSWORD: wehelp
+      # Development default; the appliance sets a per-install password (#161).
+      POSTGRES_PASSWORD: ${WEHELP_DB_PASSWORD:-wehelp}
       POSTGRES_DB: wehelp
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -23,7 +24,7 @@ services:
     environment:
       FLYWAY_URL: jdbc:postgresql://db:5432/wehelp
       FLYWAY_USER: wehelp
-      FLYWAY_PASSWORD: wehelp
+      FLYWAY_PASSWORD: ${WEHELP_DB_PASSWORD:-wehelp}
       FLYWAY_CONNECT_RETRIES: "10"
     depends_on:
       db:
@@ -34,8 +35,10 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        BUILD_TAGS: demo # the dev stack includes the demo seed command (#161)
     environment:
-      WEHELP_DATABASE_URL: postgres://wehelp:wehelp@db:5432/wehelp?sslmode=disable
+      WEHELP_DATABASE_URL: postgres://wehelp:${WEHELP_DB_PASSWORD:-wehelp}@db:5432/wehelp?sslmode=disable
       WEHELP_ENV: dev
     depends_on:
       db:

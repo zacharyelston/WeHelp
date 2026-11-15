@@ -28,3 +28,5 @@ spikes/*/ios/*.xcodeproj/
 deploy/backup.conf
 deploy/backup-recipients.txt
 deploy/.env.before-restore-*
+deploy/db.env
+deploy/db.env.before-restore-*

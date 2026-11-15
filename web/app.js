@@ -112,7 +112,7 @@ function renderLogin() {
         </div>
         <div class="form-group">
           <label>Email</label>
-          <input type="email" id="login-email" placeholder="you@demo.wehelp" autocomplete="username" required>
+          <input type="email" id="login-email" placeholder="you@practice.example" autocomplete="username" required>
         </div>
         <div class="form-group">
           <label>Password</label>
@@ -125,11 +125,7 @@ function renderLogin() {
         </div>
         <button type="submit" class="btn" style="width:100%">Sign in</button>
       </form>
-      <p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
-        Demo provider: dr.ada.shaw@demo.wehelp / wehelp-demo-provider<br>
-        Demo admin: admin@demo.wehelp / wehelp-demo-admin<br>
-        Demo front desk: frontdesk@demo.wehelp / wehelp-demo-office
-      </p>
+      ${demoLoginsHint()}
     </div>`;
 }
 
@@ -609,7 +605,7 @@ async function loadLinks(container) {
       <form id="link-form">
         <div class="form-group">
           <label>${Word("patient")} email</label>
-          <input type="email" id="link-email" placeholder="patient@demo.wehelp" required>
+          <input type="email" id="link-email" placeholder="patient@example.com" required>
         </div>
         <button type="submit" class="btn">Invite</button>
       </form></div>`;
@@ -1270,6 +1266,15 @@ async function deleteSiteFile(id) {
 // ---------------------------------------------------------------------------
 // Utils
 // ---------------------------------------------------------------------------
+// demoLoginsHint lists the demo logins on demo hosts only (#161). /demo.js
+// sets window.WEHELP_DEMO_LOGINS in demo builds and is empty otherwise.
+function demoLoginsHint() {
+  const logins = window.WEHELP_DEMO_LOGINS || [];
+  if (!logins.length) return "";
+  return `<p style="margin-top:1rem;font-size:0.8rem;color:var(--muted)">
+    ${logins.map((l) => `Demo ${esc(l.label)}: ${esc(l.email)} / ${esc(l.password)}`).join("<br>")}</p>`;
+}
+
 // esc escapes for HTML text and for quoted attribute values alike (#159):
 // both quote characters too, so a value can't end its attribute.
 function esc(s) {
