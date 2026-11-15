@@ -30,3 +30,5 @@ deploy/backup-recipients.txt
 deploy/.env.before-restore-*
 deploy/db.env
 deploy/db.env.before-restore-*
+deploy/db-owner.env
+deploy/db-server.env

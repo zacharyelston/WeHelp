@@ -2,14 +2,19 @@
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.appliance.yml ...
 # Use `deploy/appliance.sh` (or the `make appliance-*` targets), which pass both.
 # See docs/APPLIANCE.md.
-# Database passwords (#161) come from deploy/db.env, which appliance.sh
-# creates (mode 600) and passes to Compose with --env-file. They are never in
-# .env, so the server's environment holds only its own runtime password.
+# Database passwords (#161) are per install, in deploy/db.env. This file never
+# names them: appliance.sh writes them to db-owner.env (db and migrate) and
+# db-server.env (the server's wehelp_app URL), gitignored and mode 600, which
+# the services load below. The base file's dev-only values are reset, so a
+# missing file fails the start rather than falling back. See deploy/compose.sh.
 services:
   db:
     restart: unless-stopped
+    env_file:
+      - path: db-owner.env
+        required: true
     environment:
-      POSTGRES_PASSWORD: ${WEHELP_DB_PASSWORD:?run deploy/appliance.sh up, which creates deploy/db.env}
+      POSTGRES_PASSWORD: !reset null
     # Postgres is reachable only from this host, never from the office LAN.
     # The port is overridable for a second stack on one machine, such as a
     # restore test (docs/BACKUPS.md).
@@ -17,8 +22,11 @@ services:
       - "127.0.0.1:${WEHELP_DB_PORT:-5432}:5432"
 
   migrate:
+    env_file:
+      - path: db-owner.env
+        required: true
     environment:
-      FLYWAY_PASSWORD: ${WEHELP_DB_PASSWORD:?run deploy/appliance.sh up, which creates deploy/db.env}
+      FLYWAY_PASSWORD: !reset null
 
   server:
     restart: unless-stopped
@@ -29,14 +37,17 @@ services:
         BUILD_TAGS: ${WEHELP_DEMO:+demo}
     # Created by `appliance.sh init-env` with mode 600; holds a persistent
     # WEHELP_JWT_SECRET so sessions survive restarts.
+    # db-server.env: the server connects as wehelp_app, which has data access
+    # only: no schema changes, and no UPDATE or DELETE on the audit and
+    # ledger tables (#161, V23).
     env_file:
       - path: .env
         required: true
+      - path: db-server.env
+        required: true
     environment:
       WEHELP_ENV: appliance
-      # The server connects as wehelp_app: data only, no schema changes, and
-      # no UPDATE or DELETE on the audit and ledger tables (#161, V23).
-      WEHELP_DATABASE_URL: postgres://wehelp_app:${WEHELP_DB_APP_PASSWORD:?run deploy/appliance.sh up}@db:5432/wehelp?sslmode=disable
+      WEHELP_DATABASE_URL: !reset null
       WEHELP_OFFICE_DIR: /var/lib/wehelp/office
       # A restore test turns the tunnel off, so a copy of an office never
       # takes over the real one's Relay connection (docs/BACKUPS.md).

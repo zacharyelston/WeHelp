@@ -37,12 +37,7 @@ KEEP="${WEHELP_BACKUP_KEEP:-30}"
 HEALTH_URL="${WEHELP_HEALTH_URL:-http://127.0.0.1:${WEHELP_HTTP_PORT:-8080}/healthz}"
 
 DB_ENV="$DEPLOY_DIR/db.env"
-compose() {
-  local envs=()
-  [[ -f "$ENV_FILE" ]] && envs+=(--env-file "$ENV_FILE")
-  [[ -f "$DB_ENV" ]] && envs+=(--env-file "$DB_ENV")
-  docker compose ${envs[@]+"${envs[@]}"} -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.appliance.yml" "$@"
-}
+source "$DEPLOY_DIR/compose.sh" # compose()
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 size() { stat -f %z "$1" 2>/dev/null || stat -c %s "$1"; }

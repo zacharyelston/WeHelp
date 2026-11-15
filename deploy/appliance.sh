@@ -31,15 +31,8 @@ LABEL="com.wehelp.appliance"
 DB_ENV="$DEPLOY_DIR/db.env"
 PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$DEPLOY_DIR")}"
 
-# Compose reads .env (settings, WEHELP_DEMO) and db.env (database passwords,
-# #161) for interpolation. db.env is never an env_file, so the server's
-# environment holds only its own runtime password, inside its database URL.
-compose() {
-  local envs=()
-  [[ -f "$ENV_FILE" ]] && envs+=(--env-file "$ENV_FILE")
-  [[ -f "$DB_ENV" ]] && envs+=(--env-file "$DB_ENV")
-  docker compose ${envs[@]+"${envs[@]}"} -f "$DEPLOY_DIR/docker-compose.yml" -f "$DEPLOY_DIR/docker-compose.appliance.yml" "$@"
-}
+# compose(): Docker Compose with the database passwords from db.env (#161).
+source "$DEPLOY_DIR/compose.sh"
 
 log() { printf '%s appliance: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
