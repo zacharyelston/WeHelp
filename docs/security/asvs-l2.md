@@ -21,10 +21,10 @@ applies to.
 
 | Chapter | Met | N/A | Accepted | Gap |
 |---|---|---|---|---|
-| V1 Encoding and Sanitization | 15 | 10 | 0 | 2 |
+| V1 Encoding and Sanitization | 17 | 10 | 0 | 0 |
 | V2 Validation and Business Logic | 9 | 0 | 0 | 2 |
-| V3 Web Frontend Security | 10 | 2 | 0 | 7 |
-| V4 API and Web Service | 2 | 6 | 0 | 2 |
+| V3 Web Frontend Security | 14 | 2 | 0 | 3 |
+| V4 API and Web Service | 3 | 6 | 0 | 1 |
 | V5 File Handling | 6 | 0 | 0 | 3 |
 | V6 Authentication | 15 | 5 | 0 | 15 |
 | V7 Session Management | 6 | 3 | 1 | 8 |
@@ -38,9 +38,9 @@ applies to.
 | V15 Secure Coding and Architecture | 6 | 0 | 0 | 7 |
 | V16 Security Logging and Error Handling | 6 | 0 | 0 | 10 |
 | V17 WebRTC | 2 | 4 | 0 | 1 |
-| **Total (253 rows)** | **113** | **62** | **2** | **76** |
+| **Total (253 rows)** | **120** | **62** | **2** | **69** |
 
-The most serious gap is a stored XSS in the staff web (V1.2.3, #159).
+The stored XSS in the staff web (V1.2.3) was fixed in #159.
 
 ## V1 Encoding and Sanitization
 
@@ -48,9 +48,9 @@ The most serious gap is a stored XSS in the staff web (V1.2.3, #159).
 |---|---|---|---|
 | V1.1.1 | Decode input to canonical form once, before validating | Met | Bodies are decoded once by `encoding/json` into typed structs, and path params by chi. No `QueryUnescape`/`PathUnescape`/`html.UnescapeString` anywhere in `internal/`. The base64 decodes (`internal/server/pairing.go` RedeemInvite, `devices.go`) run before their checks. |
 | V1.1.2 | Encode output last, or let the interpreter encode it | Met | The practice site uses `html/template` autoescaping (`internal/site/render.go`). The staff web and Registry console escape at the moment they build HTML (`esc()`/`attr()` in `web/app.js`, `internal/registry/console/app.js`). JSON goes through `writeJSON`. |
-| V1.2.1 | Encode HTML/attribute/header output for its exact context | Gap | `esc()` (textContent→innerHTML) does not encode quotes, but it is used inside quoted attributes: Registry console `app.js:213-219` (`value="${esc(p.name)}"`) and staff web `web/app.js:730` (`esc(p.display_name)` inside `onclick="..."`). A `"` in a name breaks out of the attribute. The practice site (`html/template`) and `attr()` are correct. |
+| V1.2.1 | Encode HTML/attribute/header output for its exact context | Met | Fixed in #159: `esc()` in the staff web and the Registry console now escapes both quote characters, so it is safe in quoted attributes as well as text; `attr()` is used for attribute values. Checked in a browser with hostile patient names. |
 | V1.2.2 | Encode untrusted data in URLs; allow only safe schemes | Met | Practice-site links must be `https` (`internal/site/site.go` Validate `link`), and `html/template` filters `href`. The staff web builds API paths only from server UUIDs. The Relay redirect uses a parsed UUID (`internal/relay/site.go` SiteHandler). |
-| V1.2.3 | Encode data placed into JavaScript or JSON | Gap | Staff web (Back Office): inline handlers put names into JS strings with HTML escaping only. Examples: `web/app.js:730` `showDevices(..., '${esc(p.display_name ...)}')`, `:829` `revokeDevice(..., '${esc(name)}')`, `:287` (`&#39;` is decoded back to `'` before the JS runs). A staff-entered patient name like `x');alert(1);//` runs script in another staff member's session. JSON output via `encoding/json` is fine. |
+| V1.2.3 | Encode data placed into JavaScript or JSON | Met | Fixed in #159: no inline handlers remain (`TestStaffWebNoInlineHandlers`). Actions carry arguments as JSON in `data-args`, attribute-escaped, and are dispatched from an allow-list (`runAction`, `web/app.js`). Values are parsed only as JSON. Checked in a browser with names `x');alert(1);//` and `"><img src=x onerror=…>`. |
 | V1.2.4 | Parameterized database queries | Met | All SQL is pgx with `$n` placeholders. The dynamic builders only add constant column names and placeholder numbers (`internal/server/appointments.go` ~L400, `appointment_requests.go` ListAppointmentRequests, `messages.go:220`). |
 | V1.2.5 | Prevent OS command injection | Met | The only `exec.Command` calls run `flyway` with config-derived argv and no shell (`cmd/wehelp/migrate.go`, `cmd/wehelp-registry/main.go:121`). No request data reaches them. |
 | V1.2.6 | Prevent LDAP injection | N/A | No LDAP in WeHelp. |
@@ -95,17 +95,17 @@ The most serious gap is a stored XSS in the staff web (V1.2.3, #159).
 | ID | Requirement (your words) | Status | Evidence / reasoning |
 |---|---|---|---|
 | V3.2.1 | Stop browsers rendering responses in the wrong context | Met | Library downloads: `Content-Disposition: attachment` plus `nosniff` (`internal/server/site.go` GetLibraryFile). Profile photo: sniffed type plus `nosniff` (`staff_profile.go`). Relay site: `default-src 'none'` CSP, and downloads sent as attachments (`relay/site.go` SiteHandler). APIs return `application/json`. |
-| V3.2.2 | Render text with safe DOM functions, not as HTML | Gap | Staff web and Registry console render text by building `innerHTML` strings with a hand-written `esc()` (`web/app.js`, `web/staff.js`, `console/app.js`). Some values go in unescaped (`web/app.js:473` `${a.status}`), and the quote and JS-context flaws are listed under V1.2.1/V1.2.3. The staff web has no CSP as a backstop. |
+| V3.2.2 | Render text with safe DOM functions, not as HTML | Met | Staff web and console build `innerHTML` only from escaped values (`esc`/`attr`, quote-safe since #159), and the staff web CSP forbids inline script, so markup injected through a value can't run (checked: an injected inline handler was blocked, `script-src-attr`). |
 | V3.3.1 | Cookies are Secure with a `__Host-`/`__Secure-` prefix | Met | `__Host-wehelp_staff` (`internal/server/staff.go` startSession) and `__Host-wehelp_console` (`internal/registry/console_auth.go:126`) are set with `Secure: true`. The practice site and phones use no cookies. |
 | V3.3.2 | SameSite set to fit each cookie's purpose | Met | Both session cookies are `SameSite=Strict` (`staff.go:150`, `console_auth.go:127`). |
 | V3.3.3 | Use the `__Host-` prefix unless sharing across hosts | Met | Both cookies use `__Host-` with `Path=/` and no Domain. |
 | V3.3.4 | HttpOnly session cookies, token sent only via Set-Cookie | Met | `HttpOnly: true` on both. `/staff/me` and `/console/me` return only the CSRF token, never the session token (`staff.go` staffMe, `console_auth.go` consoleMe). |
 | V3.4.1 | HSTS on every response, at least 1 year, with subdomains | Gap | No `Strict-Transport-Security` header anywhere: not in the Back Office staff TLS (`internal/server/server.go` ServeStaffTLS), the Registry, or the Relay site listener (`relay/site.go`). |
 | V3.4.2 | CORS origin fixed or checked against an allowlist | Met | No `Access-Control-Allow-*` header is set by any component, so browsers refuse cross-origin reads. |
-| V3.4.3 | CSP with object-src/base-uri 'none' and an allowlist | Gap | The practice site meets it (`relay/site.go` siteCSP: `default-src 'none'; base-uri 'none'`). The staff web sends no CSP (`internal/server/web.go` serveStatic) and relies on inline `onclick` handlers. The Registry console CSP lacks `object-src 'none'` and `base-uri 'none'` (`internal/registry/console.go:64`). |
-| V3.4.4 | `X-Content-Type-Options: nosniff` on every response | Gap | Set only on the Relay site, the Registry console static files, and two Back Office file endpoints. Missing on the staff web static files, all Back Office API JSON (`writeJSON`), and Registry API JSON (`registry/server.go` writeJSON). |
-| V3.4.5 | Referrer-Policy to stop leaking URLs to third parties | Gap | `no-referrer` is set on the Relay site and the Registry console. The staff web sends none (`internal/server/web.go`). The set-up token stays in the fragment, but no policy is set. |
-| V3.4.6 | CSP frame-ancestors on every response to block framing | Gap | `frame-ancestors 'none'` is set on the Relay site and Registry console static files. The staff web has neither CSP nor X-Frame-Options, so it can be framed (clickjacking) on the LAN. |
+| V3.4.3 | CSP with object-src/base-uri 'none' and an allowlist | Met | Staff web: `script-src 'self'` with no inline script, plus `object-src 'none'`, `base-uri 'none'`, `form-action 'self'`, `frame-ancestors 'none'` (`staffWebHeaders`, `TestStaffWebHeaders`, #159). Registry console now also has `object-src 'none'` and `base-uri 'none'`. Practice site: `default-src 'none'; base-uri 'none'` (`relay/site.go`). |
+| V3.4.4 | `X-Content-Type-Options: nosniff` on every response | Gap | Now set on the staff web static files (#159), the Relay site, the Registry console and two Back Office file endpoints. Still missing on Back Office API JSON (`writeJSON`) and Registry API responses (#160). |
+| V3.4.5 | Referrer-Policy to stop leaking URLs to third parties | Met | `no-referrer` on the staff web (#159, `TestStaffWebHeaders`), the Registry console and the Relay site. |
+| V3.4.6 | CSP frame-ancestors on every response to block framing | Met | `frame-ancestors 'none'` and `X-Frame-Options: DENY` on the staff web (#159); `frame-ancestors 'none'` on the Registry console and the Relay site. The JSON APIs aren't rendered as pages. |
 | V3.5.1 | Anti-CSRF token or non-safelisted header on sensitive requests | Gap | Signed-in changes need `X-CSRF-Token`, compared in constant time (`staff.go` csrfOK; `console_auth.go` ~L187). The unauthenticated `POST /api/v1/staff/login`, `/staff/setup` and console `/login` accept any Content-Type and check neither token nor Origin, which allows login CSRF. |
 | V3.5.2 | If relying on preflight, block non-preflighted calls | N/A | WeHelp relies on CSRF tokens (staff web, console) and bearer tokens (phones), not on CORS preflight. |
 | V3.5.3 | Sensitive actions use POST/PUT/PATCH/DELETE, not GET | Met | Every state change is a non-GET route (`internal/server/server.go` router; e.g. `POST /messages/{id}/read`, `POST /practice-inbox/read`), and `csrfOK` exempts only GET/HEAD/OPTIONS. |
@@ -118,7 +118,7 @@ The most serious gap is a stored XSS in the staff web (V1.2.3, #159).
 
 | ID | Requirement (your words) | Status | Evidence / reasoning |
 |---|---|---|---|
-| V4.1.1 | Correct Content-Type with charset on bodies | Gap | JSON and site types are right (`site.AllowedTypes`, Relay `SiteTypes` with charset). The staff web serves `styles.css` as `text/css` and JS as `application/javascript` with no charset (`internal/server/web.go` serveStatic). |
+| V4.1.1 | Correct Content-Type with charset on bodies | Met | Staff web HTML, JS and CSS carry `charset=utf-8` (#159, `TestStaffWebHeaders`); JSON and site types were already right. |
 | V4.1.2 | Only browser endpoints auto-redirect HTTP to HTTPS | Gap | The Back Office plain-HTTP listener redirects every path, including `/api/*`, to HTTPS with 308 (`internal/server/server.go` healthOrRedirect). API calls should be refused instead. |
 | V4.1.3 | Intermediary-set headers can't be spoofed by clients | Met | No `RealIP` or forwarded-header trust in any component (`server.go` comment, #43; grep finds no X-Forwarded/X-Real-IP use). Relay origin is decided by the listener (`tunnel.ViaRelay`), not a header. |
 | V4.2.1 | Find HTTP message boundaries correctly to stop smuggling | Met | Go `net/http` parses framing per RFC on every server. There is no proxy that re-parses HTTP. The Relay splices raw bytes after CONNECT (`internal/relay/relay.go`). |
@@ -384,18 +384,18 @@ The most serious gap is a stored XSS in the staff web (V1.2.3, #159).
 
 | Row | Tracked in |
 |---|---|
-| V1.2.1 | #159 |
-| V1.2.3 | #159 |
+| V1.2.1 | #159 (fixed) |
+| V1.2.3 | #159 (fixed) |
 | V2.1.3 | #168 |
 | V2.4.1 | #143 |
-| V3.2.2 | #159 |
+| V3.2.2 | #159 (fixed) |
 | V3.4.1 | #160 |
-| V3.4.3 | #160 |
+| V3.4.3 | #160 (fixed) |
 | V3.4.4 | #160 |
-| V3.4.5 | #160 |
-| V3.4.6 | #160 |
+| V3.4.5 | #160 (fixed) |
+| V3.4.6 | #160 (fixed) |
 | V3.5.1 | #143 |
-| V4.1.1 | #160 |
+| V4.1.1 | #160 (fixed) |
 | V4.1.2 | #166 |
 | V5.2.2 | #170 |
 | V5.4.1 | #170 |

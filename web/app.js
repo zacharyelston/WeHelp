@@ -160,7 +160,7 @@ async function renderTOTPSetup(app) {
   } catch (err) {
     session = null;
     app.innerHTML = `<div class="card login-card"><div class="alert alert-error">${esc(err.message)}</div>
-      <button class="btn" onclick="render()">Back to sign in</button></div>`;
+      <button class="btn" data-act="render">Back to sign in</button></div>`;
     return;
   }
   app.innerHTML = `
@@ -197,10 +197,10 @@ function renderDashboard() {
       <h1>WeHelp</h1>
       <div>
         <span class="user">${esc(who)} · ${esc(role === "office" ? "front desk" : role)}</span>
-        ${role === "admin" ? '<button class="btn btn-sm btn-outline" onclick="showSettings()" style="margin-left:0.5rem">Settings</button><button class="btn btn-sm btn-outline" onclick="showProviders()" style="margin-left:0.5rem">Staff</button>' : ""}
-        <button class="btn btn-sm btn-outline" onclick="showMyProfile()" style="margin-left:0.5rem">My profile</button>
-        ${role === "office" ? "" : '<button class="btn btn-sm btn-outline" onclick="showMyDevices()" style="margin-left:0.5rem">My devices</button>'}
-        <button class="btn btn-sm btn-outline" onclick="logout()" style="margin-left:0.5rem">Log out</button>
+        ${role === "admin" ? '<button class="btn btn-sm btn-outline" data-act="showSettings" style="margin-left:0.5rem">Settings</button><button class="btn btn-sm btn-outline" data-act="showProviders" style="margin-left:0.5rem">Staff</button>' : ""}
+        <button class="btn btn-sm btn-outline" data-act="showMyProfile" style="margin-left:0.5rem">My profile</button>
+        ${role === "office" ? "" : '<button class="btn btn-sm btn-outline" data-act="showMyDevices" style="margin-left:0.5rem">My devices</button>'}
+        <button class="btn btn-sm btn-outline" data-act="logout" style="margin-left:0.5rem">Log out</button>
       </div>
     </div>
     <div id="backup-banner"></div>
@@ -284,7 +284,7 @@ async function loadMessages(container) {
   for (const c of convs) {
     const when = c.last_at ? new Date(c.last_at).toLocaleString() : "";
     const preview = c.last_body ? (c.last_from_me ? "You: " : "") + c.last_body : "No messages yet";
-    html += `<div class="conv ${openThread && openThread.id === c.user_id ? "active" : ""}" onclick="openConversation('${esc(c.user_id)}', '${esc(c.name).replace(/'/g, "&#39;")}')">
+    html += `<div class="conv ${openThread && openThread.id === c.user_id ? "active" : ""}" ${act("openConversation", c.user_id, c.name)}>
       <div class="conv-top"><strong>${esc(c.name || "Unnamed")}</strong>
         ${c.unread_count > 0 ? `<span class="badge badge-pending">${c.unread_count}</span>` : ""}</div>
       <div class="conv-preview">${esc(preview)}</div><div class="hint">${esc(when)}</div></div>`;
@@ -475,8 +475,8 @@ async function loadAppointments(container) {
         <td>${patient}</td>`;
       if (isProvider && a.status === "scheduled") {
         html += `<td>
-          <button class="btn btn-sm" onclick="cancelAppt('${a.id}')">Cancel</button>
-          <button class="btn btn-sm btn-outline" onclick="completeAppt('${a.id}')">Complete</button>
+          <button class="btn btn-sm" ${act("cancelAppt", a.id)}>Cancel</button>
+          <button class="btn btn-sm btn-outline" ${act("completeAppt", a.id)}>Complete</button>
         </td>`;
       } else if (isProvider) {
         html += "<td></td>";
@@ -541,8 +541,8 @@ async function requestsCard(names, wide = false) {
       <td>${esc(r.reason || "")}</td>
       <td><input type="datetime-local" id="req-start-${r.id}" value="${localInput(start)}">
         <select id="req-len-${r.id}"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">60 min</option></select></td>
-      <td><button class="btn btn-sm" onclick="confirmRequest('${r.id}')">Confirm</button>
-        <button class="btn btn-sm btn-danger" onclick="declineRequest('${r.id}')">Decline</button></td>
+      <td><button class="btn btn-sm" ${act("confirmRequest", r.id)}>Confirm</button>
+        <button class="btn btn-sm btn-danger" ${act("declineRequest", r.id)}>Decline</button></td>
     </tr>`;
   }
   return html + "</tbody></table></div>";
@@ -630,10 +630,10 @@ async function loadLinks(container) {
         ${feature("checkins") ? `<td>${checkinCell(l)}</td>` : ""}
         <td>`;
       if (l.status === "pending" && session.role === "patient" && l.patient_id === session.user_id) {
-        html += `<button class="btn btn-sm" onclick="acceptLink('${l.provider_id}')">Accept</button>`;
+        html += `<button class="btn btn-sm" ${act("acceptLink", l.provider_id)}>Accept</button>`;
       }
       if (l.status !== "revoked") {
-        html += ` <button class="btn btn-sm btn-danger" onclick="revokeLink('${l.provider_id === session.user_id ? l.patient_id : l.provider_id}')">Revoke</button>`;
+        html += ` <button class="btn btn-sm btn-danger" ${act("revokeLink", l.provider_id === session.user_id ? l.patient_id : l.provider_id)}>Revoke</button>`;
       }
       html += "</td></tr>";
     }
@@ -668,7 +668,7 @@ function checkinCell(l) {
   }
   const choices = CHECKIN_CHOICES.some(([v]) => v === every) ? CHECKIN_CHOICES : [...CHECKIN_CHOICES, [every, `Every ${every} days`]];
   const opts = choices.map(([v, label]) => `<option value="${v}" ${v === every ? "selected" : ""}>${label}</option>`).join("");
-  return `<select onchange="setCheckin('${l.patient_id}', this.value)">${opts}</select>`;
+  return `<select ${actChange("setCheckin", l.patient_id)}>${opts}</select>`;
 }
 
 async function setCheckin(patientId, value) {
@@ -727,8 +727,8 @@ async function loadPatients(container) {
     html += "<table><thead><tr><th>Name</th><th>Email</th><th>Devices</th><th></th></tr></thead><tbody>";
     for (const p of data.patients) {
       html += `<tr><td>${esc(p.display_name || "—")}</td><td>${esc(p.email)}</td>
-        <td><button class="btn btn-sm btn-outline" onclick="showDevices('${esc(p.id)}', '${esc(p.display_name || p.email)}')">${p.devices} active</button></td>
-        <td><button class="btn btn-sm" onclick="startPairing('${esc(p.id)}')">Pair phone</button></td></tr>`;
+        <td><button class="btn btn-sm btn-outline" ${act("showDevices", p.id, p.display_name || p.email)}>${p.devices} active</button></td>
+        <td><button class="btn btn-sm" ${act("startPairing", p.id)}>Pair phone</button></td></tr>`;
     }
     html += "</tbody></table>";
   }
@@ -773,7 +773,7 @@ async function startPairing(patientId) {
       <p>Ask the patient to open the WeHelp app, tap <strong>Pair with your practice</strong>, and scan this code.</p>
       <p class="hint">Single use. Expires <span id="pairing-expiry"></span>.</p>
     </div>
-    <button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button>
+    <button class="btn btn-sm btn-outline" data-act="stopPairing">Close</button>
   </div>`;
   el.scrollIntoView({ behavior: "smooth" });
   const expires = new Date(inv.expires_at);
@@ -826,12 +826,12 @@ async function showDevices(patientId, name) {
         <td>${when(d.last_seen_at)}</td>
         <td><span class="badge badge-${d.status === "active" ? "active" : "revoked"}">${esc(d.status)}</span></td>
         <td>${d.status === "active"
-          ? `<button class="btn btn-sm btn-danger" onclick="revokeDevice('${esc(patientId)}', '${esc(d.id)}', '${esc(name)}')">Revoke</button>`
+          ? `<button class="btn btn-sm btn-danger" ${act("revokeDevice", patientId, d.id, name)}>Revoke</button>`
           : ""}</td></tr>`;
     }
     html += "</tbody></table>";
   }
-  html += `<button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button></div>`;
+  html += `<button class="btn btn-sm btn-outline" data-act="stopPairing">Close</button></div>`;
   el.innerHTML = html;
   el.scrollIntoView({ behavior: "smooth" });
 }
@@ -852,7 +852,8 @@ async function revokeDevice(patientId, deviceId, name) {
 // WeHelp app as a provider: it opens on your schedule and messages, through
 // the Relay, with Face ID. Revoke a lost one at once.
 async function showMyDevices() {
-  if (activeTab !== "patients") {
+  // It draws into the Patients tab, which another screen may have replaced.
+  if (activeTab !== "patients" || !document.getElementById("pairing")) {
     activeTab = "patients";
     render();
     await new Promise((r) => setTimeout(r, 300));
@@ -868,18 +869,18 @@ async function showMyDevices() {
   const el = document.getElementById("pairing");
   let html = `<div class="card"><h2>My devices</h2>
     <p class="hint">Pair a phone or iPad to use the WeHelp app as ${esc(session.role)}. It works in the office and remotely, with Face ID; no password on the device.</p>
-    <button class="btn" onclick="startPairing('${esc(session.user_id)}')">Pair my phone or iPad</button>`;
+    <button class="btn" ${act("startPairing", session.user_id)}>Pair my phone or iPad</button>`;
   if (data.devices.length > 0) {
     html += "<table><thead><tr><th>Device</th><th>Paired</th><th>Last seen</th><th>Status</th><th></th></tr></thead><tbody>";
     const when = (t) => (t ? new Date(t).toLocaleString() : "—");
     for (const d of data.devices) {
       html += `<tr><td>${esc(d.name || "Unnamed device")}</td><td>${when(d.created_at)}</td><td>${when(d.last_seen_at)}</td>
         <td><span class="badge badge-${d.status === "active" ? "active" : "revoked"}">${esc(d.status)}</span></td>
-        <td>${d.status === "active" ? `<button class="btn btn-sm btn-danger" onclick="revokeMyDevice('${esc(d.id)}')">Revoke</button>` : ""}</td></tr>`;
+        <td>${d.status === "active" ? `<button class="btn btn-sm btn-danger" ${act("revokeMyDevice", d.id)}>Revoke</button>` : ""}</td></tr>`;
     }
     html += "</tbody></table>";
   }
-  html += `<button class="btn btn-sm btn-outline" onclick="stopPairing()">Close</button></div>`;
+  html += `<button class="btn btn-sm btn-outline" data-act="stopPairing">Close</button></div>`;
   el.innerHTML = html;
   el.scrollIntoView({ behavior: "smooth" });
 }
@@ -906,6 +907,61 @@ function attr(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// ---------------------------------------------------------------------------
+// Actions (#159). No inline event handlers: an element names an allowed
+// action in data-act and carries its arguments as JSON in data-args. Values
+// are only ever parsed as JSON, never as script, so a name with quotes in it
+// stays a name. The page's CSP forbids inline script, so an inline handler
+// that slips back in simply doesn't run.
+// ---------------------------------------------------------------------------
+const ACTIONS = new Set([
+  "acceptLink", "addItem", "cancelAppt", "cancelBlogEdit", "completeAppt", "confirmRequest", "copySetupLink",
+  "declineRequest", "deleteSiteFile", "editPrice", "loadDemoProducts", "logout", "openConversation", "pickTheme",
+  "proposeTeam", "providerAction", "publishSite", "removeItem", "removeProfilePhoto", "render", "revokeDevice",
+  "revokeLink", "revokeMyDevice", "rosterInvite", "saveSite", "setCheckin", "setOrderFilter", "setOrderStatus",
+  "showDevices", "showMyDevices", "showMyProfile", "showProviders", "showSettings", "startPairing", "stopPairing",
+  "syncRoster", "toggleProduct",
+]);
+
+// act returns the attributes for a click action with arguments.
+function act(name, ...args) {
+  return `data-act="${attr(name)}" data-args="${attr(JSON.stringify(args))}"`;
+}
+
+// actChange is act for a <select>: the action gets its arguments, then the value.
+function actChange(name, ...args) {
+  return `data-change="${attr(name)}" data-args="${attr(JSON.stringify(args))}"`;
+}
+
+function runAction(name, el, extra) {
+  if (!ACTIONS.has(name) || typeof window[name] !== "function") return;
+  let args = [];
+  try {
+    args = JSON.parse(el.dataset.args || "[]");
+  } catch (_) {
+    return;
+  }
+  window[name](...args, ...extra);
+}
+
+// Actions that also receive the clicked element, after their arguments.
+const ELEMENT_ACTIONS = new Set(["pickTheme"]);
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (el) runAction(el.dataset.act, el, ELEMENT_ACTIONS.has(el.dataset.act) ? [el] : []);
+});
+
+document.addEventListener("change", (e) => {
+  const el = e.target.closest("[data-change]");
+  if (el) runAction(el.dataset.change, el, [el.value]);
+});
+
+function setOrderFilter(f) {
+  orderFilter = f;
+  loadTab();
+}
+
 function money(cents) {
   return "$" + (cents / 100).toFixed(2);
 }
@@ -923,8 +979,8 @@ async function loadOrders(container) {
   let html = `<div class="card"><h2>Supply orders</h2>
     <p class="hint">Patients order in the WeHelp app. Payment is at pickup or by invoice. Changing an order notifies the patient's phone.</p>
     <div class="inline-form" style="margin:0.75rem 0">
-      <button class="btn btn-sm ${orderFilter === "open" ? "" : "btn-outline"}" onclick="orderFilter='open';loadTab()">In progress</button>
-      <button class="btn btn-sm ${orderFilter === "closed" ? "" : "btn-outline"}" onclick="orderFilter='closed';loadTab()">Fulfilled and cancelled</button>
+      <button class="btn btn-sm ${orderFilter === "open" ? "" : "btn-outline"}" data-act="setOrderFilter" data-args='["open"]'>In progress</button>
+      <button class="btn btn-sm ${orderFilter === "closed" ? "" : "btn-outline"}" data-act="setOrderFilter" data-args='["closed"]'>Fulfilled and cancelled</button>
     </div>`;
   if (orders.length === 0) {
     html += '<p class="empty">No orders here.</p>';
@@ -935,7 +991,7 @@ async function loadOrders(container) {
       const notes = (o.note ? `<div class="hint">Patient: ${esc(o.note)}</div>` : "") +
         (o.staff_note ? `<div class="hint">Practice: ${esc(o.staff_note)}</div>` : "");
       const actions = (ORDER_NEXT[o.status] || [])
-        .map(([st, label]) => `<button class="btn btn-sm ${st === "cancelled" ? "btn-outline" : ""}" onclick="setOrderStatus('${esc(o.id)}', '${st}')">${label}</button>`)
+        .map(([st, label]) => `<button class="btn btn-sm ${st === "cancelled" ? "btn-outline" : ""}" ${act("setOrderStatus", o.id, st)}>${label}</button>`)
         .join(" ");
       html += `<tr><td>${new Date(o.created_at).toLocaleString()}</td><td>${esc(o.patient_name || "")}</td>
         <td>${items}${notes}</td><td>${money(o.total_cents)}</td>
@@ -984,14 +1040,14 @@ async function loadStore(container) {
     <div class="card"><h2>Catalogue</h2>
     <p class="hint">Shown in the app and on the website. Hidden products can't be ordered. Publish the website after changes.</p>`;
   if (storeProducts.length === 0) {
-    html += `<p class="empty">No products yet.</p><button class="btn" onclick="loadDemoProducts()">Add the 10 demo products</button>`;
+    html += `<p class="empty">No products yet.</p><button class="btn" data-act="loadDemoProducts">Add the 10 demo products</button>`;
   } else {
     html += "<table><thead><tr><th>Product</th><th>Category</th><th>Size</th><th>Price</th><th>Shown</th><th></th></tr></thead><tbody>";
     for (const p of storeProducts) {
       html += `<tr><td><strong>${esc(p.name)}</strong><div class="hint">${esc(p.sku)}</div></td><td>${esc(p.category)}</td>
         <td>${esc(p.unit)}</td><td>${money(p.price_cents)}</td><td>${p.active ? "Yes" : "No"}</td>
-        <td><button class="btn btn-sm btn-outline" onclick="editPrice('${esc(p.id)}')">Price</button>
-        <button class="btn btn-sm btn-outline" onclick="toggleProduct('${esc(p.id)}')">${p.active ? "Hide" : "Show"}</button></td></tr>`;
+        <td><button class="btn btn-sm btn-outline" ${act("editPrice", p.id)}>Price</button>
+        <button class="btn btn-sm btn-outline" ${act("toggleProduct", p.id)}>${p.active ? "Hide" : "Show"}</button></td></tr>`;
     }
     html += "</tbody></table>";
   }
@@ -1071,9 +1127,9 @@ function listEditor(key, title, addLabel) {
           ? `<textarea data-list="${key}" data-i="${i}" data-f="${f}">${v}</textarea>`
           : `<input data-list="${key}" data-i="${i}" data-f="${f}" value="${v}">`) + "</div>";
     }
-    html += `<button type="button" class="btn btn-sm btn-outline" onclick="removeItem('${key}', ${i})">Remove</button></div>`;
+    html += `<button type="button" class="btn btn-sm btn-outline" ${act("removeItem", key, i)}>Remove</button></div>`;
   });
-  return html + `<button type="button" class="btn btn-sm" onclick="addItem('${key}')">${addLabel}</button></div>`;
+  return html + `<button type="button" class="btn btn-sm" ${act("addItem", key)}>${addLabel}</button></div>`;
 }
 
 function collectSite() {
@@ -1114,8 +1170,8 @@ function renderWebsite(container = document.getElementById("tab-content")) {
   let html = `<div class="card"><h2>Practice website</h2>
     <p class="hint">A public site served by the Relay: about us, bios, services, how to get the app and join, the library and the supply catalogue. It has no sign-in and no forms, and never shows patient information. Save, then Publish.</p>
     <p>${published}</p>
-    <button class="btn" onclick="saveSite()">Save</button>
-    <button class="btn" onclick="publishSite()">Save and publish</button></div>
+    <button class="btn" data-act="saveSite">Save</button>
+    <button class="btn" data-act="publishSite">Save and publish</button></div>
     ${themePicker(siteData)}
     <div id="blog-card"></div>
     <div class="card"><h2>About the practice</h2>
@@ -1147,7 +1203,7 @@ function renderWebsite(container = document.getElementById("tab-content")) {
     html += "<table><thead><tr><th>Title</th><th>File name</th><th>Kind</th><th>Size</th><th></th></tr></thead><tbody>";
     for (const f of siteData.files) {
       html += `<tr><td>${esc(f.title)}</td><td>${esc(f.filename)}</td><td>${esc(f.kind)}</td><td>${Math.ceil(f.size / 1024)} KB</td>
-        <td><button class="btn btn-sm btn-outline" onclick="deleteSiteFile('${esc(f.id)}')">Delete</button></td></tr>`;
+        <td><button class="btn btn-sm btn-outline" ${act("deleteSiteFile", f.id)}>Delete</button></td></tr>`;
     }
     html += "</tbody></table>";
   }
@@ -1214,10 +1270,10 @@ async function deleteSiteFile(id) {
 // ---------------------------------------------------------------------------
 // Utils
 // ---------------------------------------------------------------------------
+// esc escapes for HTML text and for quoted attribute values alike (#159):
+// both quote characters too, so a value can't end its attribute.
 function esc(s) {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
+  return attr(s);
 }
 
 // ---------------------------------------------------------------------------

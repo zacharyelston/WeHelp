@@ -28,7 +28,7 @@ type backupRun struct {
 type backupStatus struct {
 	LastOKAt *time.Time  `json:"last_ok_at"`
 	Warning  string      `json:"warning"` // empty when all is well
-	Runs     []backupRun `json:"runs"`   // newest first, at most 10
+	Runs     []backupRun `json:"runs"`    // newest first, at most 10
 }
 
 func (s *Server) backupStatus(ctx context.Context, now time.Time) (backupStatus, error) {

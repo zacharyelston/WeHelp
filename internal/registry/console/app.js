@@ -12,10 +12,10 @@ let healthTimer = null;
 const $ = (id) => document.getElementById(id);
 const isAdmin = () => me && me.role === "registry-admin";
 
+// esc escapes for HTML text and for quoted attribute values alike (#159):
+// both quote characters too, so a value can't end its attribute.
 function esc(s) {
-  const d = document.createElement("div");
-  d.textContent = s == null ? "" : String(s);
-  return d.innerHTML;
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function when(t) {
