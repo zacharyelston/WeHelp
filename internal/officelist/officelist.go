@@ -114,7 +114,7 @@ func PublicKeyString(pub ed25519.PublicKey) string {
 func ParsePublicKey(s string) (ed25519.PublicKey, error) {
 	b64, ok := strings.CutPrefix(s, "ed25519:")
 	if !ok {
-		return nil, errors.New("officelist: key must start with ed25519:")
+		return nil, errors.New("officelist: key must have the ed25519 prefix")
 	}
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil || len(raw) != ed25519.PublicKeySize {
