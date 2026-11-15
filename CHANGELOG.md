@@ -17,6 +17,11 @@ All notable changes to WeHelp are documented here. Format follows
   with the Relay and the office re-registered (new key and IDs; phones
   re-pair).
 
+### Fixed
+- iOS: the "Can't reach" screen always offers pairing a practice, not only
+  with two or more. A phone with one practice whose Relay moved was stuck on
+  that screen with only "Try again".
+
 ### Changed
 - `appliance.sh init-office` passes the install token to the container by
   name, so it never appears in a command line (#182).
