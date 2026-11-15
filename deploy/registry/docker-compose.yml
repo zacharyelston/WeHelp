@@ -1,0 +1,79 @@
+# WeHelp Registry on an always-on host (#182): its Postgres, Flyway and
+# `wehelp-registry serve`. Run it through deploy/registry.sh (up, down,
+# status, logs, cli). See docs/REGISTRY.md.
+#
+# Its own Compose project, so the office stack's up and down never touch it,
+# and its own Postgres, so Registry and Back Office data never share a
+# database. It holds business data only, never patient data.
+#
+# The database password is per install, in deploy/registry/db.env (made once
+# by registry.sh, gitignored, mode 600). This file never names it:
+# deploy/compose.sh renders db-owner.env (db and migrate) and server.env (the
+# server's database URL), gitignored and mode 600, which the services load.
+name: wehelp-registry
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file:
+      - path: db-owner.env
+        required: true
+    environment:
+      POSTGRES_USER: wehelp
+      POSTGRES_DB: wehelp_registry
+    volumes:
+      - registrydata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wehelp -d wehelp_registry"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Reachable only from this host. The Registry itself talks to it over the
+    # project network.
+    ports:
+      - "127.0.0.1:${WEHELP_REGISTRY_DB_PORT:-5433}:5432"
+
+  migrate:
+    image: flyway/flyway:13
+    command: migrate
+    volumes:
+      - ../../db/registry:/flyway/sql:ro
+    env_file:
+      - path: db-owner.env
+        required: true
+    environment:
+      FLYWAY_URL: jdbc:postgresql://db:5432/wehelp_registry
+      FLYWAY_USER: wehelp
+      FLYWAY_CONNECT_RETRIES: "10"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  registry:
+    build:
+      context: ../..
+      dockerfile: deploy/registry/Dockerfile
+    image: wehelp-registry:local
+    restart: unless-stopped
+    env_file:
+      - path: server.env
+        required: true
+    environment:
+      WEHELP_REGISTRY_LISTEN_ADDR: ":8090"
+    volumes:
+      - registrykeys:/var/lib/wehelp-registry
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # Plain HTTP for the demo topology (no registry_tls_cert yet), so publish
+    # it only where Relays and offices reach it.
+    ports:
+      - "${WEHELP_REGISTRY_BIND:-0.0.0.0}:${WEHELP_REGISTRY_PORT:-8090}:8090"
+
+volumes:
+  registrydata:
+  registrykeys:

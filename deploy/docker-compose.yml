@@ -64,7 +64,7 @@ services:
       timeout: 3s
       retries: 10
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432" # this host only (#182); dev password, dev only
 
   registry-migrate:
     profiles: [registry]
