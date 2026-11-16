@@ -60,9 +60,11 @@ it. So the app enforces sharing per account:
 
 ## Private patients
 
-Decided 2026-11-16: a patient can be **private**. This is a flag on the
-patient at one practice, enforced by the Back Office. It isn't encryption;
-see "Later: per-patient keys".
+Decided 2026-11-16, filed as #226: a patient can be **private** at one
+practice. It's an access fact in the patient's Git record (the `record`
+repository; see PATIENT_REPOSITORIES.md, #220), and it narrows the clinical
+access scopes to linked providers. The Back Office enforces it. It isn't
+encryption; see "Later: per-patient keys".
 
 - **Who sees clinical content:** only the providers with an active link to
   the patient. That covers readings, monitoring plans, questionnaire
@@ -90,10 +92,12 @@ the audit log cover that today, as for every other patient.
 
 ### Later: per-patient keys
 
-The stronger version: each private patient's clinical content is
-encrypted with a per-patient data key. That key is wrapped to the public
-key of each linked provider's device. The Back Office stores ciphertext and
-wrapped keys, so even its own admins and root can't read the content.
+The stronger version: each clinical component repository of a private
+patient is encrypted with its own data key. That key is wrapped to the
+public key of each linked provider's device, and the wrapped keys live in
+the patient's record beside the access scope. The Back Office stores
+ciphertext and wrapped keys, so even its own admins and root can't read the
+content.
 
 It's deferred because of what it costs:
 - the staff web would need provider keys in the browser, or reading only on
