@@ -56,6 +56,23 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 | google/fhir Go module | **dead** — v0.7.4 Aug 2022; CMSgov/bcda-app removed it over Snyk vuln flags |
 | hand-rolled R4 structs | **adopt** — minimal Patient/Observation/Appointment structs + `encoding/json`; the bcda-app precedent. Re-evaluate libs if resource surface grows |
 
+## Patient health data from wearables (V2, [HEALTH_DATA.md](HEALTH_DATA.md))
+
+Reviewed 2026-11-16. The patient shares readings from their own devices
+through the WeHelp app. The office never collects device data any other way.
+
+| Candidate | Verdict |
+|---|---|
+| Apple HealthKit (on the patient's iPhone) | **adopt as the only source.** Nearly every consumer device (Apple Watch, connected scales, BP cuffs, CGMs, rings) already writes to it. The patient grants each type to the app. Anchored queries (`HKAnchoredObjectQuery`) give incremental sync without keeping data, and statistics queries (`HKStatisticsCollectionQuery`) give daily summaries of high-frequency types. Background delivery (`HKObserverQuery`) runs only while the device is unlocked, because health data is protected at rest. AGENTS.md already prefers it to Bluetooth |
+| CoreBluetooth to devices directly (GATT health profiles) | **reject for V2.** It would only matter for office devices, which are out of scope, and HealthKit already covers what patients own |
+| Vendor cloud APIs (Withings, Fitbit, Oura, Dexcom cloud) | **reject.** The Back Office would need internet access and OAuth tokens per patient, PHI would pass through third parties, and each would need a business associate agreement. HealthKit gets the same data on the phone |
+| Google Health Connect (Android) | **later**, with the Android app (#135): the same model as HealthKit, through the same Back Office API |
+| FHIR R4 `Observation` with LOINC codes, and UCUM units | **adopt the shape.** A measurement is an Observation-like row: a code, a value with a UCUM unit, the time taken, and a device. Export comes with #26 |
+| Open mHealth (IEEE 1752) | **reference**, as for check-ins (#21): type names and units line up with it, which makes FHIR mapping mechanical |
+| Remote patient monitoring billing (US CPT 99453, 99454, 99457) | **reference, not a goal.** Billing needs 16 days of readings a month and time logging, which this design doesn't track. It may matter for practices later |
+| HIPAA minimum necessary and role-based access (45 CFR 164.514(d)) | **adopt** for private patients: a flag enforced by the Back Office, with every read audited, meets the rule. Encryption isn't required for it |
+| Per-record data keys wrapped to each reader's public key (envelope encryption: `age` multi-recipient, Signal/MLS group keys, Apple's iCloud Advanced Data Protection) | **later** for private patients. It keeps content from the server's own admins, but the server can no longer search, score or export it, and device loss needs re-wrapping or an escrow key |
+
 ## API contract (#4)
 
 | Candidate | Verdict |
