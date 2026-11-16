@@ -50,7 +50,13 @@ var Features = []Feature{
 	{"library", "Library"},
 	{"website", "Website"},
 	{"careteam", "Care teams"},
+	{"forms", "Forms and questionnaires"},
 }
+
+// DefaultOff are switches that start off for every practice type and stay off
+// until an admin turns them on: forms (#194) ship dark until the practice
+// adopts them.
+var DefaultOff = []string{"forms"}
 
 // IsFeature reports whether id names a switch.
 func IsFeature(id string) bool {
@@ -78,6 +84,9 @@ func Effective(t Type, overrides map[string]bool) map[string]bool {
 	on := map[string]bool{}
 	for _, f := range Features {
 		on[f.ID] = true
+	}
+	for _, f := range DefaultOff {
+		on[f] = false
 	}
 	for _, f := range t.Off {
 		on[f] = false

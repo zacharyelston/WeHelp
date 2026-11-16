@@ -210,6 +210,23 @@ func (s *Server) Router() chi.Router {
 			r.Post("/store/products/demo", s.AddDemoProducts)
 			r.Post("/orders/{orderID}/status", s.SetOrderStatus)
 		})
+
+		// Forms (#194): the practice's form library, its own group so it can
+		// move to the data module (#227). Staff read and admins change, on the
+		// office LAN; every route is 403 while the forms switch is off.
+		r.Group(func(r chi.Router) {
+			r.Use(lanOnly, s.authenticate)
+			r.Get("/forms", s.ListForms)
+			r.Post("/forms", s.CreateForm)
+			r.Post("/forms/import", s.ImportForm)
+			r.Get("/forms/{formID}", s.GetForm)
+			r.Post("/forms/{formID}/draft", s.NewFormDraft)
+			r.Post("/forms/{formID}/archive", s.ArchiveForm)
+			r.Get("/form-versions/{versionID}", s.GetFormVersion)
+			r.Put("/form-versions/{versionID}", s.SaveFormVersion)
+			r.Post("/form-versions/{versionID}/publish", s.PublishFormVersion)
+			r.Get("/form-versions/{versionID}/export", s.ExportFormVersion)
+		})
 	})
 
 	// Static web client (SPA) — served at root, falls back to API routes above.

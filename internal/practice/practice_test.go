@@ -63,3 +63,14 @@ func TestEffective(t *testing.T) {
 		t.Error("therapy starts with care teams on")
 	}
 }
+
+func TestFormsDefaultOff(t *testing.T) {
+	for _, ty := range Types {
+		if Effective(ty, nil)["forms"] {
+			t.Errorf("%s: forms on by default", ty.ID)
+		}
+		if !Effective(ty, map[string]bool{"forms": true})["forms"] {
+			t.Errorf("%s: an admin can't turn forms on", ty.ID)
+		}
+	}
+}

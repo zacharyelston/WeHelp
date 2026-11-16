@@ -363,7 +363,7 @@ func TestCheckAnswersDefaultToday(t *testing.T) {
 // that talks to a database or the network.
 func TestNoServerDependencies(t *testing.T) {
 	allowed := map[string]bool{
-		"bytes": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true,
+		"bytes": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true, "io": true, "math": true,
 		"math/big": true, "regexp": true, "sort": true, "strconv": true, "strings": true,
 		"time": true, "unicode/utf8": true,
 	}
@@ -431,4 +431,24 @@ func FuzzParse(f *testing.F) {
 			CheckAnswersOn(def, a, "2026-11-16")
 		}
 	})
+}
+
+func TestCanonical(t *testing.T) {
+	got, err := Canonical([]byte("{ \"b\": [1.50, -0, -0.0], \"a\": \"<x & y>\" }"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\"a\":\"<x & y>\",\"b\":[1.50,0,0.0]}\n"; string(got) != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	again, _ := Canonical(got)
+	if string(again) != string(got) {
+		t.Error("canonical form is not a fixed point")
+	}
+	if _, err := Canonical([]byte("{} {}")); err == nil {
+		t.Error("trailing data accepted")
+	}
+	if Digest(got) != Digest(again) || len(Digest(got)) != 64 {
+		t.Error("digest")
+	}
 }
