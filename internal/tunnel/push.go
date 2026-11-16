@@ -66,6 +66,13 @@ func (p *Pusher) TURNKey() (turncred.Key, bool) {
 	return *p.turnKey, true
 }
 
+// Connected reports whether the tunnel to the Relay is up right now.
+func (p *Pusher) Connected() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.client != nil
+}
+
 func (p *Pusher) set(c *ssh.Client) {
 	p.mu.Lock()
 	p.client = c

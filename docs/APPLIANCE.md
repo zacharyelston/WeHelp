@@ -188,6 +188,38 @@ database explicitly, or use `appliance.sh seed`.
 
 ## Checks
 
+### Go-live: `appliance.sh doctor` (#81)
+
+```
+deploy/appliance.sh doctor          # one line per check
+deploy/appliance.sh doctor --json   # for the go-live record
+```
+
+It prints PASS, FAIL or SKIP for each check, exits non-zero on any FAIL,
+prints no patient data, and fixes nothing.
+
+| Check | Where | Passes when |
+|---|---|---|
+| `filevault` | host | FileVault is on (macOS; SKIP elsewhere) |
+| `auto_login` | host | automatic login is off (macOS; SKIP elsewhere) |
+| `postgres_loopback` | host | the db container publishes Postgres on 127.0.0.1 only, or not at all |
+| `office_keys` | Back Office | the office directory is 0700 and its private keys 0600 |
+| `registry_install` | Back Office | the office is installed with the Registry |
+| `relay_tunnel` | Back Office | `relay_tunnel` is on and `/readyz` reports the tunnel connected |
+| `audit_chain` | Back Office | every practice's audit chain verifies |
+| `backup_recent` | Back Office | the last successful backup finished under 26 hours ago |
+| `restore_test` | | SKIP: the quarterly restore test runs on a spare machine; check BACKUPS.md "Last test" by hand |
+| `demo_off` | Back Office | a field build (no demo tag) and `WEHELP_ENV` isn't dev or demo |
+| `no_seed_accounts` | Back Office | no `@demo.wehelp` accounts |
+| `staff_https` | Back Office | staff HTTPS answers with a certificate from the office CA |
+
+The host checks run in the script, outside the container, and are passed to
+`wehelpd doctor` in the server container, which runs the rest and prints one
+report. A demo host like Barnacle fails `demo_off` and `no_seed_accounts` by
+design.
+
+### Everyday
+
 - `make appliance-status`: containers and `/healthz`.
 - From another machine, `nc -z <mac-mini-ip> 5432` must **fail** (Postgres is
   not on the LAN).

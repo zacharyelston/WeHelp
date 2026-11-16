@@ -12,6 +12,7 @@
 #   appliance.sh stop-for-reboot  stop the stack and Colima cleanly before a reboot
 #   appliance.sh install-login    install the login-time job (macOS launchd)
 #   appliance.sh status           show containers and /healthz
+#   appliance.sh doctor [--json]  go-live checks: host and Back Office, PASS/FAIL/SKIP (#81)
 #   appliance.sh demo-setup       demo hosts only: demo defaults in .env, then up and seed
 #   appliance.sh seed             demo hosts only (WEHELP_DEMO=1): add the demo practice and logins
 #   appliance.sh db-roles         set the database role passwords from deploy/db.env
@@ -251,6 +252,35 @@ case "$cmd" in
     grep -q '^WEHELP_DEMO=1' "$ENV_FILE" 2>/dev/null ||
       { echo "seed is for demo hosts: set WEHELP_DEMO=1 in $ENV_FILE, then appliance.sh up"; exit 1; }
     compose run --rm --no-deps -e WEHELP_ENV=demo server seed
+    ;;
+  doctor)
+    # Host checks the container can't see, as "name|STATUS|detail" lines,
+    # then the Back Office's own checks in one report (#81).
+    host=""
+    add() { host+="$1|$2|$3"$'\n'; }
+    if [[ "$(uname)" == Darwin ]]; then
+      if fdesetup isactive >/dev/null 2>&1; then add filevault PASS "on"
+      else add filevault FAIL "FileVault is off: turn it on in System Settings"; fi
+      if defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser >/dev/null 2>&1; then
+        add auto_login FAIL "automatic login is on: turn it off in System Settings > Users & Groups"
+      else add auto_login PASS "off"; fi
+    else
+      add filevault SKIP "not macOS: check full-disk encryption by hand"
+      add auto_login SKIP "not macOS: check automatic login by hand"
+    fi
+    db_id="$(compose ps -q db 2>/dev/null || true)"
+    if [[ -z "$db_id" ]]; then
+      add postgres_loopback FAIL "the db container isn't running"
+    else
+      # One "ip=<HostIp>" per binding; an empty HostIp means every interface.
+      binds="$(docker inspect "$db_id" --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}ip={{.HostIp}} {{end}}{{end}}')"
+      bad="$(printf '%s\n' $binds | grep -vx 'ip=127.0.0.1' | sed 's/^ip=$/ip=all-interfaces/; s/^ip=//' || true)"
+      if [[ -z "${binds// /}" ]]; then add postgres_loopback PASS "not published"
+      elif [[ -z "$bad" ]]; then add postgres_loopback PASS "127.0.0.1 only"
+      else add postgres_loopback FAIL "published on ${bad//$'\n'/ } (want 127.0.0.1 only)"; fi
+    fi
+    shift
+    compose exec -T -e WEHELP_DOCTOR_HOST="$host" server wehelpd doctor "$@"
     ;;
   status)
     compose ps

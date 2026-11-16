@@ -340,8 +340,12 @@ clinic day. Modules refer to [TRAINING.md](TRAINING.md).
 
 ### Go-live criteria
 
-All must be true. Once #81 lands, `wehelpd doctor` checks the
-machine-checkable rows.
+All must be true. `deploy/appliance.sh doctor` checks the
+machine-checkable rows (#81; checks listed in
+[APPLIANCE.md](../APPLIANCE.md#go-live-appliancesh-doctor-81)). Save its
+`--json` output with the go-live record. Two rows stay manual: the doctor
+can't tell a tagged release (builds carry no version yet), and the restore
+test runs on a spare machine.
 
 **Gate (outside the practice)**
 - [ ] V1 external audit and pen test passed, every high or critical finding
@@ -349,15 +353,16 @@ machine-checkable rows.
 - [ ] The practice is on the **production** Registry and Relay. A pilot on
       the demo Relay never goes live.
 
-**Back Office** (`wehelpd doctor`, #81)
+**Back Office** (`appliance.sh doctor`, #81)
 - [ ] FileVault on, automatic login off.
-- [ ] Running a tagged release.
+- [ ] Running a tagged release (manual).
 - [ ] Postgres on loopback only.
 - [ ] Office keys present with correct permissions.
 - [ ] Installed with the Registry, and the Relay tunnel up.
 - [ ] `audit.Verify` passes.
-- [ ] Last backup younger than 26 hours, and a restore tested.
-- [ ] `demo_mode` off, no seed accounts.
+- [ ] Last backup younger than 26 hours, and a restore tested (the restore
+      test is manual).
+- [ ] Field build (not demo), no seed accounts.
 - [ ] Staff UI over HTTPS with the local CA.
 
 **People and process**
