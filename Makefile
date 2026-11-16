@@ -24,10 +24,11 @@ registry-run: build
 test:
 	go test -race ./...
 
-# The builder-preview evaluator against the shared form vectors (#193). Node
-# isn't part of the toolchain or CI, so this is opt-in: needs Node 18+.
+# The staff web JavaScript: the form evaluator against the shared vectors
+# (#193) and the Forms tab and builder (#195). Needs Node 18+; CI runs it in
+# the go job.
 test-js:
-	node --test web/forms-eval.test.js
+	node --test web/*.test.js
 
 vet:
 	go vet ./...

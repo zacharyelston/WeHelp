@@ -45,6 +45,13 @@ jobs:
       - name: Import boundaries
         run: go test -run TestImportBoundary ./cmd/wehelp-relay ./cmd/wehelp-registry
       - run: go test -race ./...
+      # The staff web JavaScript (#195): the form evaluator against the shared
+      # vectors in testdata/forms and the Forms tab tests. No packages.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Staff web JavaScript tests
+        run: node --test web/*.test.js
 
   ios:
     runs-on: macos-15
