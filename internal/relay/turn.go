@@ -53,6 +53,9 @@ type TURNOptions struct {
 	MaxTotalVisits int
 	MaxAllocs      int // allocations per visit credential; default 8
 	MaxLife        time.Duration
+	// OnVisitEnded, if set, gets each visit's usage as it's logged
+	// (turn_usage.go). For tests and metrics.
+	OnVisitEnded func(VisitUsage)
 }
 
 const (
@@ -73,6 +76,7 @@ type turnState struct {
 	visits map[string]map[string]int // keyID → token → live allocations
 	limits map[string]int            // keyID → visit cap from the office list; absent = opt.MaxVisits
 	total  int
+	usage  *usage // bytes per visit (turn_usage.go)
 	done   chan struct{}
 }
 
@@ -94,7 +98,7 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 		opt.MaxLife = turnMaxCredLife
 	}
 	ts := &turnState{opt: opt, allocs: map[string]int{}, visits: map[string]map[string]int{}, limits: map[string]int{},
-		done: make(chan struct{})}
+		usage: newUsage(), done: make(chan struct{})}
 
 	gen := func() turn.RelayAddressGenerator {
 		return &turn.RelayAddressGeneratorPortRange{RelayAddress: opt.PublicIP, Address: "0.0.0.0",
@@ -113,7 +117,7 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 		udp.Close()
 		return fmt.Errorf("relay: TURN TCP: %w", err)
 	}
-	listeners := []turn.ListenerConfig{{Listener: tcp, RelayAddressGenerator: gen(), PermissionHandler: perm}}
+	listeners := []turn.ListenerConfig{{Listener: countingListener{tcp, ts.usage}, RelayAddressGenerator: gen(), PermissionHandler: perm}}
 	if opt.TLSAddr != "" && opt.TLSConfig != nil {
 		tl, err := tls.Listen("tcp4", opt.TLSAddr, opt.TLSConfig)
 		if err != nil {
@@ -121,7 +125,7 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 			tcp.Close()
 			return fmt.Errorf("relay: TURN TLS: %w", err)
 		}
-		listeners = append(listeners, turn.ListenerConfig{Listener: tl, RelayAddressGenerator: gen(), PermissionHandler: perm})
+		listeners = append(listeners, turn.ListenerConfig{Listener: countingListener{tl, ts.usage}, RelayAddressGenerator: gen(), PermissionHandler: perm})
 	}
 	lf := logging.NewDefaultLoggerFactory()
 	lf.DefaultLogLevel = logging.LogLevelWarn
@@ -133,11 +137,19 @@ func (r *Relay) StartTURN(opt TURNOptions) error {
 		AllocationLifetime: turnAllocLife,
 		PermissionTimeout:  turnPermLife,
 		ChannelBindTimeout: turnChannelLife,
-		PacketConnConfigs:  []turn.PacketConnConfig{{PacketConn: udp, RelayAddressGenerator: gen(), PermissionHandler: perm}},
+		PacketConnConfigs:  []turn.PacketConnConfig{{PacketConn: countingPacketConn{udp, ts.usage}, RelayAddressGenerator: gen(), PermissionHandler: perm}},
 		ListenerConfigs:    listeners,
 		EventHandler: turn.EventHandler{
-			OnAllocationCreated: func(_, _ net.Addr, _, userID, _ string, _ net.Addr, _ int) { ts.track(userID, +1) },
-			OnAllocationDeleted: func(_, _ net.Addr, _, userID, _ string) { ts.track(userID, -1) },
+			OnAllocationCreated: func(src, _ net.Addr, _, userID, _ string, _ net.Addr, _ int) {
+				ts.usage.allocated(src, userID, r.cfg.Now())
+				ts.track(userID, +1)
+			},
+			OnAllocationDeleted: func(src, _ net.Addr, _, userID, _ string) {
+				ts.usage.released(src)
+				if keyID, gone := ts.track(userID, -1); gone {
+					r.visitEnded(ts, keyID, userID)
+				}
+			},
 		},
 	})
 	if err != nil {
@@ -244,10 +256,12 @@ func (ts *turnState) quota(userID, _ string, _ net.Addr) bool {
 	return true
 }
 
-func (ts *turnState) track(userID string, d int) {
+// track counts an allocation in or out. It returns the key ID and whether
+// that was the visit's last allocation.
+func (ts *turnState) track(userID string, d int) (string, bool) {
 	keyID, token, ok := strings.Cut(userID, ":")
 	if !ok {
-		return
+		return "", false
 	}
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -262,12 +276,14 @@ func (ts *turnState) track(userID string, d int) {
 		ts.visits[keyID] = v
 	}
 	v[token] += d
-	if v[token] <= 0 {
+	gone := v[token] <= 0
+	if gone {
 		delete(v, token)
 	}
 	if len(v) == 0 {
 		delete(ts.visits, keyID)
 	}
+	return keyID, gone
 }
 
 // TURNStats is a snapshot for logs and metrics: counts only, no addresses.

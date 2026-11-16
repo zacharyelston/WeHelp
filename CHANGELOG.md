@@ -16,6 +16,12 @@ All notable changes to WeHelp are documented here. Format follows
   volume. The demo topology now runs a fresh Registry on Barnacle on :8090,
   with the Relay and the office re-registered (new key and IDs; phones
   re-pair).
+- The Relay logs each video visit's TURN usage when its last allocation
+  goes: `relay: TURN visit ended` with the office, the duration, bytes in
+  and out, average kbit/s, and the allocation count. Counts only, no
+  addresses or credentials. TURN's client sockets are wrapped to count bytes
+  by the phone's address. `docs/RELAY.md` also records the first measured
+  visit on Barnacle: about 2.2 Mbit/s each way at the Relay.
 
 ### Fixed
 - iOS: a push that arrives while the app is open refreshes the messages
