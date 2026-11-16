@@ -10,6 +10,14 @@ local repository collection with notebooks. Postgres clinical indexes are
 derived/rebuildable; security audit/identity/workflow remain DB authorities.
 There is no independent writable DB clinical source in the migrated mode.
 
+**Where it runs (owner, 2026-11-16):** the Back Office is for scheduling
+and daily administration. Clinical records, notebooks and clinical access
+decisions go in a separate **Data Science & Security module** on the same
+office host, reached only through the Back Office. The boundary is in
+[DATA_MODULE.md](DATA_MODULE.md). Where this plan and the specs below say
+"the Back Office" for clinical storage, queries or review, read "the module".
+Its skeleton and the access authority come before the tracks below.
+
 ## One workflow, three tracks
 
 | Track | Work | Output and boundary |

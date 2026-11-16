@@ -10,6 +10,12 @@ Read with [PATIENT_NOTEBOOKS.md](PATIENT_NOTEBOOKS.md),
 [SECURITY.md](SECURITY.md). Prior art and Git's transaction limitations
 are recorded in [LIT_REVIEW.md](LIT_REVIEW.md).
 
+**Owner, 2026-11-16:** the patient Git collections live in the Data
+Science & Security module, not in `wehelpd` ([DATA_MODULE.md](DATA_MODULE.md)).
+Under that boundary, appointments, requests and message events stay Back
+Office database authorities. The `record` repository holds clinical
+relationships, access facts and clinical content only.
+
 Implementation epic #220: #221 collection/adapter, #222 audited publication
 and recovery, #223 verified projections and #224 conversion/migration/restore.
 Notebook epic #212 and questionnaire/health-data sources depend on that

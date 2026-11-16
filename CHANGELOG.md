@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- V2 Data Science & Security module design (`docs/DATA_MODULE.md`). The
+  Back Office keeps scheduling and daily administration. Clinical records,
+  notebooks and clinical access decisions move to a separate binary on the
+  same host, reached only through the Back Office over mutual TLS.
 - V2 authoritative patient Git collections and notebook/intake processing
   specifications: local manifest/component repositories, audited publication
   and recovery, verified rebuildable Postgres indexes and explicit migration;
