@@ -1,10 +1,17 @@
 # Kiosk interventions and questionnaires: Interventionaire and the demo
 
+> **Superseded for design (2026-11-16):** questionnaires are now designed in
+> [../QUESTIONNAIRES.md](../QUESTIONNAIRES.md). That covers WeHelp's own
+> FHIR-shaped form format, the patient app and the kiosk, a staff web
+> builder, assignments and standard instruments. The Interventionaire
+> renewal is `interventionaire-v2` (a web stack), not an iOS app. This note
+> stays as background on Interventionaire and for the demo script.
+
 The in-office kiosk iPad (#8) is post-V1. This note covers the questionnaire
 and intervention tooling it would run. The design comes from
-**Interventionaire**, a separate project that is itself being renewed as an
-iOS app. The kiosk copies design ideas from Interventionaire as it renews, so
-keep this note in step with it.
+**Interventionaire**, a separate project that is itself being renewed. The
+kiosk copies design ideas from Interventionaire as it renews, so keep this
+note in step with it.
 
 This note summarises what Interventionaire does, what the kiosk takes from
 it, how the result fits the Back Office without breaking the rule that

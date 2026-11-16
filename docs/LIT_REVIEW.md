@@ -190,14 +190,29 @@ care. Verdicts are provisional until the work issues are specified.
 | Salon booking apps (e.g. Square Appointments, Vagaro, Fresha) | **reference** to study: booking, reminders, a client list, retail and a staff picker. Salons are not HIPAA covered entities; they need the same app with plainer words and no clinical features |
 | Feature-flag services (LaunchDarkly and similar) | **skip**: a few practice and provider switches stored in the Back Office are enough; no new infrastructure |
 
-## Questionnaires and kiosk content (post-V1, #82)
+## Questionnaires, intake forms and eCOA (#82, design in [QUESTIONNAIRES.md](QUESTIONNAIRES.md))
+
+Reviewed 2026-11-16, when questionnaires became WeHelp's main feature set
+beyond scheduling and messaging. These are custom intake forms and
+eCOA-style captures: patient-reported (ePRO) at home on the phone or in the
+office on a kiosk, assigned on schedules, using standard instruments with
+their scoring.
 
 | Candidate | Verdict |
 |---|---|
-| Interventionaire (in-house; legacy AdonisJS + MySQL + AngularJS, being renewed as an iOS app) | **reference, and possibly the authoring tool**: the kiosk copies its design (booklets, sections, pages, branches, element types, style books, proctored runs) and follows the renewal. Content may arrive as a signed JSON bundle. Never run in the practice; its `eval` branching and answer storage are not carried over. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
-| FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **evaluate in #82**: the standard shape; `enableWhen` covers simple branching. Maps onto #26 later |
-| SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
-| Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
+| Interventionaire (in-house). Legacy: AdonisJS + MySQL + AngularJS. Renewal: `interventionaire-v2`, NestJS + Prisma + React, PostgreSQL, OIDC, MIT | **reference for design, not a dependency or a format.** WeHelp copies the shape: sections and pages, branches between sections, element types, themes, proctored runs. v2's pages are rich-text HTML, with branch rules as expression strings. That suits interventions, but not coded, scored items, so WeHelp has its own item model. v2 never runs in a practice and never receives answers. Importing from v2 can come later as a converter. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
+| FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **adopt the shape, not the wire format.** WeHelp's form definition maps one to one onto a subset: `item` with `linkId`, `type`, `code`, `answerOption` (with `ordinalValue` for scores), `enableWhen` and `initial`. Export to FHIR comes with #26. FHIR itself isn't stored: it's verbose, and its full expression features need FHIRPath |
+| HL7 SDC (Structured Data Capture) IG | **reference** for what to map later: `calculatedExpression` and `variable` (scoring), `itemControl` (slider, drop-down), `entryMode` (sequential, prior-edit). **Rejected as the engine:** SDC expressions are FHIRPath or CQL strings, and evaluating them safely on both Go and Swift is too much. WeHelp uses a small JSON expression tree instead |
+| NLM LHC-Forms | **reference**: a JavaScript renderer for FHIR Questionnaires, with a public library of loaded instruments to check our builds against. Not used: the walker is native SwiftUI, and the staff web has no framework |
+| SurveyJS | **reference** for the builder's UX and its expression ideas (`visibleIf`, `calculatedValues`). The library is MIT, but the Creator (builder) is commercial. Not used |
+| Apple ResearchKit (BSD) | **reference, not a dependency**: its step and navigation-rule model and its consent and active tasks are a good map of what eCOA on iOS needs. It's UIKit-era and much larger than we need, so the walker is SwiftUI |
+| CDISC ODM, REDCap data dictionary | **reference** for exporting data to research tools later. Out of scope now |
+| FDA PRO guidance, ISPOR ePRO good practice (faithful migration of paper instruments, measurement equivalence) | **adopt the principles for standard instruments.** Wording, answer order and recall period stay as published. One item per screen where the source does so. Timestamps on every answer. No back-filling outside the completion window. Built-in instruments are read-only in the builder |
+| 21 CFR Part 11 (electronic records: audit trails, attributable corrections) | **reference; partly met by design.** Submitted answers are append-only and audited by `audit.Record`. Staff corrections with reasons are deferred to a later release |
+| PHQ-9, GAD-7 (and their 2-item short forms), Pfizer | **adopt**: no permission is needed to reproduce, translate, display or distribute them. Ship them with LOINC codes and published scoring |
+| PROMIS (HealthMeasures) | **later**: free, but under terms of use, and the CAT versions need IRT scoring. Fixed short forms could follow once the terms are reviewed |
+| EQ-5D and other licensed instruments | **reject for built-ins**: licence fees and registration. A practice could hold its own licence and build the form itself |
+| Open mHealth (IEEE 1752) | already **reference** for check-ins (#21). Scored instruments map to FHIR `Observation`, not OMH |
 
 ## Non-Go prior art worth knowing
 
