@@ -23,6 +23,17 @@ All notable changes to WeHelp are documented here. Format follows
   by the phone's address. `docs/RELAY.md` also records the first measured
   visit on Barnacle: about 2.2 Mbit/s each way at the Relay.
 
+- `wehelpd doctor` and `appliance.sh doctor` (#81): the go-live checks a
+  machine can check.
+  - **Host:** FileVault, automatic login, Postgres on loopback only.
+  - **Back Office:** office keys and modes, the Registry install, the Relay
+    tunnel, the audit chain, a good backup under 26 hours old, a field
+    build with no seed accounts, and staff HTTPS from the office CA.
+  - One PASS, FAIL or SKIP line per check, or `--json`. It exits non-zero
+    on any FAIL, with no patient data. The quarterly restore test stays
+    manual (SKIP).
+  - `/readyz` now also reports the Relay tunnel (`relay`: connected, down
+    or off).
 - A training seed profile (#80): `wehelpd seed --profile training`
   (`appliance.sh seed training` on a demo host) adds a synthetic week at a
   naturopath office to Demo Clinic. That's 3 providers, a front desk and an

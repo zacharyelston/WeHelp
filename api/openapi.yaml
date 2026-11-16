@@ -1130,6 +1130,12 @@ paths:
                   status:
                     type: string
                     example: ok
+                  relay:
+                    type: string
+                    enum: [connected, down, "off"]
+                    description: |
+                      The Relay tunnel, for wehelpd doctor (#81). "off" when
+                      the office runs without a tunnel.
         "503":
           description: DB unreachable
           content:

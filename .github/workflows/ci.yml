@@ -80,7 +80,8 @@ jobs:
           [ "$(docker inspect -f '{{.Config.User}}' wehelpd:field)" = "65532" ] || { echo "image runs as root"; exit 1; }
           id=$(docker create wehelpd:field) && docker cp "$id":/usr/local/bin/wehelpd /tmp/wehelpd && docker rm "$id"
           if strings /tmp/wehelpd | grep -E 'wehelp-demo-|@demo\.wehelp'; then echo "demo logins in the field binary"; exit 1; fi
-          if docker run --rm wehelpd:field seed 2>&1 | grep -q 'Seed a demo'; then echo "seed command in the field image"; exit 1; fi
+          # The field image must not know the command at all (not tied to its help text).
+          if ! docker run --rm wehelpd:field seed 2>&1 | grep -q 'unknown command "seed"'; then echo "seed command in the field image"; exit 1; fi
           echo "field image ok"
 
   openapi:

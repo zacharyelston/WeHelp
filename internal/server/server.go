@@ -64,7 +64,16 @@ func (s *Server) Router() chi.Router {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "db unreachable"})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		// The Relay tunnel's state, for wehelpd doctor (#81): "connected",
+		// "down", or "off" when this office runs without a tunnel.
+		relay := "off"
+		if c, ok := s.pusher.(interface{ Connected() bool }); ok {
+			relay = "down"
+			if c.Connected() {
+				relay = "connected"
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "relay": relay})
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
