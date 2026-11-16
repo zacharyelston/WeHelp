@@ -86,25 +86,40 @@ host set up on 2026-11-16. It's registered with Barnacle's Registry as
    `/var/lib/docker` through `/etc/fstab`, so containers and Postgres
    don't share the root filesystem.
 3. **Clone, `.env`, office identity:** as for the Mac (steps 6–7 above).
-   `demo-setup` can't find the LAN address on Linux (it uses macOS
-   `ipconfig`), so set `WEHELP_STAFF_HOSTS` in `deploy/.env` first, for
-   example `miniz-7-16.local,localhost,192.168.1.65`.
-4. **Release upgrades:** MiniZ stays on its LTS release
+   `demo-setup` takes the LAN address from the default route
+   (`ip -4 route get 1`, falling back to the first IPv4 of `hostname -I`)
+   for `WEHELP_STAFF_HOSTS`.
+4. **Nightly backups:** `deploy/appliance.sh install-backup`, run as the
+   service user (it asks for sudo). It installs a system service and timer,
+   `/etc/systemd/system/wehelp-backup.{service,timer}`, that run
+   `appliance.sh backup` as that user at 02:30 every night, like the launchd
+   job on a Mac. `Persistent=true` runs a missed backup at the next boot,
+   and a system timer runs without anyone logged in. Check it with
+   `systemctl list-timers wehelp-backup.timer`; the log is
+   `journalctl -u wehelp-backup`. Backups go to `~/WeHelpBackups` of that
+   user, as on a Mac ([BACKUPS.md](BACKUPS.md)).
+5. **Release upgrades:** MiniZ stays on its LTS release
    (`Prompt=never` in `/etc/update-manager/release-upgrades`). Patch it
    with `apt full-upgrade`.
 
 **After a reboot:** Docker starts at boot and the `unless-stopped`
 containers come back without a login. MiniZ answered `/readyz` with the
-Relay connected about 45 seconds after a reboot. No boot job is needed.
+Relay connected about 45 seconds after a reboot. No boot job is needed, so
+`install-login` stays macOS-only.
 
-**What's macOS-only for now:**
-- `install-login` and `install-backup` (launchd). There's no nightly backup
-  job on Linux yet; run `appliance.sh backup` by hand.
-- Doctor's `filevault` and `auto_login` checks report SKIP.
+**Doctor on Linux** keeps the macOS check names, so reports line up:
+- `filevault` checks disk encryption. It finds the filesystem holding
+  Docker's data (`docker info` DockerRootDir, normally `/var/lib/docker`)
+  and passes when its block-device chain (`lsblk -s`) has a `crypt`
+  (LUKS/dm-crypt) layer.
+- `auto_login` fails when GDM has `AutomaticLoginEnable` or
+  `TimedLoginEnable` set in `/etc/gdm3/custom.conf`, or a getty override
+  under `/etc/systemd/system/getty@*.service.d/` uses `--autologin`.
 
-**A field install on Linux** would also need full-disk encryption (LUKS)
-and a systemd timer for backups. MiniZ has neither by design: it's a test
-host with synthetic data, and it's wiped after V1.
+**A field install on Linux** needs full-disk encryption (LUKS) under
+Docker's data, so `filevault` passes. MiniZ has none by design: it's a test
+host with synthetic data, wiped after V1, and its doctor reports
+`filevault` FAIL.
 
 ## After a reboot
 
@@ -266,8 +281,8 @@ prints no patient data, and fixes nothing.
 
 | Check | Where | Passes when |
 |---|---|---|
-| `filevault` | host | FileVault is on (macOS; SKIP elsewhere) |
-| `auto_login` | host | automatic login is off (macOS; SKIP elsewhere) |
+| `filevault` | host | macOS: FileVault is on. Linux: Docker's data is on LUKS (dm-crypt). SKIP elsewhere |
+| `auto_login` | host | automatic login is off (macOS login window; Linux GDM and getty). SKIP elsewhere |
 | `postgres_loopback` | host | the db container publishes Postgres on 127.0.0.1 only, or not at all |
 | `office_keys` | Back Office | the office directory is 0700 and its private keys 0600 |
 | `registry_install` | Back Office | the office is installed with the Registry |
