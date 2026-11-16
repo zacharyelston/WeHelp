@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UserNotifications
 
@@ -22,13 +23,41 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     // Show pushes while the app is open too (Swift 6: nonisolated; spike S3).
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async
         -> UNNotificationPresentationOptions {
-        [.banner, .sound, .list]
+        // The push carries no details: tell the open screens to fetch now,
+        // so the banner and the screen agree.
+        await MainActor.run { NotificationCenter.default.post(name: .weHelpPushArrived, object: nil) }
+        return [.banner, .sound, .list]
     }
 }
 
 extension Notification.Name {
+    /// A push arrived while the app is open: on-screen lists refresh now.
+    static let weHelpPushArrived = Notification.Name("WeHelpPushArrived")
     /// The hex APNs token, from the app delegate to AppState.
     static let weHelpPushToken = Notification.Name("WeHelpPushToken")
+}
+
+/// Runs `action` when a push arrives while the app is open, and when the
+/// app comes back to the foreground (for example from tapping the push).
+private struct RefreshOnPush: ViewModifier {
+    @Environment(\.scenePhase) private var scenePhase
+    let action: () async -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .weHelpPushArrived)) { _ in
+                Task { await action() }
+            }
+            .onChange(of: scenePhase) { old, new in
+                if new == .active && old != .active { Task { await action() } }
+            }
+    }
+}
+
+extension View {
+    func refreshOnPush(_ action: @escaping () async -> Void) -> some View {
+        modifier(RefreshOnPush(action: action))
+    }
 }
 
 enum Push {

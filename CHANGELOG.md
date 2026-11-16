@@ -18,6 +18,10 @@ All notable changes to WeHelp are documented here. Format follows
   re-pair).
 
 ### Fixed
+- iOS: a push that arrives while the app is open refreshes the messages
+  list, the open conversation and appointments at once. Before, the banner
+  arrived instantly but the screen waited for its 10–15 s timer. Coming
+  back to the app (for example by tapping the push) refreshes them too.
 - iOS: the "Can't reach" screen always offers pairing a practice, not only
   with two or more. A phone with one practice whose Relay moved was stuck on
   that screen with only "Try again".
