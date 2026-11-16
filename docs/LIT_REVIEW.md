@@ -199,6 +199,24 @@ care. Verdicts are provisional until the work issues are specified.
 | SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
 | Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
 
+## WeHelp Home: base station, cameras, location (Post-V1, HOME.md)
+
+Reviewed 2026-11-16 at design level. Versions, licences and maintenance
+are checked again when each issue is specified.
+
+| Candidate | Verdict |
+|---|---|
+| go2rtc (camera streaming: RTSP/ONVIF in, WebRTC out; MIT) | **evaluate first** in spike H1, as a container behind `wehelpd`. It's widely used as Frigate's and Home Assistant's stream layer |
+| Frigate (local NVR with motion and person detection; MIT) | **evaluate later**, optional, for detection and recording. It needs more CPU, or a Coral or GPU, so it doesn't belong in the first base station |
+| Home Assistant's remote access through Nabu Casa | **reference.** It's the closest prior art to our Relay: a cloud proxy that passes TLS through to the home by SNI, so the cloud can't read traffic. It confirms the model for consumers. We don't adopt Home Assistant itself: smart-home control is out of scope |
+| Tailscale, WireGuard or port forwarding for remote access | **reject for families.** Each needs per-device setup or router changes. The base station's outbound tunnel to the Relay needs neither |
+| Ubiquiti Protect, Reolink NVRs (local-first camera systems) | **reference.** Local recording with remote view is a product families already buy; the gap is private chat, calendar and location in the same place |
+| Life360, Apple Find My, Google Family Link location | **reference** for features: geofence arrivals, stale positions, pausing. They keep location in the vendor's cloud; ours stays on the base station |
+| SquadZ (`~/code/squadz`: Rust/Axum, Next.js, join codes, live map) | **reference.** It's our own earlier take on location sharing. Its join-code and stale-detection ideas carry over; its code doesn't (another stack, no device keys) |
+| WebRTC ICE with STUN, and TURN through the Relay | **adopt.** It's the same stack as video visits. Spike H1 measures how often remote camera viewing needs TURN, which sets the Relay's cost |
+| ONVIF Profile S/T | **adopt** for camera discovery and streams, alongside plain RTSP |
+| COPPA (16 CFR 312), the GDPR's rules for children, App Store and Google Play rules for children's apps | **reference; legal review before launch.** Data stays on the family's base station and the parent consents at setup, but store rules (no analytics or ads, parental gates) apply regardless |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all
