@@ -246,11 +246,28 @@ the Relay's TURN server, which forwards ciphertext only. TURN is off until
 - **Bandwidth, not CPU, is the cost:** allow about 5 Mbit/s each way per
   concurrent 720p visit. When both phones are in the office, the media goes
   office → Relay → office. A visit costs a few percent of a core (S2).
+  Measured on Barnacle (M1 mini, two iPhones on one Wi-Fi, 4 m 32 s, 720p):
+  about 74 MB each way, about 2.2 Mbit/s each way at the Relay, or about
+  1.1 Mbit/s per phone each way. That's about 2 GB in and 2 GB out per
+  visit-hour at the Relay, and about 1 GB per hour of a phone's data. The 5
+  Mbit/s allowance leaves room for better networks and peaks.
 - **Rotating the master secret:** stop the Relay, delete `turn.secret`, and
   start it. Each office gets its new key on its next connect, so restart
   the offices' tunnels too, or wait for them to reconnect.
 - **Logs:** a line a minute with live allocation and visit counts while any
   are live. No addresses or usernames.
+- **Usage per visit:** when a visit's last allocation goes, a
+  `relay: TURN visit ended` line gives the office, the duration (first
+  allocation to last byte), `bytes_in` (phones → TURN), `bytes_out`
+  (TURN → phones), the average `kbps_in` and `kbps_out`, and the number of
+  allocations. Bytes are counted on TURN's client sockets (UDP, TCP and
+  TLS) and include TURN framing. The hop between the two phones'
+  allocations stays on this host and isn't counted. If both phones drop
+  and rejoin, that's two lines. To total a load test:
+
+  ```bash
+  grep 'TURN visit ended' ~/.wehelp/relay/logs/relay-$(date -u +%F).log
+  ```
 
 ```bash
 WEHELP_RELAY_TURN_PUBLIC_IP=192.168.1.20 bin/wehelp-relay serve
