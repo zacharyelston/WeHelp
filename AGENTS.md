@@ -11,6 +11,9 @@ backlog in alzacai/WeHelp was copied over and is referenced as
   + verification included). Avoid `needs-spec` issues.
 - Milestones define order: `V1-M0` … `V1-M7`, plus the parallel `V1-OBS`
   track. `Post-V1` is deliberately deferred.
+- `V2: …` milestones (questionnaires, `docs/QUESTIONNAIRES.md`) are in
+  design. Don't pick them up while finishing V1, even if one is labeled
+  `agent-ready`, unless the owner asks for it.
 - Task format and workflow rules: `CONTRIBUTING.md` and
   `.github/ISSUE_TEMPLATE/task.md`.
 - Read before designing or touching `internal/`:

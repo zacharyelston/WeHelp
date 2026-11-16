@@ -285,6 +285,12 @@ bands out. The test checks it against the published scoring.
 
 ## Order of work (one PR each)
 
+Filed in the **V2: Questionnaires** milestone, under the epic #201: #193
+(format), #194 (forms API), #195 (builder), #196 (assignments), #197
+(responses), #198 (patient walker), #199 (instruments) and #200 (kiosk).
+They stay `spec-review` (and #200 `needs-spec`) until this design is
+approved, so V1 work doesn't pick them up.
+
 1. **Form format:** the `wehelp.form.v1` JSON Schema, a Go validator and
    evaluator (rules, scores, missing policies), and shared test vectors in
    `testdata/forms/`.
