@@ -22,11 +22,23 @@ All notable changes to WeHelp are documented here. Format follows
   list, the open conversation and appointments at once. Before, the banner
   arrived instantly but the screen waited for its 10–15 s timer. Coming
   back to the app (for example by tapping the push) refreshes them too.
+- A front-desk or admin booking links the provider and patient. Booking
+  needed an active link, but a patient the front desk or an admin added was
+  linked to no one, and a provider's email invite stays pending (the app
+  can't accept it), so such a patient could never be booked. Now the
+  booking makes the link, or activates a pending invite, in the same
+  transaction, audited as `link.create` (`via: booking`). A revoked link
+  stays revoked (409). Providers still book only their linked patients.
 - iOS: the "Can't reach" screen always offers pairing a practice, not only
   with two or more. A phone with one practice whose Relay moved was stuck on
   that screen with only "Try again".
 
 ### Changed
+- Demo practices don't lock the app. A demo build of the office (build tag
+  `demo`, as on Barnacle) answers `/me` with `demo: true`. The app then
+  skips its Face ID or passcode lock for that practice, so testers can use
+  borrowed phones. Switching to a real practice shows the lock again. A
+  practice's Back Office is never a demo build, so it always locks.
 - `appliance.sh init-office` passes the install token to the container by
   name, so it never appears in a command line (#182).
 - The dev `registry` Compose profile publishes Postgres on 127.0.0.1:5433

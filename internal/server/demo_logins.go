@@ -10,6 +10,7 @@ import (
 
 // Demo builds only (#161): the fixed demo logins for the sign-in page.
 func init() {
+	demoBuild = true
 	logins, _ := json.Marshal([]map[string]string{
 		{"label": "provider", "email": seed.ProviderEmail, "password": seed.ProviderPassword},
 		{"label": "admin", "email": seed.AdminEmail, "password": seed.AdminPassword},

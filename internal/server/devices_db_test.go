@@ -75,9 +75,18 @@ func TestDeviceManagement(t *testing.T) {
 	if code := refreshWith(phoneSide, phoneB, sessB["refresh_token"].(string)); code != http.StatusUnauthorized {
 		t.Errorf("revoked device refreshed: %d", code)
 	}
-	if code, _ := a.do("GET", "/me", nil); code != http.StatusOK {
+	if code, me := a.do("GET", "/me", nil); code != http.StatusOK {
 		t.Errorf("A stopped working: %d", code)
+	} else if _, has := me["demo"]; has != demoBuild {
+		t.Errorf("/me demo = %v, want present only in a demo build (%v)", me["demo"], demoBuild)
 	}
+	// A demo build tells the app to skip its lock.
+	was := demoBuild
+	demoBuild = true
+	if _, me := a.do("GET", "/me", nil); me["demo"] != true {
+		t.Errorf("demo build /me demo = %v, want true", me["demo"])
+	}
+	demoBuild = was
 	if code := refreshWith(phoneSide, phoneA, sessA["refresh_token"].(string)); code != http.StatusOK {
 		t.Errorf("A refresh: %d", code)
 	}

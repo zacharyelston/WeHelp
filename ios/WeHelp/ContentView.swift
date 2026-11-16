@@ -67,7 +67,9 @@ struct SettingsView: View {
                 Section {
                     Button("Lock now", systemImage: "lock") { lock.lock() }
                 } footer: {
-                    Text("WeHelp locks whenever you leave it; Face ID or your passcode opens it again. This device stays paired with your practice. Only the practice can remove it.")
+                    Text(appState.me?.demo == true
+                         ? "Demo practice: WeHelp doesn't lock, so testers can use borrowed devices. A real practice always asks for Face ID or your passcode."
+                         : "WeHelp locks whenever you leave it; Face ID or your passcode opens it again. This device stays paired with your practice. Only the practice can remove it.")
                 }
                 Section {
                     NavigationLink("Third-party licences") { LicencesView() }
