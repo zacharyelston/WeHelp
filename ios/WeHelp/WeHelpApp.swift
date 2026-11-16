@@ -20,6 +20,10 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var lock = AppLock()
 
+    /// A demo office (its /me says demo) skips the lock, so testers can use
+    /// borrowed phones. Switching to a real practice shows the lock again.
+    private var lockRequired: Bool { appState.me?.demo != true }
+
     var body: some View {
         switch appState.phase {
         case .launching:
@@ -35,15 +39,18 @@ struct RootView: View {
                 // not active so the app-switcher snapshot shows nothing, and
                 // require Face ID or the passcode to see them (#37).
                 .overlay {
-                    if lock.locked { LockView(lock: lock) } else if scenePhase != .active { PrivacyCover() }
+                    if lock.locked && lockRequired { LockView(lock: lock) } else if scenePhase != .active { PrivacyCover() }
                 }
                 .task {
-                    await lock.unlock()
+                    if lockRequired { await lock.unlock() }
                     await Push.enable() // permission once, then the token goes to every practice (#7)
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .background { lock.lock() }
-                    if phase == .active { Task { await lock.unlock() } }
+                    if phase == .active && lockRequired { Task { await lock.unlock() } }
+                }
+                .onChange(of: lockRequired) { _, required in
+                    if required { Task { await lock.unlock() } }
                 }
         }
     }
