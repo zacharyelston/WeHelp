@@ -1,0 +1,389 @@
+{
+ "description": "Invalid definitions: each file has one problem. path and kind are what Parse reports. shared cases are also refused by web/forms-eval.js with the same path and kind.",
+ "cases": [
+  {
+   "file": "not-json.json",
+   "path": "",
+   "kind": "json",
+   "shared": false
+  },
+  {
+   "file": "not-object.json",
+   "path": "",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "wrong-format.json",
+   "path": "format",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "missing-title.json",
+   "path": "title",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "unknown-top-field.json",
+   "path": "version",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "unknown-item-field.json",
+   "path": "sections[0].pages[0].items[1].colour",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "field-for-other-type.json",
+   "path": "sections[0].pages[0].items[1].options",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "unknown-item-type.json",
+   "path": "sections[0].pages[0].items[1].type",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "no-sections.json",
+   "path": "sections",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "empty-page.json",
+   "path": "sections[1].pages[0].items",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "bad-control.json",
+   "path": "sections[0].pages[0].items[1].control",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "slider-without-bounds.json",
+   "path": "sections[0].pages[0].items[1].control",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "min-above-max.json",
+   "path": "sections[0].pages[0].items[1].min",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "fraction-on-integer.json",
+   "path": "sections[0].pages[0].items[1].max",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "number-exponent.json",
+   "path": "sections[0].pages[0].items[1].max",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "number-too-many-digits.json",
+   "path": "sections[0].pages[0].items[1].max",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "bad-date-bound.json",
+   "path": "sections[0].pages[1].items[1].max",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "required-display.json",
+   "path": "sections[0].pages[1].items[2].required",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "maxlength-too-big.json",
+   "path": "sections[1].pages[0].items[0].maxLength",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "media-url.json",
+   "path": "sections[0].pages[1].items[2].media.asset",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "bad-id.json",
+   "path": "sections[0].pages[0].items[1].id",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "reserved-id.json",
+   "path": "sections[1].id",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "default-next-not-last.json",
+   "path": "sections[0].next[0]",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "prorate-without-minimum.json",
+   "path": "scores[0].missing.minAnswered",
+   "kind": "schema",
+   "shared": false
+  },
+  {
+   "file": "bands-not-increasing.json",
+   "path": "scores[0].bands[1].min",
+   "kind": "range",
+   "shared": false
+  },
+  {
+   "file": "duplicate-option.json",
+   "path": "sections[0].pages[1].items[3].options",
+   "kind": "duplicate",
+   "shared": true
+  },
+  {
+   "file": "duplicate-id.json",
+   "path": "sections[0].pages[1].items[1].id",
+   "kind": "duplicate",
+   "shared": true
+  },
+  {
+   "file": "duplicate-score-id.json",
+   "path": "scores[1].id",
+   "kind": "duplicate",
+   "shared": true
+  },
+  {
+   "file": "dangling-answer.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.eq[0].answer",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "dangling-score.json",
+   "path": "scores[1].expr.mul[0].score",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "dangling-next.json",
+   "path": "sections[0].next[0].section",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "answer-of-page.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.answered",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "forward-item-rule.json",
+   "path": "sections[0].pages[0].items[0].enableWhen.answered",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "page-rule-on-own-page.json",
+   "path": "sections[0].pages[1].enableWhen.answered",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "next-rule-on-later-section.json",
+   "path": "sections[0].next[0].when.answered",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "next-backward.json",
+   "path": "sections[1].next[0].section",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "next-self.json",
+   "path": "sections[0].next[0].section",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "score-cycle.json",
+   "path": "scores[0].expr.add[0].score",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "score-self.json",
+   "path": "scores[0].expr.add[0].score",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "rule-on-later-score.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.gt[0].score",
+   "kind": "order",
+   "shared": true
+  },
+  {
+   "file": "unknown-operator.json",
+   "path": "sections[0].pages[1].items[0].enableWhen",
+   "kind": "operator",
+   "shared": true
+  },
+  {
+   "file": "two-operators.json",
+   "path": "sections[0].pages[1].items[0].enableWhen",
+   "kind": "operator",
+   "shared": true
+  },
+  {
+   "file": "wrong-arity.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.eq",
+   "kind": "operator",
+   "shared": true
+  },
+  {
+   "file": "arithmetic-in-rule.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.gt[0].add",
+   "kind": "operator",
+   "shared": true
+  },
+  {
+   "file": "compare-number-with-string.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.eq[1]",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "rule-not-boolean.json",
+   "path": "sections[0].pages[1].items[0].enableWhen",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "order-strings.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.lt",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "unknown-option-in-rule.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.eq[1]",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "unknown-option-in-in.json",
+   "path": "sections[1].pages[0].items[0].enableWhen.in[2]",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "in-with-expression.json",
+   "path": "sections[1].pages[0].items[0].enableWhen.in[1]",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "multiple-choice-eq.json",
+   "path": "sections[1].pages[0].items[0].enableWhen.eq[0]",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "bad-date-literal.json",
+   "path": "sections[1].pages[0].items[0].enableWhen.lt[1]",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "display-in-rule.json",
+   "path": "sections[1].pages[0].items[0].enableWhen.answered",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "score-not-number.json",
+   "path": "scores[0].expr",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "scoreof-unscored.json",
+   "path": "scores[0].expr.scoreOf",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "scoreof-not-choice.json",
+   "path": "scores[0].expr.scoreOf",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "round-places.json",
+   "path": "scores[0].expr.round[1]",
+   "kind": "range",
+   "shared": true
+  },
+  {
+   "file": "round-places-expression.json",
+   "path": "scores[0].expr.round[1]",
+   "kind": "range",
+   "shared": true
+  },
+  {
+   "file": "literal-too-many-digits.json",
+   "path": "scores[0].expr.add[1].num",
+   "kind": "range",
+   "shared": true
+  },
+  {
+   "file": "literal-too-many-decimals.json",
+   "path": "scores[0].expr.add[1].num",
+   "kind": "range",
+   "shared": true
+  },
+  {
+   "file": "count-display.json",
+   "path": "scores[0].expr.count[1]",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "too-deep.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not.not",
+   "kind": "depth",
+   "shared": true
+  },
+  {
+   "file": "too-many-nodes.json",
+   "path": "sections[0].pages[1].items[0].enableWhen.or[4094]",
+   "kind": "nodes",
+   "shared": true
+  },
+  {
+   "file": "too-many-items.json",
+   "path": "sections[1].pages[0].items[495]",
+   "kind": "items",
+   "shared": true
+  }
+ ]
+}

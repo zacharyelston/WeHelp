@@ -1,0 +1,26 @@
+{
+  "description": "The design document's example.",
+  "definition": "valid/minimal.json",
+  "cases": [
+    {
+      "name": "answered",
+      "answers": { "q1": "1" },
+      "visible": { "s1": true, "p1": true, "q1": true },
+      "next": { "s1": "end" },
+      "path": ["s1"],
+      "scores": { "total": { "value": "1", "band": null } },
+      "check": { "answers": { "q1": "1" }, "errors": [] }
+    },
+    {
+      "name": "unanswered required item",
+      "answers": {},
+      "scores": { "total": { "value": null, "band": null, "reason": "missing" } },
+      "check": { "answers": {}, "errors": [{ "item": "q1", "code": "required" }] }
+    },
+    {
+      "name": "null answer is unanswered",
+      "answers": { "q1": null },
+      "check": { "answers": {}, "errors": [{ "item": "q1", "code": "required" }] }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 BIN := bin/wehelpd
 
-.PHONY: build test vet run migrate db-migrate seed compose-up compose-down ios ios-build clean \
+.PHONY: build test test-js vet run migrate db-migrate seed compose-up compose-down ios ios-build clean \
 	registry-db registry-migrate registry-run \
 	appliance-up appliance-down appliance-status appliance-install-login appliance-stop-for-reboot
 
@@ -23,6 +23,11 @@ registry-run: build
 
 test:
 	go test -race ./...
+
+# The builder-preview evaluator against the shared form vectors (#193). Node
+# isn't part of the toolchain or CI, so this is opt-in: needs Node 18+.
+test-js:
+	node --test web/forms-eval.test.js
 
 vet:
 	go vet ./...

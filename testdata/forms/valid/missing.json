@@ -1,0 +1,52 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Missing-answer policies (synthetic, not an instrument)",
+  "sections": [
+    {
+      "id": "s1",
+      "pages": [
+        {
+          "id": "p1",
+          "items": [
+            { "id": "q1", "type": "choice", "text": "Item one", "options": [{ "value": "0", "text": "0", "score": 0 }, { "value": "1", "text": "1", "score": 1 }, { "value": "2", "text": "2", "score": 2 }, { "value": "3", "text": "3", "score": 3 }] },
+            { "id": "q2", "type": "choice", "text": "Item two", "options": [{ "value": "0", "text": "0", "score": 0 }, { "value": "1", "text": "1", "score": 1 }, { "value": "2", "text": "2", "score": 2 }, { "value": "3", "text": "3", "score": 3 }] },
+            { "id": "q3", "type": "choice", "text": "Item three", "options": [{ "value": "0", "text": "0", "score": 0 }, { "value": "1", "text": "1", "score": 1 }, { "value": "2", "text": "2", "score": 2 }, { "value": "3", "text": "3", "score": 3 }] },
+            { "id": "q4", "type": "choice", "text": "Item four", "options": [{ "value": "0", "text": "0", "score": 0 }, { "value": "1", "text": "1", "score": 1 }, { "value": "2", "text": "2", "score": 2 }, { "value": "3", "text": "3", "score": 3 }] }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "t_null",
+      "expr": { "sum": [{ "scoreOf": "q1" }, { "scoreOf": "q2" }, { "scoreOf": "q3" }, { "scoreOf": "q4" }] },
+      "bands": [{ "min": 0, "id": "low" }, { "min": 5, "id": "mid" }, { "min": 9, "id": "high" }]
+    },
+    {
+      "id": "t_zero",
+      "expr": { "sum": [{ "scoreOf": "q1" }, { "scoreOf": "q2" }, { "scoreOf": "q3" }, { "scoreOf": "q4" }] },
+      "missing": { "policy": "zero" }
+    },
+    {
+      "id": "t_zero_min",
+      "expr": { "sum": [{ "scoreOf": "q1" }, { "scoreOf": "q2" }, { "scoreOf": "q3" }, { "scoreOf": "q4" }] },
+      "missing": { "policy": "zero", "minAnswered": 3 }
+    },
+    {
+      "id": "t_prorate",
+      "expr": { "sum": [{ "scoreOf": "q1" }, { "scoreOf": "q2" }, { "scoreOf": "q3" }, { "scoreOf": "q4" }] },
+      "missing": { "policy": "prorate", "minAnswered": 3, "places": 0 },
+      "bands": [{ "min": 0, "id": "low" }, { "min": 5, "id": "mid" }, { "min": 9, "id": "high" }]
+    },
+    {
+      "id": "t_prorate2",
+      "expr": { "sum": [{ "scoreOf": "q1" }, { "scoreOf": "q2" }, { "scoreOf": "q3" }, { "scoreOf": "q4" }] },
+      "missing": { "policy": "prorate", "minAnswered": 2, "places": 2 }
+    },
+    {
+      "id": "mean",
+      "expr": { "div": [{ "score": "t_zero" }, { "count": ["q1", "q2", "q3", "q4"] }] }
+    }
+  ]
+}

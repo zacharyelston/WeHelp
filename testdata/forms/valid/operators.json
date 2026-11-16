@@ -1,0 +1,79 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "One rule per operator",
+  "locale": "en-US",
+  "sections": [
+    {
+      "id": "s1",
+      "pages": [
+        {
+          "id": "p1",
+          "items": [
+            { "id": "n", "type": "decimal", "text": "A decimal", "min": -1000, "max": 1000, "unit": "kg" },
+            { "id": "i", "type": "integer", "text": "An integer", "min": 0, "max": 10, "control": "slider", "step": 1, "minLabel": "None", "maxLabel": "Worst" },
+            {
+              "id": "c", "type": "choice", "text": "One choice", "control": "buttons",
+              "options": [
+                { "value": "a", "text": "A", "score": 1 },
+                { "value": "b", "text": "B", "score": 2 },
+                { "value": "c", "text": "C", "score": 3 }
+              ]
+            },
+            {
+              "id": "m", "type": "choice", "multiple": true, "text": "Several choices",
+              "options": [
+                { "value": "x", "text": "X", "score": 1 },
+                { "value": "y", "text": "Y", "score": 2 },
+                { "value": "z", "text": "Z", "score": 4 }
+              ]
+            },
+            { "id": "b", "type": "boolean", "text": "Yes or no", "control": "toggle" },
+            { "id": "d", "type": "date", "text": "A date", "min": "1900-01-01", "max": "today" },
+            { "id": "t", "type": "text", "text": "Some text", "maxLength": 10 }
+          ]
+        },
+        {
+          "id": "p2",
+          "items": [
+            { "id": "eq_n", "type": "display", "text": "n = 2.5", "enableWhen": { "eq": [{ "answer": "n" }, { "num": 2.5 }] } },
+            { "id": "ne_c", "type": "display", "text": "c != a", "enableWhen": { "ne": [{ "answer": "c" }, { "str": "a" }] } },
+            { "id": "lt_i", "type": "display", "text": "i < 5", "enableWhen": { "lt": [{ "answer": "i" }, { "num": 5 }] } },
+            { "id": "le_i", "type": "display", "text": "i <= 5", "enableWhen": { "le": [{ "answer": "i" }, { "num": 5 }] } },
+            { "id": "gt_n", "type": "display", "text": "n > 0", "enableWhen": { "gt": [{ "answer": "n" }, { "num": 0 }] } },
+            { "id": "ge_n", "type": "display", "text": "n >= 2.5", "enableWhen": { "ge": [{ "answer": "n" }, { "num": 2.5 }] } },
+            { "id": "in_c", "type": "display", "text": "c in a, b", "enableWhen": { "in": [{ "answer": "c" }, { "str": "a" }, { "str": "b" }] } },
+            { "id": "in_m", "type": "display", "text": "z among m", "enableWhen": { "in": [{ "answer": "m" }, { "str": "z" }] } },
+            { "id": "in_i", "type": "display", "text": "i in 1, 3", "enableWhen": { "in": [{ "answer": "i" }, { "num": 1 }, { "num": 3 }] } },
+            { "id": "answered_t", "type": "display", "text": "t answered", "enableWhen": { "answered": "t" } },
+            { "id": "and_b", "type": "display", "text": "b answered and true", "enableWhen": { "and": [{ "answered": "b" }, { "eq": [{ "answer": "b" }, { "bool": true }] }] } },
+            { "id": "or_c", "type": "display", "text": "c = a or i > 8", "enableWhen": { "or": [{ "eq": [{ "answer": "c" }, { "str": "a" }] }, { "gt": [{ "answer": "i" }, { "num": 8 }] }] } },
+            { "id": "not_n", "type": "display", "text": "n not answered", "enableWhen": { "not": { "answered": "n" } } },
+            { "id": "lt_d", "type": "display", "text": "d before 2000", "enableWhen": { "lt": [{ "answer": "d" }, { "str": "2000-01-01" }] } },
+            { "id": "eq_t", "type": "display", "text": "t = hello", "enableWhen": { "eq": [{ "answer": "t" }, { "str": "hello" }] } },
+            { "id": "gt_score", "type": "display", "text": "s_sum > 3", "enableWhen": { "gt": [{ "score": "s_sum" }, { "num": 3 }] } },
+            { "id": "ne_missing", "type": "display", "text": "not (n = 1)", "enableWhen": { "not": { "eq": [{ "answer": "n" }, { "num": 1 }] } } }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    { "id": "s_sum", "expr": { "sum": [{ "scoreOf": "c" }, { "scoreOf": "m" }] } },
+    { "id": "s_add", "expr": { "add": [{ "answer": "n" }, { "answer": "i" }] } },
+    { "id": "s_sub", "expr": { "sub": [{ "answer": "n" }, { "answer": "i" }] } },
+    { "id": "s_mul", "expr": { "mul": [{ "answer": "n" }, { "answer": "i" }] } },
+    { "id": "s_div", "expr": { "div": [{ "answer": "n" }, { "answer": "i" }] } },
+    { "id": "s_count", "expr": { "count": ["n", "i", "c", "m", "b", "d", "t"] } },
+    { "id": "s_round", "expr": { "round": [{ "div": [{ "answer": "n" }, { "num": 3 }] }, { "num": 2 }] } },
+    {
+      "id": "s_band", "text": "Banded", "showScore": true,
+      "expr": { "scoreOf": "m" },
+      "bands": [
+        { "min": 0, "id": "none", "text": "None" },
+        { "min": 2, "id": "some", "text": "Some" },
+        { "min": 5, "id": "lots", "text": "Lots" }
+      ]
+    },
+    { "id": "s_twice", "expr": { "mul": [{ "score": "s_sum" }, { "num": 2 }] } }
+  ]
+}

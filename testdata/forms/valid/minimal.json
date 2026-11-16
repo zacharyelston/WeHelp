@@ -1,0 +1,31 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Synthetic one-item example",
+  "locale": "en-US",
+  "sections": [
+    {
+      "id": "s1",
+      "pages": [
+        {
+          "id": "p1",
+          "items": [
+            {
+              "id": "q1",
+              "type": "choice",
+              "required": true,
+              "text": "Choose an example value",
+              "options": [
+                { "value": "0", "text": "Zero", "score": 0 },
+                { "value": "1", "text": "One", "score": 1 }
+              ]
+            }
+          ]
+        }
+      ],
+      "next": [{ "section": "end" }]
+    }
+  ],
+  "scores": [
+    { "id": "total", "text": "Example total", "expr": { "scoreOf": "q1" } }
+  ]
+}

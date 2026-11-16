@@ -1,0 +1,44 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Rounding ties, overflow, hidden pages",
+  "sections": [
+    {
+      "id": "s1",
+      "pages": [
+        {
+          "id": "p1",
+          "items": [
+            { "id": "x", "type": "decimal", "text": "x" },
+            { "id": "y", "type": "decimal", "text": "y" }
+          ]
+        },
+        {
+          "id": "p_never",
+          "enableWhen": { "eq": [{ "num": 1 }, { "num": 2 }] },
+          "items": [
+            { "id": "h", "type": "integer", "text": "Never shown", "required": true }
+          ]
+        },
+        {
+          "id": "p3",
+          "enableWhen": { "answered": "x" },
+          "items": [
+            { "id": "z", "type": "integer", "text": "z", "required": true, "min": 0, "max": 5 }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    { "id": "tie0", "expr": { "round": [{ "answer": "x" }, { "num": 0 }] } },
+    { "id": "tie2", "expr": { "round": [{ "answer": "x" }, { "num": 2 }] } },
+    { "id": "quotient", "expr": { "div": [{ "answer": "x" }, { "answer": "y" }] } },
+    { "id": "cube", "expr": { "mul": [{ "mul": [{ "answer": "x" }, { "answer": "x" }] }, { "answer": "x" }] } },
+    { "id": "fourth", "expr": { "mul": [{ "score": "cube" }, { "answer": "x" }] } },
+    { "id": "hidden", "expr": { "add": [{ "answer": "h" }, { "num": 1 }] } },
+    { "id": "third", "expr": { "div": [{ "num": 1 }, { "num": 3 }] } },
+    { "id": "two_thirds", "expr": { "div": [{ "num": 2 }, { "num": 3 }] } },
+    { "id": "tiny", "expr": { "div": [{ "num": 0.000001 }, { "num": 2 }] } },
+    { "id": "neg_tiny", "expr": { "div": [{ "num": -0.000001 }, { "num": 2 }] } }
+  ]
+}

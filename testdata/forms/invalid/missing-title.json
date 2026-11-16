@@ -1,0 +1,93 @@
+{
+ "format": "wehelp.form.v1",
+ "sections": [
+  {
+   "id": "s1",
+   "pages": [
+    {
+     "id": "p1",
+     "items": [
+      {
+       "id": "q1",
+       "type": "choice",
+       "text": "One",
+       "options": [
+        {
+         "value": "0",
+         "text": "No",
+         "score": 0
+        },
+        {
+         "value": "1",
+         "text": "Yes",
+         "score": 1
+        }
+       ]
+      },
+      {
+       "id": "n1",
+       "type": "integer",
+       "text": "A number",
+       "min": 0,
+       "max": 10
+      }
+     ]
+    },
+    {
+     "id": "p2",
+     "items": [
+      {
+       "id": "m1",
+       "type": "choice",
+       "multiple": true,
+       "text": "Several",
+       "options": [
+        {
+         "value": "a",
+         "text": "A"
+        },
+        {
+         "value": "b",
+         "text": "B"
+        }
+       ]
+      },
+      {
+       "id": "d1",
+       "type": "date",
+       "text": "A date"
+      },
+      {
+       "id": "info",
+       "type": "display",
+       "text": "Note"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "pages": [
+    {
+     "id": "p3",
+     "items": [
+      {
+       "id": "t1",
+       "type": "text",
+       "text": "Words"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "scores": [
+  {
+   "id": "total",
+   "expr": {
+    "scoreOf": "q1"
+   }
+  }
+ ]
+}

@@ -1,0 +1,90 @@
+{
+  "description": "Half-even ties, output rounding, overflow, division by zero, hidden pages and required items.",
+  "definition": "valid/edge.json",
+  "cases": [
+    {
+      "name": "nothing answered: every later page hidden, constant scores still computed",
+      "answers": {},
+      "visible": { "s1": true, "p1": true, "x": true, "p_never": false, "h": false, "p3": false, "z": false },
+      "scores": {
+        "tie0": { "value": null, "band": null, "reason": "missing" },
+        "third": { "value": "0.333333", "band": null },
+        "two_thirds": { "value": "0.666667", "band": null },
+        "tiny": { "value": "0", "band": null },
+        "neg_tiny": { "value": "0", "band": null }
+      },
+      "check": { "answers": {}, "errors": [] }
+    },
+    {
+      "name": "tie 0.5", "answers": { "x": 0.5, "y": 0 },
+      "scores": {
+        "tie0": { "value": "0", "band": null }, "tie2": { "value": "0.5", "band": null },
+        "quotient": { "value": null, "band": null, "reason": "divideByZero" }
+      }
+    },
+    { "name": "tie 1.5", "answers": { "x": 1.5 }, "scores": { "tie0": { "value": "2", "band": null } } },
+    { "name": "tie 2.5", "answers": { "x": 2.5 }, "scores": { "tie0": { "value": "2", "band": null } } },
+    { "name": "tie -0.5", "answers": { "x": -0.5 }, "scores": { "tie0": { "value": "0", "band": null }, "tie2": { "value": "-0.5", "band": null } } },
+    { "name": "tie -1.5", "answers": { "x": -1.5 }, "scores": { "tie0": { "value": "-2", "band": null } } },
+    { "name": "tie -2.5", "answers": { "x": -2.5 }, "scores": { "tie0": { "value": "-2", "band": null } } },
+    { "name": "tie 1.005 at two places", "answers": { "x": 1.005 }, "scores": { "tie2": { "value": "1", "band": null } } },
+    { "name": "tie 1.015 at two places", "answers": { "x": 1.015 }, "scores": { "tie2": { "value": "1.02", "band": null } } },
+    { "name": "tie 1.025 at two places", "answers": { "x": 1.025 }, "scores": { "tie2": { "value": "1.02", "band": null } } },
+    { "name": "2.675 is exact, a tie, rounds to even", "answers": { "x": 2.675 }, "scores": { "tie2": { "value": "2.68", "band": null } } },
+    { "name": "above the tie rounds up", "answers": { "x": 2.500001 }, "scores": { "tie0": { "value": "3", "band": null } } },
+    {
+      "name": "quotient exact", "answers": { "x": 1, "y": 8 },
+      "scores": { "quotient": { "value": "0.125", "band": null } }
+    },
+    {
+      "name": "overflow beyond 128 bits is an error, not a score",
+      "answers": { "x": 999999999999, "z": 1 },
+      "scores": {
+        "cube": { "value": "999999999997000000000002999999999999", "band": null },
+        "fourth": { "value": null, "band": null, "reason": "overflow" }
+      },
+      "error": "overflow",
+      "check": {
+        "answers": { "x": 999999999999, "z": 1 },
+        "errors": [{ "item": "fourth", "code": "overflow" }]
+      }
+    },
+    {
+      "name": "answers to hidden items are dropped and count as missing",
+      "answers": { "x": 1, "h": 5, "z": 3 },
+      "visible": { "p_never": false, "h": false, "p3": true, "z": true },
+      "scores": { "hidden": { "value": null, "band": null, "reason": "missing" } },
+      "check": { "answers": { "x": 1, "z": 3 }, "errors": [] }
+    },
+    {
+      "name": "required item on a visible page",
+      "answers": { "x": 1 },
+      "visible": { "p3": true },
+      "check": { "answers": { "x": 1 }, "errors": [{ "item": "z", "code": "required" }] }
+    },
+    {
+      "name": "out of range",
+      "answers": { "x": 1, "z": 9 },
+      "check": { "answers": { "x": 1 }, "errors": [{ "item": "z", "code": "out_of_range" }] }
+    },
+    {
+      "name": "a fraction for an integer item is the wrong type",
+      "answers": { "x": 1, "z": 2.5 },
+      "check": { "answers": { "x": 1 }, "errors": [{ "item": "z", "code": "wrong_type" }] }
+    },
+    {
+      "name": "a string for a number is the wrong type, and hides what depended on it",
+      "answers": { "x": "1" },
+      "visible": { "p3": false },
+      "check": { "answers": {}, "errors": [{ "item": "x", "code": "wrong_type" }] }
+    },
+    {
+      "name": "unknown item ids are reported last",
+      "answers": { "x": 1, "z": 1, "zz": 1, "aa": true },
+      "check": {
+        "answers": { "x": 1, "z": 1 },
+        "errors": [{ "item": "aa", "code": "unknown_item" }, { "item": "zz", "code": "unknown_item" }]
+      }
+    }
+  ]
+}
