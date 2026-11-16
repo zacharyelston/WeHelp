@@ -25,6 +25,13 @@ All notable changes to WeHelp are documented here. Format follows
   practice's Back Office is never a demo build, so it always locks.
 
 ### Fixed
+- A front-desk or admin booking links the provider and patient. Booking
+  needed an active link, but a patient the front desk or an admin added was
+  linked to no one, and a provider's email invite stays pending (the app
+  can't accept it), so such a patient could never be booked. Now the
+  booking makes the link, or activates a pending invite, in the same
+  transaction, audited as `link.create` (`via: booking`). A revoked link
+  stays revoked (409). Providers still book only their linked patients.
 - iOS: the "Can't reach" screen always offers pairing a practice, not only
   with two or more. A phone with one practice whose Relay moved was stuck on
   that screen with only "Try again".
