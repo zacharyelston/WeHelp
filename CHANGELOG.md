@@ -17,6 +17,13 @@ All notable changes to WeHelp are documented here. Format follows
   adapters, and immutable reviewed Git snapshots. Includes synthetic examples and
   prior-art review of the updated notebooks service (`feat/agent`, `15a1d3e`).
   No notebook runtime, new infrastructure or V1 release requirement is added.
+- Questionnaire design (#82, #8): `docs/QUESTIONNAIRES.md` covers custom
+  intake forms and eCOA-style capture. It specifies WeHelp's own
+  FHIR-shaped form format (`wehelp.form.v1`) with a JSON rules and scoring
+  tree, filling forms on the patient app and the kiosk, a staff web
+  builder, assignments with schedules and `form_due` reminders, and
+  standard instruments (PHQ-9, GAD-7). It also sets the order of work. The
+  lit review gains a questionnaires and eCOA section.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot
