@@ -17,13 +17,6 @@ All notable changes to WeHelp are documented here. Format follows
   with the Relay and the office re-registered (new key and IDs; phones
   re-pair).
 
-### Changed
-- Demo practices don't lock the app. A demo build of the office (build tag
-  `demo`, as on Barnacle) answers `/me` with `demo: true`. The app then
-  skips its Face ID or passcode lock for that practice, so testers can use
-  borrowed phones. Switching to a real practice shows the lock again. A
-  practice's Back Office is never a demo build, so it always locks.
-
 ### Fixed
 - A front-desk or admin booking links the provider and patient. Booking
   needed an active link, but a patient the front desk or an admin added was
@@ -37,6 +30,11 @@ All notable changes to WeHelp are documented here. Format follows
   that screen with only "Try again".
 
 ### Changed
+- Demo practices don't lock the app. A demo build of the office (build tag
+  `demo`, as on Barnacle) answers `/me` with `demo: true`. The app then
+  skips its Face ID or passcode lock for that practice, so testers can use
+  borrowed phones. Switching to a real practice shows the lock again. A
+  practice's Back Office is never a demo build, so it always locks.
 - `appliance.sh init-office` passes the install token to the container by
   name, so it never appears in a command line (#182).
 - The dev `registry` Compose profile publishes Postgres on 127.0.0.1:5433
