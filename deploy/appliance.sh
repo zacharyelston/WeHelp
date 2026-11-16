@@ -13,7 +13,8 @@
 #   appliance.sh install-login    install the login-time job (macOS launchd)
 #   appliance.sh status           show containers and /healthz
 #   appliance.sh demo-setup       demo hosts only: demo defaults in .env, then up and seed
-#   appliance.sh seed             demo hosts only (WEHELP_DEMO=1): add the demo practice and logins
+#   appliance.sh seed [training]  demo hosts only (WEHELP_DEMO=1): add the demo practice and logins,
+#                                 or with "training" also a synthetic week for staff training
 #   appliance.sh db-roles         set the database role passwords from deploy/db.env
 #   appliance.sh backup           encrypted backup now (nightly job: install-backup)
 #   appliance.sh restore DIR ID   restore a backup with an age identity (docs/BACKUPS.md)
@@ -250,7 +251,8 @@ case "$cmd" in
     # Demo hosts only (WEHELP_DEMO=1 in .env): fixed demo logins, no real data.
     grep -q '^WEHELP_DEMO=1' "$ENV_FILE" 2>/dev/null ||
       { echo "seed is for demo hosts: set WEHELP_DEMO=1 in $ENV_FILE, then appliance.sh up"; exit 1; }
-    compose run --rm --no-deps -e WEHELP_ENV=demo server seed
+    # "seed training" adds the synthetic training week (#80).
+    compose run --rm --no-deps -e WEHELP_ENV=demo server seed --profile "${2:-default}"
     ;;
   status)
     compose ps

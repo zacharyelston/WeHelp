@@ -143,6 +143,38 @@ already set:
 
 Then it runs `up` and `seed`. It's safe to run again.
 
+### Training week (#80)
+
+For staff training and the training videos, add a synthetic week at a
+naturopath office to Demo Clinic:
+
+```
+deploy/appliance.sh seed training
+```
+
+It adds:
+- 3 providers (Dr. Mira Okafor, Dr. Tomas Varga, Dr. Lena Hart), a
+  training front desk and a training admin, all with the password
+  `wehelp-training-staff`. They set up an authenticator at their first
+  sign-in, like any staff member.
+- 25 obviously fictional patients (plant and bird names, `@demo.wehelp`).
+  Most are linked to a provider; every eighth one's invite is still
+  pending. WeHelp stores no phone numbers, so there are none.
+- Monday to Friday of the current week, in `WEHELP_TIMEZONE`: 3 or 4 visits
+  per provider a day, on the hour from 9:00. Past ones are completed, with
+  some no-shows and cancellations; future ones are scheduled, a few
+  cancelled.
+- Appointment requests (four pending, one declined) and message threads
+  that are unread, read but not answered, or answered.
+
+The layout comes from a fixed random seed, so screenshots match from run to
+run within a week. It's idempotent: run it again the same week and it
+writes nothing. Run it in a new week to add that week's schedule. Every
+write is audited like real data.
+
+There's no reset. Audit events can't be deleted, so returning a demo host to
+a known state means a fresh demo database (and phones paired again).
+
 Without the line, the image has neither, and `appliance.sh seed` refuses.
 CI checks the field image for demo logins and the seed command. Never set
 `WEHELP_DEMO=1` on a practice's Back Office.
