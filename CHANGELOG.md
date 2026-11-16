@@ -6,6 +6,32 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The practice's form library in `wehelpd` (#194). Following the owner's
+  2026-11-16 decision, forms live in the Back Office for now. They have their
+  own V24 migration, their own route group and one file
+  (`internal/server/forms.go`), so they can move to the data module later.
+  - **Storage:** `forms` (custom or built-in instrument) and
+    `form_versions`.
+    - A trigger refuses any UPDATE or DELETE of a published version.
+    - A partial unique index allows only one draft per form.
+    - `wehelp_app` can't delete either table.
+  - **Admin routes (LAN):** `POST /forms`, `PUT /form-versions/{id}`,
+    `POST /form-versions/{id}/publish`, `POST /forms/{id}/draft`,
+    `POST /forms/import`, `GET /form-versions/{id}/export` and
+    `POST /forms/{id}/archive`.
+  - **Staff routes (LAN):** `GET /forms`, `GET /forms/{id}` and
+    `GET /form-versions/{id}`.
+  - **Saving:** every save goes through `forms.Parse`, and an invalid
+    definition gets a 422 with the error's path and kind.
+  - **Export:** canonical JSON (`forms.Canonical`), so import then export
+    gives the same bytes. Each version stores its SHA-256 digest.
+  - **Built-ins:** they refuse every change with a 409.
+  - **Audit:** `form.create`, `form_version.save`, `form_version.publish`,
+    `form_version.draft`, `form.import` and `form.archive`. Events carry ids
+    and version numbers only.
+  - **Switch:** a new `forms` switch starts off for every practice type
+    (`practice.DefaultOff`). While it's off, every form route answers 403.
+    An admin turns it on in Settings.
 - The `wehelp.form.v1` form format (#193), the first questionnaire step.
   - **`internal/forms`:** `Parse` validates a definition and names the
     path of the first problem. It checks:
