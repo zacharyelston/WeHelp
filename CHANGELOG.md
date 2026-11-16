@@ -6,6 +6,13 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- V2 authoritative patient Git collections and notebook/intake processing
+  specifications: local manifest/component repositories, audited publication
+  and recovery, verified rebuildable Postgres indexes and explicit migration;
+  typed per-patient queries, revisions, provenance, questionnaire/measurement
+  adapters, and immutable reviewed Git snapshots. Includes synthetic examples and
+  prior-art review of the updated notebooks service (`feat/agent`, `15a1d3e`).
+  No notebook runtime, new infrastructure or V1 release requirement is added.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot

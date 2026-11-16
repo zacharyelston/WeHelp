@@ -22,6 +22,19 @@ backlog in alzacai/WeHelp was copied over and is referenced as
   - `docs/OBSERVABILITY.md`: telemetry and audit export;
   - `docs/LIT_REVIEW.md`: add an entry before designing anything new.
 
+## V2 record storage (specification, not current runtime)
+
+The owner selected Git as the authoritative patient record on 2026-11-16.
+Before implementing V2 patient writes/notebooks, read
+`docs/PATIENT_REPOSITORIES.md`, `docs/PATIENT_NOTEBOOKS.md` and
+`docs/V2_PLAN.md`. Patient repo collections stay local to the Back Office;
+Postgres patient tables are verified rebuildable projections in migrated
+Git mode. Do not add direct DB clinical writes or an unaudited Git mirror.
+Git cannot participate in pgx.Tx: use the specified durable audited
+prepare/publish/complete/recovery protocol. V1 DB writes and append-only
+security audit/ledger retain the transaction rules below until explicit
+verified migration. No real practice migration is authorized by a spec task.
+
 ## Commands
 
 - Build server: `make build` → `bin/wehelpd`, `bin/wehelp-registry` and
