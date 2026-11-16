@@ -1,0 +1,113 @@
+{
+  "description": "Every test and arithmetic operator, with every value kind, answered, unanswered and at boundaries.",
+  "definition": "valid/operators.json",
+  "cases": [
+    {
+      "name": "all answered",
+      "today": "2026-11-16",
+      "answers": { "n": 2.5, "i": 4, "c": "b", "m": ["x", "z"], "b": true, "d": "1990-05-17", "t": "hello" },
+      "visible": {
+        "eq_n": true, "ne_c": true, "lt_i": true, "le_i": true, "gt_n": true, "ge_n": true,
+        "in_c": true, "in_m": true, "in_i": false, "answered_t": true, "and_b": true, "or_c": false,
+        "not_n": false, "lt_d": true, "eq_t": true, "gt_score": true, "ne_missing": true
+      },
+      "next": { "s1": "end" },
+      "path": ["s1"],
+      "scores": {
+        "s_sum": { "value": "7", "band": null },
+        "s_add": { "value": "6.5", "band": null },
+        "s_sub": { "value": "-1.5", "band": null },
+        "s_mul": { "value": "10", "band": null },
+        "s_div": { "value": "0.625", "band": null },
+        "s_count": { "value": "7", "band": null },
+        "s_round": { "value": "0.83", "band": null },
+        "s_band": { "value": "5", "band": "lots" },
+        "s_twice": { "value": "14", "band": null }
+      },
+      "check": {
+        "answers": { "n": 2.5, "i": 4, "c": "b", "m": ["x", "z"], "b": true, "d": "1990-05-17", "t": "hello" },
+        "errors": []
+      }
+    },
+    {
+      "name": "nothing answered: comparisons are false, not of them is true",
+      "answers": {},
+      "visible": {
+        "eq_n": false, "ne_c": false, "lt_i": false, "le_i": false, "gt_n": false, "ge_n": false,
+        "in_c": false, "in_m": false, "in_i": false, "answered_t": false, "and_b": false, "or_c": false,
+        "not_n": true, "lt_d": false, "eq_t": false, "gt_score": false, "ne_missing": true
+      },
+      "scores": {
+        "s_sum": { "value": null, "band": null, "reason": "missing" },
+        "s_add": { "value": null, "band": null, "reason": "missing" },
+        "s_sub": { "value": null, "band": null, "reason": "missing" },
+        "s_mul": { "value": null, "band": null, "reason": "missing" },
+        "s_div": { "value": null, "band": null, "reason": "missing" },
+        "s_count": { "value": "0", "band": null },
+        "s_round": { "value": null, "band": null, "reason": "missing" },
+        "s_band": { "value": null, "band": null, "reason": "missing" },
+        "s_twice": { "value": null, "band": null, "reason": "missing" }
+      },
+      "check": { "answers": {}, "errors": [] }
+    },
+    {
+      "name": "boundaries and negatives",
+      "answers": { "n": -3, "i": 5, "c": "a", "m": ["y"], "b": false, "t": "hi" },
+      "visible": {
+        "eq_n": false, "ne_c": false, "lt_i": false, "le_i": true, "gt_n": false, "ge_n": false,
+        "in_c": true, "in_m": false, "in_i": false, "answered_t": true, "and_b": false, "or_c": true,
+        "not_n": false, "lt_d": false, "eq_t": false, "gt_score": false, "ne_missing": true
+      },
+      "scores": {
+        "s_sum": { "value": "3", "band": null },
+        "s_add": { "value": "2", "band": null },
+        "s_sub": { "value": "-8", "band": null },
+        "s_mul": { "value": "-15", "band": null },
+        "s_div": { "value": "-0.6", "band": null },
+        "s_count": { "value": "6", "band": null },
+        "s_round": { "value": "-1", "band": null },
+        "s_band": { "value": "2", "band": "some" },
+        "s_twice": { "value": "6", "band": null }
+      }
+    },
+    {
+      "name": "division by zero is null, never zero",
+      "answers": { "n": 7, "i": 0 },
+      "visible": { "lt_i": true, "in_i": false, "gt_n": true },
+      "scores": {
+        "s_div": { "value": null, "band": null, "reason": "divideByZero" },
+        "s_mul": { "value": "0", "band": null },
+        "s_add": { "value": "7", "band": null },
+        "s_round": { "value": "2.33", "band": null },
+        "s_count": { "value": "2", "band": null },
+        "s_sum": { "value": null, "band": null, "reason": "missing" }
+      }
+    },
+    {
+      "name": "multiple choice inside in, every option chosen",
+      "answers": { "m": ["x", "y", "z"] },
+      "visible": { "in_m": true },
+      "scores": {
+        "s_band": { "value": "7", "band": "lots" },
+        "s_sum": { "value": null, "band": null, "reason": "missing" }
+      }
+    },
+    {
+      "name": "an empty multiple choice is unanswered",
+      "answers": { "m": [] },
+      "visible": { "in_m": false },
+      "scores": { "s_band": { "value": null, "band": null, "reason": "missing" }, "s_count": { "value": "0", "band": null } },
+      "check": { "answers": {}, "errors": [] }
+    },
+    {
+      "name": "date comparison at the boundary",
+      "answers": { "d": "2000-01-01" },
+      "visible": { "lt_d": false }
+    },
+    {
+      "name": "date before the boundary",
+      "answers": { "d": "1999-12-31" },
+      "visible": { "lt_d": true }
+    }
+  ]
+}

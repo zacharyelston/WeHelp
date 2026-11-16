@@ -1,0 +1,79 @@
+{
+  "description": "The null, zero and prorate missing-answer policies, minimum answered counts, and bands.",
+  "definition": "valid/missing.json",
+  "cases": [
+    {
+      "name": "all answered: every policy agrees",
+      "answers": { "q1": "1", "q2": "2", "q3": "3", "q4": "0" },
+      "scores": {
+        "t_null": { "value": "6", "band": "mid" },
+        "t_zero": { "value": "6", "band": null },
+        "t_zero_min": { "value": "6", "band": null },
+        "t_prorate": { "value": "6", "band": "mid" },
+        "t_prorate2": { "value": "6", "band": null },
+        "mean": { "value": "1.5", "band": null }
+      }
+    },
+    {
+      "name": "one missing: null is null, zero counts 0, prorate scales by 4/3",
+      "answers": { "q1": "1", "q2": "2", "q3": "3" },
+      "scores": {
+        "t_null": { "value": null, "band": null, "reason": "missing" },
+        "t_zero": { "value": "6", "band": null },
+        "t_zero_min": { "value": "6", "band": null },
+        "t_prorate": { "value": "8", "band": "mid" },
+        "t_prorate2": { "value": "8", "band": null },
+        "mean": { "value": "2", "band": null }
+      }
+    },
+    {
+      "name": "two missing: below the minimum answered count",
+      "answers": { "q1": "1", "q2": "2" },
+      "scores": {
+        "t_null": { "value": null, "band": null, "reason": "missing" },
+        "t_zero": { "value": "3", "band": null },
+        "t_zero_min": { "value": null, "band": null, "reason": "belowMinAnswered" },
+        "t_prorate": { "value": null, "band": null, "reason": "belowMinAnswered" },
+        "t_prorate2": { "value": "6", "band": null },
+        "mean": { "value": "1.5", "band": null }
+      }
+    },
+    {
+      "name": "proration with a non-terminating quotient is rounded half-even at the policy's places",
+      "answers": { "q1": "1", "q2": "2", "q3": "2" },
+      "scores": {
+        "t_null": { "value": null, "band": null, "reason": "missing" },
+        "t_zero": { "value": "5", "band": null },
+        "t_prorate": { "value": "7", "band": "mid" },
+        "t_prorate2": { "value": "6.67", "band": null },
+        "mean": { "value": "1.666667", "band": null }
+      }
+    },
+    {
+      "name": "nothing answered",
+      "answers": {},
+      "scores": {
+        "t_null": { "value": null, "band": null, "reason": "missing" },
+        "t_zero": { "value": "0", "band": null },
+        "t_zero_min": { "value": null, "band": null, "reason": "belowMinAnswered" },
+        "t_prorate": { "value": null, "band": null, "reason": "belowMinAnswered" },
+        "t_prorate2": { "value": null, "band": null, "reason": "belowMinAnswered" },
+        "mean": { "value": null, "band": null, "reason": "divideByZero" }
+      }
+    },
+    {
+      "name": "band lower bound is inclusive",
+      "answers": { "q1": "3", "q2": "3", "q3": "3", "q4": "0" },
+      "scores": { "t_null": { "value": "9", "band": "high" } }
+    },
+    {
+      "name": "unknown option counts as unanswered and is reported",
+      "answers": { "q1": "1", "q2": "2", "q3": "3", "q4": "7" },
+      "scores": { "t_null": { "value": null, "band": null, "reason": "missing" } },
+      "check": {
+        "answers": { "q1": "1", "q2": "2", "q3": "3" },
+        "errors": [{ "item": "q4", "code": "unknown_option" }]
+      }
+    }
+  ]
+}

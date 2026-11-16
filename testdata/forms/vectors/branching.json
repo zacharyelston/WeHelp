@@ -1,0 +1,121 @@
+{
+  "description": "Section branching, conditional pages and items, hidden answers dropped, and answer checking.",
+  "definition": "valid/branching.json",
+  "cases": [
+    {
+      "name": "no consent ends the form after the first section; everything after is hidden",
+      "today": "2026-11-16",
+      "answers": { "consent": false, "age": 30 },
+      "visible": {
+        "s_intake": true, "p_intro": true, "smoker": true, "p_symptoms": false, "symptoms": false,
+        "s_fever": false, "p_fever": false, "temp": false, "s_general": false, "s_notes": false, "notes": false
+      },
+      "next": { "s_intake": "end" },
+      "path": ["s_intake"],
+      "scores": { "temp_f": { "value": null, "band": null, "reason": "missing" } },
+      "check": { "answers": { "consent": false, "age": 30 }, "errors": [] }
+    },
+    {
+      "name": "fever branch skips the general section; a hidden answer is dropped",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 16, "smoker": "yes", "symptoms": ["fever"], "temp": 38.5, "onset": "2026-11-10", "notes": "ok" },
+      "visible": { "smoker": false, "pain_level": false, "s_fever": true, "temp": true, "s_general": false, "general_note": false, "s_notes": true, "notes_intro": true },
+      "next": { "s_intake": "s_fever", "s_fever": "s_notes" },
+      "path": ["s_intake", "s_fever", "s_notes"],
+      "scores": { "temp_f": { "value": "101.3", "band": "fever" } },
+      "check": {
+        "answers": { "consent": true, "age": 16, "symptoms": ["fever"], "temp": 38.5, "onset": "2026-11-10", "notes": "ok" },
+        "errors": []
+      }
+    },
+    {
+      "name": "default branch; an answer in a section off the path is dropped",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 40, "smoker": "no", "symptoms": ["cough", "pain"], "pain_level": 7, "general_note": "tired", "temp": 39 },
+      "visible": { "smoker": true, "pain_level": true, "s_fever": false, "temp": false, "s_general": true, "general_note": true },
+      "next": { "s_intake": "s_general", "s_general": "s_notes", "s_notes": "end" },
+      "path": ["s_intake", "s_general", "s_notes"],
+      "scores": { "temp_f": { "value": null, "band": null, "reason": "missing" } },
+      "check": {
+        "answers": { "consent": true, "age": 40, "smoker": "no", "symptoms": ["cough", "pain"], "pain_level": 7, "general_note": "tired" },
+        "errors": []
+      }
+    },
+    {
+      "name": "range, option, length and unknown-item errors in document order",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 140, "symptoms": ["cough", "sneeze"], "notes": "this is far more than twenty", "bogus": 1 },
+      "path": ["s_intake", "s_general", "s_notes"],
+      "check": {
+        "answers": { "consent": true },
+        "errors": [
+          { "item": "age", "code": "out_of_range" },
+          { "item": "symptoms", "code": "unknown_option" },
+          { "item": "notes", "code": "too_long" },
+          { "item": "bogus", "code": "unknown_item" }
+        ]
+      }
+    },
+    {
+      "name": "required items missing on visible pages only",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "symptoms": ["fever"] },
+      "visible": { "smoker": false },
+      "path": ["s_intake", "s_fever", "s_notes"],
+      "check": {
+        "answers": { "consent": true, "symptoms": ["fever"] },
+        "errors": [{ "item": "age", "code": "required" }, { "item": "temp", "code": "required" }]
+      }
+    },
+    {
+      "name": "a date after today is out of range",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37, "onset": "2026-11-17" },
+      "scores": { "temp_f": { "value": "98.6", "band": "normal" } },
+      "check": {
+        "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37 },
+        "errors": [{ "item": "onset", "code": "out_of_range" }]
+      }
+    },
+    {
+      "name": "today itself is allowed",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37, "onset": "2026-11-16" },
+      "check": {
+        "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37, "onset": "2026-11-16" },
+        "errors": []
+      }
+    },
+    {
+      "name": "wrong types count as unanswered",
+      "today": "2026-11-16",
+      "answers": { "consent": "yes", "age": "40" },
+      "visible": { "p_symptoms": false },
+      "next": { "s_intake": "end" },
+      "path": ["s_intake"],
+      "check": {
+        "answers": {},
+        "errors": [{ "item": "consent", "code": "wrong_type" }, { "item": "age", "code": "wrong_type" }]
+      }
+    },
+    {
+      "name": "the same option twice",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 50, "symptoms": ["none", "none"] },
+      "path": ["s_intake", "s_general", "s_notes"],
+      "check": {
+        "answers": { "consent": true, "age": 50 },
+        "errors": [{ "item": "symptoms", "code": "duplicate_option" }]
+      }
+    },
+    {
+      "name": "an invalid date is the wrong type",
+      "today": "2026-11-16",
+      "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37, "onset": "2026-02-30" },
+      "check": {
+        "answers": { "consent": true, "age": 30, "smoker": "no", "symptoms": ["fever"], "temp": 37 },
+        "errors": [{ "item": "onset", "code": "wrong_type" }]
+      }
+    }
+  ]
+}

@@ -6,6 +6,39 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The `wehelp.form.v1` form format (#193), the first questionnaire step.
+  - **`internal/forms`:** `Parse` validates a definition and names the
+    path of the first problem. It checks:
+    - the schema and the fields allowed for each item type;
+    - unique ids and option values;
+    - that references resolve;
+    - that rules only look back, `next` only goes forward, and scores only
+      use earlier scores, so there are no cycles;
+    - the static types of expression operands;
+    - the V2_CONTRACTS limits: 200,000 bytes, 500 items, expression
+      depth 32, 4,096 nodes.
+  - **Evaluator:** `Evaluate`, `Visible`, `NextSection` and `Scores`.
+    - Arithmetic uses exact rationals bounded to 128 bits; overflow is an
+      error, never a score.
+    - `round` is half-even.
+    - Division by zero gives null with a reason.
+    - Missing-answer policies are `null`, `zero` and `prorate`.
+  - **`CheckAnswers`:** reports wrong types, out-of-range values, unknown
+    options, over-long text and missing required items on visible pages.
+    It drops answers to hidden items.
+  - The package has no database, HTTP or server dependencies (a test
+    enforces this), so it can live in the Back Office or the proposed data
+    module. Its package doc carries the FHIR mapping.
+  - **`schemas/wehelp.form.v1.json`:** a JSON Schema kept in step with the
+    validator by a test.
+  - **`testdata/forms/`:** valid and invalid definitions plus evaluator
+    vectors (visibility, next section, path, scores and bands, answer
+    checks). Go runs all of them.
+  - **`web/forms-eval.js`:** the same evaluator for the builder preview, in
+    plain JavaScript with no dependencies and no `eval`. It runs the same
+    vectors and the shared invalid cases. Run it with
+    `node --test web/forms-eval.test.js` or `make test-js`; it's opt-in,
+    since Node isn't in CI.
 - `deploy/appliance.sh` works fully on a Linux (Docker Engine) Back Office.
   `install-backup` installs a systemd service and timer
   (`deploy/linux/wehelp-backup.*`) that back up nightly at 02:30, like the

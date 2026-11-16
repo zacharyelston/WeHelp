@@ -1,0 +1,18 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Display only",
+  "sections": [
+    {
+      "id": "s1",
+      "pages": [
+        {
+          "id": "p1",
+          "items": [
+            { "id": "welcome", "type": "display", "text": "Thanks for coming in." },
+            { "id": "map", "type": "display", "media": { "type": "image", "asset": "office-map.png", "alt": "Map of the office" } }
+          ]
+        }
+      ]
+    }
+  ]
+}

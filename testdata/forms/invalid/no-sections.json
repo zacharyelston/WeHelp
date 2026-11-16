@@ -1,0 +1,13 @@
+{
+ "format": "wehelp.form.v1",
+ "title": "Invalid case",
+ "sections": [],
+ "scores": [
+  {
+   "id": "total",
+   "expr": {
+    "scoreOf": "q1"
+   }
+  }
+ ]
+}

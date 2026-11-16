@@ -1,0 +1,96 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Branching intake (synthetic)",
+  "locale": "en-US",
+  "description": "Sections that branch on earlier answers, conditional pages and items, and every item type.",
+  "sections": [
+    {
+      "id": "s_intake",
+      "title": "About you",
+      "pages": [
+        {
+          "id": "p_intro",
+          "items": [
+            { "id": "consent", "type": "boolean", "text": "Do you agree to fill in this form?", "required": true, "control": "buttons" },
+            { "id": "age", "type": "integer", "text": "Your age", "required": true, "min": 0, "max": 130, "unit": "years", "control": "keypad" },
+            {
+              "id": "smoker", "type": "choice", "text": "Do you smoke?", "control": "dropdown",
+              "enableWhen": { "ge": [{ "answer": "age" }, { "num": 18 }] },
+              "options": [{ "value": "yes", "text": "Yes" }, { "value": "no", "text": "No" }]
+            }
+          ]
+        },
+        {
+          "id": "p_symptoms",
+          "enableWhen": { "eq": [{ "answer": "consent" }, { "bool": true }] },
+          "items": [
+            {
+              "id": "symptoms", "type": "choice", "multiple": true, "required": true, "text": "Any of these?",
+              "code": { "system": "http://loinc.org", "code": "X-SYNTH-1", "display": "Synthetic symptom list" },
+              "options": [
+                { "value": "cough", "text": "Cough" },
+                { "value": "fever", "text": "Fever" },
+                { "value": "pain", "text": "Pain" },
+                { "value": "none", "text": "None of these" }
+              ]
+            },
+            {
+              "id": "pain_level", "type": "integer", "text": "How bad is the pain?", "control": "slider",
+              "min": 0, "max": 10, "step": 1, "minLabel": "None", "maxLabel": "Worst",
+              "enableWhen": { "in": [{ "answer": "symptoms" }, { "str": "pain" }] }
+            }
+          ]
+        }
+      ],
+      "next": [
+        { "when": { "not": { "eq": [{ "answer": "consent" }, { "bool": true }] } }, "section": "end" },
+        { "when": { "in": [{ "answer": "symptoms" }, { "str": "fever" }] }, "section": "s_fever" },
+        { "section": "s_general" }
+      ]
+    },
+    {
+      "id": "s_fever",
+      "title": "Fever",
+      "pages": [
+        {
+          "id": "p_fever",
+          "items": [
+            { "id": "temp", "type": "decimal", "text": "Highest temperature", "required": true, "min": 34, "max": 43, "unit": "Cel" },
+            { "id": "onset", "type": "date", "text": "When did it start?", "min": "2000-01-01", "max": "today" }
+          ]
+        }
+      ],
+      "next": [{ "section": "s_notes" }]
+    },
+    {
+      "id": "s_general",
+      "pages": [
+        {
+          "id": "p_general",
+          "items": [
+            { "id": "general_note", "type": "text", "text": "Anything else about how you feel?", "control": "long", "maxLength": 2000 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_notes",
+      "pages": [
+        {
+          "id": "p_notes",
+          "items": [
+            { "id": "notes_intro", "type": "display", "text": "Last question." },
+            { "id": "notes", "type": "text", "text": "Short note", "maxLength": 20 }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "temp_f", "text": "Temperature in Fahrenheit",
+      "expr": { "add": [{ "mul": [{ "answer": "temp" }, { "num": 1.8 }] }, { "num": 32 }] },
+      "bands": [{ "min": 0, "id": "normal" }, { "min": 100.4, "id": "fever" }]
+    }
+  ]
+}

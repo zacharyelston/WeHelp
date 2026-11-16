@@ -1,0 +1,20 @@
+{
+  "description": "A form with display items only: nothing to answer, no scores.",
+  "definition": "valid/empty.json",
+  "cases": [
+    {
+      "name": "empty answers",
+      "answers": {},
+      "visible": { "s1": true, "p1": true, "welcome": true, "map": true },
+      "next": { "s1": "end" },
+      "path": ["s1"],
+      "scores": {},
+      "check": { "answers": {}, "errors": [] }
+    },
+    {
+      "name": "an answer to a display item is refused",
+      "answers": { "welcome": "hi" },
+      "check": { "answers": {}, "errors": [{ "item": "welcome", "code": "not_answerable" }] }
+    }
+  ]
+}
