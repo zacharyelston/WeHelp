@@ -80,6 +80,7 @@ struct AppointmentsView: View {
                     AppointmentRequestView { Task { await model.refresh(api: appState.api) } }
                 }
                 .refreshable { await model.refresh(api: appState.api) }
+                .refreshOnPush { await model.refresh(api: appState.api) }
                 .task {
                     await appState.refreshPeople()
                     await model.refresh(api: appState.api)

@@ -30,6 +30,7 @@ struct MessagesView: View {
             .navigationTitle("Messages")
             .navigationDestination(for: Conversation.self) { ThreadView(conversation: $0) }
             .refreshable { await load() }
+            .refreshOnPush { await load() }
             .task {
                 // Load now, then keep the list fresh while it's on screen.
                 while !Task.isCancelled {
@@ -129,6 +130,7 @@ struct ThreadView: View {
         .safeAreaInset(edge: .bottom) { composer }
         .navigationTitle(conversation.name)
         .navigationBarTitleDisplayMode(.inline)
+        .refreshOnPush { await refresh() }
         .task {
             while !Task.isCancelled {
                 await refresh()

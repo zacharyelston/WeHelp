@@ -18,6 +18,10 @@ All notable changes to WeHelp are documented here. Format follows
   re-pair).
 
 ### Fixed
+- iOS: a push that arrives while the app is open refreshes the messages
+  list, the open conversation and appointments at once. Before, the banner
+  arrived instantly but the screen waited for its 10–15 s timer. Coming
+  back to the app (for example by tapping the push) refreshes them too.
 - A front-desk or admin booking links the provider and patient. Booking
   needed an active link, but a patient the front desk or an admin added was
   linked to no one, and a provider's email invite stays pending (the app
