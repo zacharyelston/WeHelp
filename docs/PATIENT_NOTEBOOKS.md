@@ -11,6 +11,12 @@ narrative and reviewed snapshots are authoritative Git content; Postgres
 provides verified rebuildable query projections and audit/workflow state.
 This supersedes the first draft's Postgres-only content storage.
 
+Later owner decision (2026-11-16): notebooks run in the **Data Science &
+Security module**, not in `wehelpd` ([DATA_MODULE.md](DATA_MODULE.md)). The
+staff web reaches them through the Back Office, which forwards the routes
+below. Read "Back Office" in this document as "the module" for storage,
+execution, authorization and audit.
+
 ## Purpose and references
 
 Questionnaires collect structured intake; the Back Office validates and

@@ -422,6 +422,16 @@ finalized internal review snapshots in Git. They reuse the Go Back Office,
 Postgres indexes/audit and LAN staff web, with a local Git storage adapter;
 no Python/kernel, cloud model, remote Git PHI hosting or Kubernetes.
 
+**Data Science & Security module (owner, 2026-11-16).** The Back Office is
+for scheduling and daily administration. The V2 clinical pieces above (the
+patient Git collections, questionnaire responses and scores, measurements,
+notebooks) and the clinical access decisions run in a separate binary on
+the same Mac mini, with its own database, Git volume and audit chain.
+Phones and the staff web still reach only the Back Office, which forwards
+clinical routes over mutual TLS with a signed identity assertion and
+stores nothing clinical. Boundary, access mirror and operations:
+[DATA_MODULE.md](DATA_MODULE.md). Not yet approved; V1 is unchanged.
+
 Source intake validation/scoring stays authoritative. Notebook reads obey
 each dataset's authorization and fail-closed audit; finalizing a review
 does not change source answers/scores or resolve clinical flags. Git cannot

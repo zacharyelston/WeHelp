@@ -241,6 +241,20 @@ Design and acceptance tests: `docs/PATIENT_NOTEBOOKS.md`; cross-track order:
 `docs/V2_PLAN.md`. Library/version adoption still requires the repository's
 dependency/advisory/licence review before implementation.
 
+## Data Science & Security module boundary (V2, DATA_MODULE.md)
+
+Reviewed 2026-11-16, after the owner split clinical data from the Back
+Office.
+
+| Candidate | Verdict |
+|---|---|
+| A separate process on the same host, behind the existing front end | **adopt.** It isolates clinical storage from the most network-facing code without a second machine, which suits one appliance per practice. The Relay and Registry already work as separate binaries |
+| Mutual TLS on loopback, with certificates from the office CA | **adopt.** The office CA already signs the staff HTTPS certificate. One pinned client certificate is simpler to reason about than shared secrets |
+| Signed per-request identity assertions (the pattern behind JWT/PASETO service tokens) | **adopt the pattern**, with a short lifetime and a key the module pins. It lets the module make its own access decision without its own login |
+| HL7 Data Segmentation for Privacy (DS4P) | **reference.** It labels sensitive records so access can be restricted per segment, which is what private patients and per-repository access scopes do inside one practice |
+| Separate databases or roles per service in one Postgres server | **adopt.** Grants enforce the boundary at the database too; one server keeps backup and operations simple |
+| A second machine for clinical data | **skip for now.** The scale budget doesn't need it. The mTLS boundary leaves it possible later |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all
