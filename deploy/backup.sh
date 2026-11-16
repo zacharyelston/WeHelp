@@ -39,8 +39,9 @@ HEALTH_URL="${WEHELP_HEALTH_URL:-http://127.0.0.1:${WEHELP_HTTP_PORT:-8080}/heal
 DB_ENV="$DEPLOY_DIR/db.env"
 source "$DEPLOY_DIR/compose.sh" # compose()
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
-sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-size() { stat -f %z "$1" 2>/dev/null || stat -c %s "$1"; }
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
+# wc -c works on macOS and Linux; GNU `stat -f` means filesystem status, not format.
+size() { wc -c < "$1" | tr -d ' '; }
 
 # record writes one row to backup_runs (no patient data), so the staff web can
 # warn admins. If the database is down, the missing good run shows later.
