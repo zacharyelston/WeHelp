@@ -6,6 +6,16 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Health data design (V2): `docs/HEALTH_DATA.md` covers patients sharing
+  wearable readings from HealthKit through the app, and nothing else.
+  - Monitoring plans, with the patient turning each type on per practice.
+  - Sharing enforced per account, so provider accounts never sync and a
+    provider who is also a patient shares only through their patient
+    account.
+  - Readings, plus daily summaries for high-frequency types.
+  - Append-only measurements in the Back Office.
+  - The lit review gains a health-data section: HealthKit adopted; direct
+    Bluetooth and vendor clouds rejected.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot
