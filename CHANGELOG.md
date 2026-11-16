@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- WeHelp Home design (Post-V1): `docs/HOME.md`. A family's own base station
+  (the Back Office) holds their chat, calendar, locations and camera
+  footage, and phones reach it through the shared Relay. It includes a lit
+  review section.
 - `deploy/appliance.sh` works fully on a Linux (Docker Engine) Back Office.
   `install-backup` installs a systemd service and timer
   (`deploy/linux/wehelp-backup.*`) that back up nightly at 02:30, like the
