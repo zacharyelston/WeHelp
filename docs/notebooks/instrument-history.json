@@ -1,0 +1,22 @@
+{
+  "format": "wehelp.notebook.v1",
+  "title": "Instrument score history",
+  "cells": [
+    {"id": "purpose", "kind": "note", "text": "Review stored questionnaire scores and missingness. Separate form versions; this view does not diagnose or recompute scores."},
+    {"id": "window", "kind": "input", "type": "date_range", "default": {"relative_days": 90}},
+    {
+      "id": "scores",
+      "kind": "query",
+      "query": {
+        "resource": "questionnaire_scores",
+        "window": {"input": "window"},
+        "filters": [{"field": "instrument_key", "op": "eq", "value": "gad7"}],
+        "select": ["response_id", "form_version_id", "submitted_at", "score_id", "value", "unit", "band", "missing_policy", "flags"],
+        "order_by": [{"field": "submitted_at", "direction": "asc"}],
+        "limit": 1000
+      }
+    },
+    {"id": "score_table", "kind": "table", "source": "scores", "columns": ["submitted_at", "form_version_id", "score_id", "value", "unit", "band", "missing_policy", "flags"]},
+    {"id": "score_chart", "kind": "chart", "source": "scores", "chart": "line", "x": "submitted_at", "y": "value", "series": ["form_version_id", "score_id"], "missing": "gap"}
+  ]
+}

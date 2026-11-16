@@ -1,0 +1,22 @@
+{
+  "format": "wehelp.notebook.v1",
+  "title": "Shared reading history",
+  "cells": [
+    {"id": "purpose", "kind": "note", "text": "Show authorized current weight readings in kg. Missing days stay missing; this view does not infer clinical thresholds."},
+    {"id": "window", "kind": "input", "type": "date_range", "default": {"relative_days": 30}},
+    {
+      "id": "weight",
+      "kind": "query",
+      "query": {
+        "resource": "measurements",
+        "window": {"input": "window"},
+        "filters": [{"field": "type_key", "op": "eq", "value": "body_weight"}],
+        "select": ["measurement_id", "effective_at", "received_at", "value", "unit", "revision", "source_id"],
+        "order_by": [{"field": "effective_at", "direction": "asc"}],
+        "limit": 1000
+      }
+    },
+    {"id": "weight_table", "kind": "table", "source": "weight", "columns": ["effective_at", "value", "unit", "revision"]},
+    {"id": "weight_chart", "kind": "chart", "source": "weight", "chart": "line", "x": "effective_at", "y": "value", "series": ["unit"], "missing": "gap"}
+  ]
+}

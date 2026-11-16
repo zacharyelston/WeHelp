@@ -11,6 +11,9 @@ backlog in alzacai/WeHelp was copied over and is referenced as
   + verification included). Avoid `needs-spec` issues.
 - Milestones define order: `V1-M0` … `V1-M7`, plus the parallel `V1-OBS`
   track. `Post-V1` is deliberately deferred.
+- `V2: …` milestones (questionnaires, `docs/QUESTIONNAIRES.md`) are in
+  design. Don't pick them up while finishing V1, even if one is labeled
+  `agent-ready`, unless the owner asks for it.
 - Task format and workflow rules: `CONTRIBUTING.md` and
   `.github/ISSUE_TEMPLATE/task.md`.
 - Read before designing or touching `internal/`:
@@ -21,6 +24,19 @@ backlog in alzacai/WeHelp was copied over and is referenced as
   - `docs/V1_PLAN.md`: scope and order;
   - `docs/OBSERVABILITY.md`: telemetry and audit export;
   - `docs/LIT_REVIEW.md`: add an entry before designing anything new.
+
+## V2 record storage (specification, not current runtime)
+
+The owner selected Git as the authoritative patient record on 2026-11-16.
+Before implementing V2 patient writes/notebooks, read
+`docs/PATIENT_REPOSITORIES.md`, `docs/PATIENT_NOTEBOOKS.md` and
+`docs/V2_PLAN.md`. Patient repo collections stay local to the Back Office;
+Postgres patient tables are verified rebuildable projections in migrated
+Git mode. Do not add direct DB clinical writes or an unaudited Git mirror.
+Git cannot participate in pgx.Tx: use the specified durable audited
+prepare/publish/complete/recovery protocol. V1 DB writes and append-only
+security audit/ledger retain the transaction rules below until explicit
+verified migration. No real practice migration is authorized by a spec task.
 
 ## Commands
 

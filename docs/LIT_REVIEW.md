@@ -56,6 +56,23 @@ Verdicts: **adopt** (depend on it), **reference** (steal the design),
 | google/fhir Go module | **dead** — v0.7.4 Aug 2022; CMSgov/bcda-app removed it over Snyk vuln flags |
 | hand-rolled R4 structs | **adopt** — minimal Patient/Observation/Appointment structs + `encoding/json`; the bcda-app precedent. Re-evaluate libs if resource surface grows |
 
+## Patient health data from wearables (V2, [HEALTH_DATA.md](HEALTH_DATA.md))
+
+Reviewed 2026-11-16. The patient shares readings from their own devices
+through the WeHelp app. The office never collects device data any other way.
+
+| Candidate | Verdict |
+|---|---|
+| Apple HealthKit (on the patient's iPhone) | **adopt as the only source.** Nearly every consumer device (Apple Watch, connected scales, BP cuffs, CGMs, rings) already writes to it. The patient grants each type to the app. Anchored queries (`HKAnchoredObjectQuery`) give incremental sync without keeping data, and statistics queries (`HKStatisticsCollectionQuery`) give daily summaries of high-frequency types. Background delivery (`HKObserverQuery`) runs only while the device is unlocked, because health data is protected at rest. AGENTS.md already prefers it to Bluetooth |
+| CoreBluetooth to devices directly (GATT health profiles) | **reject for V2.** It would only matter for office devices, which are out of scope, and HealthKit already covers what patients own |
+| Vendor cloud APIs (Withings, Fitbit, Oura, Dexcom cloud) | **reject.** The Back Office would need internet access and OAuth tokens per patient, PHI would pass through third parties, and each would need a business associate agreement. HealthKit gets the same data on the phone |
+| Google Health Connect (Android) | **later**, with the Android app (#135): the same model as HealthKit, through the same Back Office API |
+| FHIR R4 `Observation` with LOINC codes, and UCUM units | **adopt the shape.** A measurement is an Observation-like row: a code, a value with a UCUM unit, the time taken, and a device. Export comes with #26 |
+| Open mHealth (IEEE 1752) | **reference**, as for check-ins (#21): type names and units line up with it, which makes FHIR mapping mechanical |
+| Remote patient monitoring billing (US CPT 99453, 99454, 99457) | **reference, not a goal.** Billing needs 16 days of readings a month and time logging, which this design doesn't track. It may matter for practices later |
+| HIPAA minimum necessary and role-based access (45 CFR 164.514(d)) | **adopt** for private patients: a flag enforced by the Back Office, with every read audited, meets the rule. Encryption isn't required for it |
+| Per-record data keys wrapped to each reader's public key (envelope encryption: `age` multi-recipient, Signal/MLS group keys, Apple's iCloud Advanced Data Protection) | **later** for private patients. It keeps content from the server's own admins, but the server can no longer search, score or export it, and device loss needs re-wrapping or an escrow key |
+
 ## API contract (#4)
 
 | Candidate | Verdict |
@@ -190,14 +207,102 @@ care. Verdicts are provisional until the work issues are specified.
 | Salon booking apps (e.g. Square Appointments, Vagaro, Fresha) | **reference** to study: booking, reminders, a client list, retail and a staff picker. Salons are not HIPAA covered entities; they need the same app with plainer words and no clinical features |
 | Feature-flag services (LaunchDarkly and similar) | **skip**: a few practice and provider switches stored in the Back Office are enough; no new infrastructure |
 
-## Questionnaires and kiosk content (post-V1, #82)
+## Questionnaires, intake forms and eCOA (#82, design in [QUESTIONNAIRES.md](QUESTIONNAIRES.md))
+
+Reviewed 2026-11-16, when questionnaires became WeHelp's main feature set
+beyond scheduling and messaging. These are custom intake forms and
+eCOA-style captures: patient-reported (ePRO) at home on the phone or in the
+office on a kiosk, assigned on schedules, using standard instruments with
+their scoring.
 
 | Candidate | Verdict |
 |---|---|
-| Interventionaire (in-house; legacy AdonisJS + MySQL + AngularJS, being renewed as an iOS app) | **reference, and possibly the authoring tool**: the kiosk copies its design (booklets, sections, pages, branches, element types, style books, proctored runs) and follows the renewal. Content may arrive as a signed JSON bundle. Never run in the practice; its `eval` branching and answer storage are not carried over. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
-| FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **evaluate in #82**: the standard shape; `enableWhen` covers simple branching. Maps onto #26 later |
-| SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
-| Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
+| Interventionaire (in-house). Legacy: AdonisJS + MySQL + AngularJS. Renewal: `interventionaire-v2`, NestJS + Prisma + React, PostgreSQL, OIDC, MIT | **reference for design, not a dependency or a format.** WeHelp copies the shape: sections and pages, branches between sections, element types, themes, proctored runs. v2's pages are rich-text HTML, with branch rules as expression strings. That suits interventions, but not coded, scored items, so WeHelp has its own item model. v2 never runs in a practice and never receives answers. Importing from v2 can come later as a converter. See [onboarding/KIOSK_DEMO.md](onboarding/KIOSK_DEMO.md) |
+| FHIR R4 `Questionnaire` / `QuestionnaireResponse` | **adopt the shape, not the wire format.** WeHelp's form definition maps one to one onto a subset: `item` with `linkId`, `type`, `code`, `answerOption` (with `ordinalValue` for scores), `enableWhen` and `initial`. Export to FHIR comes with #26. FHIR itself isn't stored: it's verbose, and its full expression features need FHIRPath |
+| HL7 SDC (Structured Data Capture) IG | **reference** for what to map later: `calculatedExpression` and `variable` (scoring), `itemControl` (slider, drop-down), `entryMode` (sequential, prior-edit). **Rejected as the engine:** SDC expressions are FHIRPath or CQL strings, and evaluating them safely on both Go and Swift is too much. WeHelp uses a small JSON expression tree instead |
+| NLM LHC-Forms | **reference**: a JavaScript renderer for FHIR Questionnaires, with a public library of loaded instruments to check our builds against. Not used: the walker is native SwiftUI, and the staff web has no framework |
+| SurveyJS | **reference** for the builder's UX and its expression ideas (`visibleIf`, `calculatedValues`). The library is MIT, but the Creator (builder) is commercial. Not used |
+| Apple ResearchKit (BSD) | **reference, not a dependency**: its step and navigation-rule model and its consent and active tasks are a good map of what eCOA on iOS needs. It's UIKit-era and much larger than we need, so the walker is SwiftUI |
+| CDISC ODM, REDCap data dictionary | **reference** for exporting data to research tools later. Out of scope now |
+| FDA PRO guidance, ISPOR ePRO good practice (faithful migration of paper instruments, measurement equivalence) | **adopt the principles for standard instruments.** Wording, answer order and recall period stay as published. One item per screen where the source does so. Timestamps on every answer. No back-filling outside the completion window. Built-in instruments are read-only in the builder |
+| 21 CFR Part 11 (electronic records: audit trails, attributable corrections) | **reference; partly met by design.** Submitted answers are append-only and audited by `audit.Record`. Staff corrections with reasons are deferred to a later release |
+| PHQ-9, GAD-7 (and their 2-item short forms), Pfizer | **adopt**: no permission is needed to reproduce, translate, display or distribute them. Ship them with LOINC codes and published scoring |
+| PROMIS (HealthMeasures) | **later**: free, but under terms of use, and the CAT versions need IRT scoring. Fixed short forms could follow once the terms are reviewed |
+| EQ-5D and other licensed instruments | **reject for built-ins**: licence fees and registration. A practice could hold its own licence and build the form itself |
+| Open mHealth (IEEE 1752) | already **reference** for check-ins (#21). Scored instruments map to FHIR `Observation`, not OMH |
+
+## Patient-record notebooks and V2 intake processing (2026-11-16)
+
+Owner direction: notebooks join questionnaires and patient health data in V2,
+as the processing/review layer after intake. This is a specification, not
+runtime implementation or an expansion of the V1 release gate.
+
+| Candidate/pattern | Verdict |
+|---|---|
+| [Updated notebooks service](https://dev.azure.com/ancerallc/ontology/_git/notebooks?version=GBfeat%2Fagent), `feat/agent` at `15a1d3e` | **reference** after fetching and fast-forward pulling the clean local checkout on 2026-11-16. README, notebook domain and report flow describe chat-driven Marimo editing, per-notebook data scope, revocation, pinned report dates and draft/regenerate/lock behavior. Adapt those interactions to Back Office storage and typed queries. Do not carry over cloud Claude, shared platform auth, GitHub storage of patient content, SMTP delivery or Kubernetes/session pods. The repo includes BUSL-1.1 LICENSE/LICENSING.md; it is not treated as permissively licensed source for copying. Its reference Helm chart is documented as not deployed. |
+| [Roost data-exploration notebooks](https://dev.azure.com/ancerallc/ontology/_git/roost?version=GBfeature%2Fdata-exploration), commit `db573feae45eea99047e7e6d08021f029cc854c0` | **reference only**: reactive cells, controls, read-only query examples, named evidence, data profiles and limitations. Reviewed `exploration/lpp_fremont/salmonella_and_placements/notebooks/explore.py` and `exploration/fall_creek_tclab/tc_lot_subculture_history/notebooks/explore.py` (generated with Marimo 0.25.2). No example was executed and no source database was queried. The private examples/helper have no demonstrated reuse licence; copy no code/data without ownership/licence review. Their Azure notebook demo endpoint is unverified. |
+| [Marimo](https://github.com/marimo-team/marimo), [security model](https://docs.marimo.io/security/) | **reference** the reactive interaction model; **skip runtime adoption for first V2 release**. Apache-2.0 project with active upstream and published advisories; reviewed current documentation on 2026-11-16, but no runtime version is selected or declared vulnerability-free. Notebook cells execute arbitrary code and deployed run-mode outputs are trusted. A Python service would add sandboxing, filesystem/network and authorization responsibilities. |
+| [DuckDB security model](https://duckdb.org/docs/stable/operations_manual/securing_duckdb/overview) | **reference** why a read-only database connection is not a code/filesystem/network sandbox. **Skip as a new patient-data engine** in this release: bounded parameterized queries against the existing Postgres are sufficient for one practice. |
+| Existing Go/pgx/Postgres and staff web | **adopt/reuse**: typed, allowlisted query plans, parameter binding, request-scoped limits, source authorization and fail-closed read audit. After the subsequent Git-authority decision below, Postgres holds verified rebuildable query indexes; patient notebook content lives in local authoritative repos. Compute unsaved results in memory. No new execution runtime or monitoring platform. |
+| [FHIR R4 QuestionnaireResponse](https://www.hl7.org/fhir/R4/questionnaireresponse.html) | **reference** response-to-exact-questionnaire linkage and separate responses for different subjects/times. Preserve form/version/item/score provenance; never combine instrument versions because display labels happen to match. Existing WeHelp form scoring remains authoritative. FHIR export stays separate. |
+
+The updated service is the primary workflow reference; the Roost examples
+remain evidence of query/profile/provenance patterns. WeHelp adds no Python,
+DuckDB, model provider or notebook-service dependency in this release.
+
+### Authoritative patient Git collections (owner decision, 2026-11-16)
+
+The owner subsequently chose **Git as the authoritative patient record**,
+not merely versioning of templates or a mirror of Postgres. This supersedes
+the initial notebook draft's Postgres-only content storage. Repositories
+remain local to the Back Office and its encrypted backups; no remote PHI
+hosting is approved. Postgres retains audit/identity/workflow authority and
+rebuildable patient query projections, with explicit cross-store recovery.
+
+| Reference | Verdict |
+|---|---|
+| [Git repository layout](https://git-scm.com/docs/gitrepository-layout), [update-ref CAS/transactions](https://git-scm.com/docs/git-update-ref), [fsck](https://git-scm.com/docs/git-fsck) | **adopt** local Git object/history and expected-old-object ref updates. One patient manifest commit publishes an immutable map of component repo commits; Git ref transactions do not provide atomic transactions across repos or with Postgres. Git object integrity is not user authorization or independent audit anchoring. |
+| Existing Postgres audit/outbox/locking patterns | **reuse** for durable prepare/publish/completion intents, source-head fences, reconstruction of query indexes and fail-closed reads. A Git write cannot participate in pgx.Tx; the architecture must replace that assumption explicitly with audited publication/recovery rather than claim dual-write atomicity. |
+| Git CLI through fixed argument vectors and private service-owned repos | **adopt** existing host Git plumbing behind one bounded storage adapter; record supported version/advisory/licence review before shipping. Disable remotes, hooks, inherited/user configuration, filters/submodules/external helpers and repository execution. No git daemon, hosting server or Python kernel. |
+
+See `docs/PATIENT_REPOSITORIES.md` for authority, publication, migration and
+backup invariants. Patient notebook query/scoring behavior is unchanged;
+content persistence now follows that authoritative record contract.
+
+Design and acceptance tests: `docs/PATIENT_NOTEBOOKS.md`; cross-track order:
+`docs/V2_PLAN.md`. Library/version adoption still requires the repository's
+dependency/advisory/licence review before implementation.
+
+## Data Science & Security module boundary (V2, DATA_MODULE.md)
+
+Reviewed 2026-11-16, after the owner split clinical data from the Back
+Office.
+
+| Candidate | Verdict |
+|---|---|
+| A separate process on the same host, behind the existing front end | **adopt.** It isolates clinical storage from the most network-facing code without a second machine, which suits one appliance per practice. The Relay and Registry already work as separate binaries |
+| Mutual TLS on loopback, with certificates from the office CA | **adopt.** The office CA already signs the staff HTTPS certificate. One pinned client certificate is simpler to reason about than shared secrets |
+| Signed per-request identity assertions (the pattern behind JWT/PASETO service tokens) | **adopt the pattern**, with a short lifetime and a key the module pins. It lets the module make its own access decision without its own login |
+| HL7 Data Segmentation for Privacy (DS4P) | **reference.** It labels sensitive records so access can be restricted per segment, which is what private patients and per-repository access scopes do inside one practice |
+| Separate databases or roles per service in one Postgres server | **adopt.** Grants enforce the boundary at the database too; one server keeps backup and operations simple |
+| A second machine for clinical data | **skip for now.** The scale budget doesn't need it. The mTLS boundary leaves it possible later |
+
+## V2 executable boundary contracts (2026-11-16, Codex integration)
+
+This completes the module proposal with implementable contracts; it does not
+copy another service runtime or claim that design review proves deployment
+security. Source PRs #192/#202/#225/#227 are integrated for review.
+
+| Primary reference | Application |
+|---|---|
+| [JWT BCP, RFC 8725](https://www.rfc-editor.org/rfc/rfc8725.html), [DPoP request-binding pattern, RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html) | Reuse the existing Go JWT library with fixed EdDSA, explicit issuer/audience/type, short expiry, unique nonce and method/target/body binding. Reference request-binding principles, not an invented claim of full OAuth DPoP compliance. The gateway remains a trusted identity authority; mTLS/signatures alone do not withstand its full compromise. |
+| [Postgres transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html), [privileges](https://www.postgresql.org/docs/current/ddl-priv.html) | Separate DB roles/databases; no cross-service DB transactions or grants. Durable intent/fencing and idempotent provisional booking replace the old single-transaction booking/link assumption. Per-source snapshots are explicit; no global snapshot across two services is claimed. |
+| [HealthKit privacy](https://developer.apple.com/documentation/healthkit/protecting-user-privacy), [anchored queries](https://developer.apple.com/documentation/healthkit/hkanchoredobjectquery), [statistics collection](https://developer.apple.com/documentation/healthkit/hkstatisticscollectionquery) | Read denial cannot be distinguished from no accessible samples. Advance a per-account anchor only after all batches are terminal; retry transient failures. Statistics collection applies to quantity samples; sleep categories need explicit interval processing. No extra HealthKit/network library. |
+| [Apple manually installed CA trust](https://support.apple.com/en-us/102390) and existing office StaffCert | The office-owned kiosk uses a configured LAN HTTPS URL, manually trusted office CA and an additional QR-installed staff key pin. StaffCert persists its key across renewals. No patient-phone LAN path, mDNS discovery or new ATS bypass. Real-device acceptance remains required. |
+
+Contracts and failure vectors: `docs/V2_CONTRACTS.md`. No new dependencies
+are selected beyond the existing JWT/pgx stack and previously reviewed local
+Git adapter. Implementers still pin/check tool/advisory versions in their PRs.
 
 ## Non-Go prior art worth knowing
 

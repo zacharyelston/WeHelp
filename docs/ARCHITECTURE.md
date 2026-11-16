@@ -404,3 +404,42 @@ guard stops dashboards that starve a small host. Details are in
 | **Field** (the naturopath practice) | WeHelp production Registry | Production Relay | Practice Mac mini | Real patients, only after the V1 audit and pen test pass |
 
 Demo and field never share a Registry, a Back Office, a Relay or keys.
+
+## V2 intake and processing (specification, 2026-11-16)
+
+Questionnaires/intake (#201), shared patient health data (#207) and
+[patient notebooks](PATIENT_NOTEBOOKS.md) form the V2 workflow described in
+[V2_PLAN.md](V2_PLAN.md). Owner decision: **Git is the authoritative patient
+record**, organized as a collection of local repos per Patient, including
+notebooks. [PATIENT_REPOSITORIES.md](PATIENT_REPOSITORIES.md) defines source
+manifests, audited publication/recovery and explicit V1 migration. Module Postgres
+clinical tables become verified rebuildable query projections; operational
+identity/contact, scheduling, communications and orders remain Back Office DB sources; DB security
+audit, credentials, ledger and workflow coordination retain their authority.
+
+Notebooks are initially provider-owned patient-record views:
+typed bounded queries, notes/tables/charts, provenance and explicitly
+finalized internal review snapshots in Git. They use the Go module,
+Postgres indexes/audit and LAN staff web, with a local Git storage adapter;
+no Python/kernel, cloud model, remote Git PHI hosting or Kubernetes.
+
+**Data Science & Security module (owner, 2026-11-16).** The Back Office is
+for scheduling and daily administration. The V2 clinical pieces above (the
+patient Git collections, questionnaire responses and scores, measurements,
+notebooks) and the clinical access decisions run in a separate binary on
+the same Mac mini, with its own database, Git volume and audit chain.
+Phones and the staff web still reach only the Back Office, which forwards
+clinical routes over mutual TLS with a signed identity assertion and
+persists no new structured clinical payload. Messages/reasons remain PHI in
+the operational DB. The gateway remains trusted for identity and plaintext;
+process separation is not protection against its full compromise. Boundary,
+durable access fencing, booking coordination and operations:
+[DATA_MODULE.md](DATA_MODULE.md), with actor/source contracts in
+[V2_CONTRACTS.md](V2_CONTRACTS.md). Under cross-review; V1 is unchanged.
+
+Source intake validation/scoring stays authoritative. Notebook reads obey
+each dataset's authorization and fail-closed audit; finalizing a review
+does not change source answers/scores or resolve clinical flags. Git cannot
+join pgx.Tx: the V2 storage protocol explicitly replaces the V1 DB-only PHI
+write invariant after a verified practice migration, preserving durable audit
+intent/completion. The specs stay under review and do not expand V1 gates.
