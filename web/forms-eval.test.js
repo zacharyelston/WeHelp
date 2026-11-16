@@ -1,6 +1,6 @@
 // Runs the shared wehelp.form.v1 vectors against web/forms-eval.js.
 //
-//   node --test web/forms-eval.test.js     (or: make test-js)
+//   node --test web/*.test.js     (or: make test-js; CI runs it in the go job)
 //
 // Needs Node 18 or later; no packages. It isn't embedded in the binary
 // (web/web.go embeds files by name).

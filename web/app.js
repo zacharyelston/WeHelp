@@ -211,6 +211,7 @@ function renderDashboard() {
       ${feature("store") ? `<div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
       <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
       ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
+      ${role === "admin" && feature("forms") ? `<div class="tab ${activeTab === "forms" ? "active" : ""}" data-tab="forms">Forms</div>` : ""}
     </div>
     <div id="tab-content"></div>`;
 }
@@ -260,6 +261,7 @@ async function loadTab() {
     else if (activeTab === "orders") await loadOrders(content);
     else if (activeTab === "store") await loadStore(content);
     else if (activeTab === "website") await loadWebsite(content);
+    else if (activeTab === "forms") await loadForms(content); // forms.js (#195)
   } catch (err) {
     content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }

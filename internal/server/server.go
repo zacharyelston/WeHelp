@@ -226,6 +226,10 @@ func (s *Server) Router() chi.Router {
 			r.Put("/form-versions/{versionID}", s.SaveFormVersion)
 			r.Post("/form-versions/{versionID}/publish", s.PublishFormVersion)
 			r.Get("/form-versions/{versionID}/export", s.ExportFormVersion)
+			// Images on display items (#195).
+			r.Post("/form-versions/{versionID}/assets", s.UploadFormAsset)
+			r.Get("/form-versions/{versionID}/assets/{name}", s.GetFormAsset)
+			r.Delete("/form-versions/{versionID}/assets/{name}", s.DeleteFormAsset)
 		})
 	})
 
