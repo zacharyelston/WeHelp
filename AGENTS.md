@@ -2,6 +2,15 @@
 
 ## Where to find work
 
+**Two agents work here: Claude and Codex.** Before picking anything up, read
+[docs/AGENT_COORDINATION.md](docs/AGENT_COORDINATION.md). It covers:
+- lanes (`agent:claude`, `agent:codex`);
+- claiming with `in-progress`;
+- branch prefixes;
+- cross-review;
+- handoff comments;
+- rules for shared files.
+
 Work is tracked in **zacharyelston/WeHelp** issues
 (`gh issue list -R zacharyelston/WeHelp`); PRs go there too. The older
 backlog in alzacai/WeHelp was copied over and is referenced as
