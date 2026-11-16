@@ -13,6 +13,16 @@ All notable changes to WeHelp are documented here. Format follows
   builder, assignments with schedules and `form_due` reminders, and
   standard instruments (PHQ-9, GAD-7). It also sets the order of work. The
   lit review gains a questionnaires and eCOA section.
+- `deploy/appliance.sh` works fully on a Linux (Docker Engine) Back Office.
+  `install-backup` installs a systemd service and timer
+  (`deploy/linux/wehelp-backup.*`) that back up nightly at 02:30, like the
+  launchd job. `demo-setup` finds the LAN address with `ip route` or
+  `hostname -I`. Doctor's `filevault` check passes when Docker's data is on
+  LUKS (dm-crypt), and `auto_login` checks GDM and getty, instead of
+  reporting SKIP. See `docs/APPLIANCE.md` ("Linux host").
+- A Linux Back Office test host, MiniZ (Ubuntu 24.04, Docker Engine). It's
+  documented in `docs/APPLIANCE.md` ("Linux host"), with what's still
+  macOS-only, and listed in the ARCHITECTURE.md test topologies.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot

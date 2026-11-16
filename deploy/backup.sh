@@ -4,7 +4,7 @@
 #   appliance.sh backup                       one backup now (the nightly job runs this)
 #   appliance.sh restore <backup-dir> <identity-file>
 #                                             replace this stack's data with a backup
-#   appliance.sh install-backup               install the nightly job (macOS launchd, 02:30)
+#   appliance.sh install-backup               install the nightly job, 02:30 (macOS launchd, Linux systemd timer)
 #
 # A backup is a directory wehelp-backup-<UTC stamp>/ holding three files, each
 # encrypted with age to the practice owner's public key(s) as it is written,
@@ -39,8 +39,9 @@ HEALTH_URL="${WEHELP_HEALTH_URL:-http://127.0.0.1:${WEHELP_HTTP_PORT:-8080}/heal
 DB_ENV="$DEPLOY_DIR/db.env"
 source "$DEPLOY_DIR/compose.sh" # compose()
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
-sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-size() { stat -f %z "$1" 2>/dev/null || stat -c %s "$1"; }
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
+# wc -c works on macOS and Linux; GNU `stat -f` means filesystem status, not format.
+size() { wc -c < "$1" | tr -d ' '; }
 
 # record writes one row to backup_runs (no patient data), so the staff web can
 # warn admins. If the database is down, the missing good run shows later.
@@ -208,7 +209,35 @@ restore() {
 }
 
 install_backup() {
-  [[ "$(uname)" == "Darwin" ]] || { echo "install-backup is for macOS (launchd)"; exit 1; }
+  case "$(uname)" in
+    Darwin) install_backup_launchd ;;
+    Linux) install_backup_systemd ;;
+    *) echo "install-backup is for macOS (launchd) or Linux (systemd)"; exit 1 ;;
+  esac
+}
+
+# install_backup_systemd: a system service + timer (nightly 02:30) that runs
+# the backup as the user who installed it, with that user's HOME. A system
+# timer runs without anyone logged in, unlike a user timer. Needs sudo.
+install_backup_systemd() {
+  command -v systemctl >/dev/null 2>&1 || { echo "install-backup on Linux needs systemd"; exit 1; }
+  local user="${SUDO_USER:-$(id -un)}" unit_dir="/etc/systemd/system" tmp sudo=""
+  [[ "$user" == root ]] && { echo "run install-backup as the service user (with sudo access), not as root"; exit 1; }
+  [[ "$(id -u)" -eq 0 ]] || sudo="sudo"
+  tmp="$(mktemp)"
+  sed -e "s#__SCRIPT__#$DEPLOY_DIR/appliance.sh#g" \
+      -e "s#__REPO__#$REPO_DIR#g" \
+      -e "s#__USER__#$user#g" \
+      "$DEPLOY_DIR/linux/wehelp-backup.service.in" > "$tmp"
+  $sudo install -m 644 "$tmp" "$unit_dir/wehelp-backup.service"
+  rm -f "$tmp"
+  $sudo install -m 644 "$DEPLOY_DIR/linux/wehelp-backup.timer" "$unit_dir/wehelp-backup.timer"
+  $sudo systemctl daemon-reload
+  $sudo systemctl enable --now wehelp-backup.timer >/dev/null
+  log "installed wehelp-backup.timer (nightly at 02:30 as $user; log: journalctl -u wehelp-backup)"
+}
+
+install_backup_launchd() {
   local label="com.wehelp.backup" plist="$HOME/Library/LaunchAgents/com.wehelp.backup.plist"
   mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
   sed -e "s#__SCRIPT__#$DEPLOY_DIR/appliance.sh#g" \

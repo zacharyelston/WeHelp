@@ -50,6 +50,10 @@ The Mac mini can make backups but can't read them.
    deploy/appliance.sh install-backup     # every night at 02:30
    ```
 
+   On a Linux host, install `age` with `sudo apt install age`;
+   `install-backup` then sets up a systemd timer instead of launchd
+   (APPLIANCE.md, "Linux host").
+
 Other settings: `WEHELP_BACKUP_DIR` (local copies, default `~/WeHelpBackups`)
 and `WEHELP_BACKUP_KEEP` (30 backups kept in each place).
 
