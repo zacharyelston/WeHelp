@@ -401,6 +401,7 @@ guard stops dashboards that starve a small host. Details are in
 |---|---|---|---|---|
 | **Dev** | Developer laptop | Developer laptop | Developer laptop (`make compose-up`) | Seed data |
 | **Demo** (investors, practitioners) | Developer laptop | Developer laptop | Barnacle (Mac mini) | Synthetic demo practices only |
+| **Linux test** (from 2026-11-16) | Barnacle | Barnacle | MiniZ (Ubuntu 24.04, Docker Engine) | Synthetic demo data only. No disk encryption; wiped and rebuilt after V1 |
 | **Field** (the naturopath practice) | WeHelp production Registry | Production Relay | Practice Mac mini | Real patients, only after the V1 audit and pen test pass |
 
 Demo and field never share a Registry, a Back Office, a Relay or keys.

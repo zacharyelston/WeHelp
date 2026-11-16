@@ -72,6 +72,40 @@ files.
    5. Set up nightly encrypted backups to the practice owner's key, copied
       off the machine, and test a restore: [BACKUPS.md](BACKUPS.md).
 
+## Linux host (Ubuntu, Docker Engine)
+
+The Back Office also runs on Linux with Docker Engine instead of Colima.
+**MiniZ** (192.168.1.65, Ubuntu 24.04) is the first, an isolated **test**
+host set up on 2026-11-16. It's registered with Barnacle's Registry as
+"MiniZ Test Practice" and tunnels to Barnacle's Relay.
+
+1. **Docker Engine and the Compose plugin** from Docker's apt repository
+   (`docker-ce`, `docker-compose-plugin`). Enable `docker` at boot and add
+   the service user to the `docker` group.
+2. **Data volume (optional):** MiniZ mounts a separate ext4 partition at
+   `/var/lib/docker` through `/etc/fstab`, so containers and Postgres
+   don't share the root filesystem.
+3. **Clone, `.env`, office identity:** as for the Mac (steps 6–7 above).
+   `demo-setup` can't find the LAN address on Linux (it uses macOS
+   `ipconfig`), so set `WEHELP_STAFF_HOSTS` in `deploy/.env` first, for
+   example `miniz-7-16.local,localhost,192.168.1.65`.
+4. **Release upgrades:** MiniZ stays on its LTS release
+   (`Prompt=never` in `/etc/update-manager/release-upgrades`). Patch it
+   with `apt full-upgrade`.
+
+**After a reboot:** Docker starts at boot and the `unless-stopped`
+containers come back without a login. MiniZ answered `/readyz` with the
+Relay connected about 45 seconds after a reboot. No boot job is needed.
+
+**What's macOS-only for now:**
+- `install-login` and `install-backup` (launchd). There's no nightly backup
+  job on Linux yet; run `appliance.sh backup` by hand.
+- Doctor's `filevault` and `auto_login` checks report SKIP.
+
+**A field install on Linux** would also need full-disk encryption (LUKS)
+and a systemd timer for backups. MiniZ has neither by design: it's a test
+host with synthetic data, and it's wiped after V1.
+
 ## After a reboot
 
 The boot job (`~/Library/LaunchAgents/com.wehelp.appliance.plist`) runs
