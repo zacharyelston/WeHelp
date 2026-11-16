@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- `docs/AGENT_COORDINATION.md`: how Claude and Codex share the repository.
+  It covers lane labels, claiming with `in-progress`, prefixed branches,
+  each agent reviewing the other's PRs and specs, handoff comments, and
+  rules for shared files such as migrations and the changelog.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot

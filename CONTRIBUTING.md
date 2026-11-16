@@ -18,8 +18,11 @@ bootstrap: read it first, then pick up work from GitHub.
    issues have acceptance criteria and a verification section — everything
    needed to complete them without asking. `needs-spec` issues are not
    ready; ask questions in the issue or leave them alone.
-2. **Comment / self-assign** so nobody duplicates the work.
-3. **Branch per issue:** `git checkout -b <issue#>-short-slug`.
+2. **Comment / self-assign** so nobody duplicates the work. Agents claim
+   with the `in-progress` label and stay in their lane; see
+   [docs/AGENT_COORDINATION.md](docs/AGENT_COORDINATION.md).
+3. **Branch per issue:** `git checkout -b <issue#>-short-slug`. Agents
+   prefix it: `claude/<issue#>-slug` or `codex/<issue#>-slug`.
    Never commit or push to `main` — every change, including docs and
    config, lands through a PR. `main` is protected.
 4. **Meet the acceptance criteria, then verify** — run the verification
