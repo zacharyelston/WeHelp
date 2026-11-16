@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# WeHelp Back Office appliance helper (macOS Mac mini with Colima, or any
-# Docker host). See docs/APPLIANCE.md.
+# WeHelp Back Office appliance helper (macOS Mac mini with Colima, or a
+# Linux host with Docker Engine). See docs/APPLIANCE.md.
 #
 #   appliance.sh init-env         create deploy/.env with a random secret (if missing)
 #   appliance.sh init-office      create the office keys; with WEHELP_INSTALL_TOKEN set,
@@ -19,7 +19,8 @@
 #   appliance.sh db-roles         set the database role passwords from deploy/db.env
 #   appliance.sh backup           encrypted backup now (nightly job: install-backup)
 #   appliance.sh restore DIR ID   restore a backup with an age identity (docs/BACKUPS.md)
-#   appliance.sh install-backup   install the nightly backup job (macOS launchd, 02:30)
+#   appliance.sh install-backup   install the nightly backup job, 02:30 (macOS launchd;
+#                                 Linux: systemd timer, needs sudo)
 set -euo pipefail
 
 # launchd starts jobs with a minimal PATH.
@@ -162,6 +163,69 @@ wait_for_health() {
   log "healthy: $HEALTH_URL after ${waited}s"
 }
 
+# lan_ip prints this host's LAN IPv4 address, or nothing.
+lan_ip() {
+  if [[ "$(uname)" == Darwin ]]; then
+    ipconfig getifaddr en0 2>/dev/null || true
+    return
+  fi
+  local ip=""
+  # The source address of the default route: the LAN side, never docker0.
+  if command -v ip >/dev/null 2>&1; then
+    ip="$(ip -4 route get 1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -n 1 || true)"
+  fi
+  if [[ -z "$ip" ]]; then
+    ip="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m 1 -E '^[0-9]+(\.[0-9]+){3}$' || true)"
+  fi
+  printf '%s' "$ip"
+}
+
+# linux_disk_encryption prints "STATUS|detail" for doctor's filevault check:
+# PASS when the filesystem holding Docker's data (Postgres, office keys)
+# sits on dm-crypt (LUKS) anywhere in its block-device chain.
+linux_disk_encryption() {
+  local dir src types
+  if ! command -v findmnt >/dev/null 2>&1 || ! command -v lsblk >/dev/null 2>&1; then
+    echo "SKIP|findmnt or lsblk not found: check full-disk encryption by hand"
+    return
+  fi
+  dir="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || true)"
+  [[ -n "$dir" ]] || dir=/var/lib/docker
+  src="$(findmnt -no SOURCE -T "$dir" 2>/dev/null | sed 's/\[.*//' || true)"
+  if [[ "$src" != /dev/* ]]; then
+    echo "SKIP|$dir is on ${src:-an unknown device}: check full-disk encryption by hand"
+    return
+  fi
+  # -s walks from the device up through its parents (LVM, crypt, partition, disk).
+  types="$(lsblk -rnso TYPE "$src" 2>/dev/null || true)"
+  if [[ -z "$types" ]]; then
+    echo "SKIP|lsblk can't read $src: check full-disk encryption by hand"
+  elif grep -qw crypt <<<"$types"; then
+    echo "PASS|LUKS (dm-crypt) under $dir ($src)"
+  else
+    echo "FAIL|$dir is on $src with no LUKS (dm-crypt) layer: set up full-disk encryption"
+  fi
+}
+
+# linux_auto_login prints "STATUS|detail" for doctor's auto_login check:
+# GDM automatic or timed login, or a getty override with --autologin.
+linux_auto_login() {
+  local on=() conf=/etc/gdm3/custom.conf
+  if [[ -r "$conf" ]] && grep -Eiq '^[[:space:]]*(Automatic|Timed)LoginEnable[[:space:]]*=[[:space:]]*(true|yes|1)[[:space:]]*$' "$conf"; then
+    on+=("GDM ($conf: set AutomaticLoginEnable=false)")
+  fi
+  if grep -qs -- '--autologin' /etc/systemd/system/getty@*.service.d/*.conf /etc/systemd/system/serial-getty@*.service.d/*.conf; then
+    on+=("console getty (remove --autologin under /etc/systemd/system/getty@*.service.d)")
+  fi
+  if (( ${#on[@]} )); then
+    echo "FAIL|automatic login is on: ${on[*]}"
+  elif [[ -e "$conf" ]]; then
+    echo "PASS|off (GDM)"
+  else
+    echo "PASS|off (no GDM)"
+  fi
+}
+
 cmd="${1:-}"
 case "$cmd" in
   init-env)
@@ -240,7 +304,7 @@ case "$cmd" in
     init_env
     env_default WEHELP_DEMO 1
     host="$(hostname -s | tr '[:upper:]' '[:lower:]')"
-    ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
+    ip="$(lan_ip)"
     env_default WEHELP_STAFF_HOSTS "$host.local,localhost${ip:+,$ip}"
     tz="$(readlink /etc/localtime 2>/dev/null | sed -n 's#.*/zoneinfo/##p')"
     [[ -n "$tz" ]] && env_default WEHELP_TIMEZONE "$tz"
@@ -266,9 +330,13 @@ case "$cmd" in
       if defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser >/dev/null 2>&1; then
         add auto_login FAIL "automatic login is on: turn it off in System Settings > Users & Groups"
       else add auto_login PASS "off"; fi
+    elif [[ "$(uname)" == Linux ]]; then
+      # The names stay filevault/auto_login so reports line up across hosts.
+      host+="filevault|$(linux_disk_encryption)"$'\n'
+      host+="auto_login|$(linux_auto_login)"$'\n'
     else
-      add filevault SKIP "not macOS: check full-disk encryption by hand"
-      add auto_login SKIP "not macOS: check automatic login by hand"
+      add filevault SKIP "not macOS or Linux: check full-disk encryption by hand"
+      add auto_login SKIP "not macOS or Linux: check automatic login by hand"
     fi
     db_id="$(compose ps -q db 2>/dev/null || true)"
     if [[ -z "$db_id" ]]; then
@@ -289,7 +357,7 @@ case "$cmd" in
     curl -s -m 3 -o /dev/null -w "healthz %{http_code}\n" "$HEALTH_URL" || true
     ;;
   *)
-    sed -n '2,22p' "$0"
+    sed -n '2,23p' "$0"
     exit 2
     ;;
 esac

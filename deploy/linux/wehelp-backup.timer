@@ -1,0 +1,12 @@
+# Installed by `deploy/appliance.sh install-backup` on Linux.
+# Nightly at 02:30 local time, like the macOS launchd job. Persistent= runs a
+# missed backup at the next boot.
+[Unit]
+Description=Nightly WeHelp Back Office backup (02:30)
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

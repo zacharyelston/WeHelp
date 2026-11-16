@@ -1,0 +1,12 @@
+# Installed by `deploy/appliance.sh install-backup` on Linux; placeholders are filled in then.
+# Started by wehelp-backup.timer. Log: journalctl -u wehelp-backup
+[Unit]
+Description=WeHelp Back Office encrypted backup
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__REPO__
+ExecStart=/bin/bash __SCRIPT__ backup
