@@ -70,6 +70,8 @@ through the WeHelp app. The office never collects device data any other way.
 | FHIR R4 `Observation` with LOINC codes, and UCUM units | **adopt the shape.** A measurement is an Observation-like row: a code, a value with a UCUM unit, the time taken, and a device. Export comes with #26 |
 | Open mHealth (IEEE 1752) | **reference**, as for check-ins (#21): type names and units line up with it, which makes FHIR mapping mechanical |
 | Remote patient monitoring billing (US CPT 99453, 99454, 99457) | **reference, not a goal.** Billing needs 16 days of readings a month and time logging, which this design doesn't track. It may matter for practices later |
+| HIPAA minimum necessary and role-based access (45 CFR 164.514(d)) | **adopt** for private patients: a flag enforced by the Back Office, with every read audited, meets the rule. Encryption isn't required for it |
+| Per-record data keys wrapped to each reader's public key (envelope encryption: `age` multi-recipient, Signal/MLS group keys, Apple's iCloud Advanced Data Protection) | **later** for private patients. It keeps content from the server's own admins, but the server can no longer search, score or export it, and device loss needs re-wrapping or an escrow key |
 
 ## API contract (#4)
 

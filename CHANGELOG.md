@@ -14,6 +14,8 @@ All notable changes to WeHelp are documented here. Format follows
     account.
   - Readings, plus daily summaries for high-frequency types.
   - Append-only measurements in the Back Office.
+  - Private patients: a flag so that only linked providers see clinical
+    content, with per-patient encryption keys noted for later.
   - The lit review gains a health-data section: HealthKit adopted; direct
     Bluetooth and vendor clouds rejected.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`

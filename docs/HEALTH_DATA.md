@@ -54,9 +54,57 @@ it. So the app enforces sharing per account:
   sent for the period it was off.
 - **A provider who is a patient at their own practice** has a separate
   patient account there. Their data reaches only the providers they're
-  linked to as a patient. Colleagues see nothing beyond what the existing
-  link and care-team rules allow. Whether such a patient can be marked
-  private to one provider is an open question below.
+  linked to as a patient. They will usually want to be a **private
+  patient** (below), so the front desk and admins at their own practice see
+  none of it.
+
+## Private patients
+
+Decided 2026-11-16: a patient can be **private**. This is a flag on the
+patient at one practice, enforced by the Back Office. It isn't encryption;
+see "Later: per-patient keys".
+
+- **Who sees clinical content:** only the providers with an active link to
+  the patient. That covers readings, monitoring plans, questionnaire
+  responses and message bodies.
+- **The front desk and admins still see** the patient's name, contact
+  details and appointments, so they can schedule. They can't open their
+  clinical content, and searches and lists don't show it.
+- **No silent links.** For a private patient, admin booking (#185) doesn't
+  create a link. A new provider link needs the patient's approval in the
+  app, as for care teams (#111). Without it, booking with an unlinked
+  provider is refused.
+- **Who sets it:** the patient, in the app (Settings → Privacy, per
+  practice), or a linked provider at the patient's request. Only the
+  patient can turn it off. Both changes are audited (`patient.private`).
+- **Admins can't read around it in the product.** The audit log still
+  records every read, and admins can see that a private patient exists.
+  There's no "break glass" in this release.
+- **One flag for every feature.** Health data, questionnaires and messages
+  all check it. Therapy's private threads (PRACTICE_TYPES.md) use the same
+  flag instead of a separate rule.
+
+**What a flag doesn't stop:** someone with root on the Mac mini, or a
+database restore, can still read the rows. FileVault, backup encryption and
+the audit log cover that today, as for every other patient.
+
+### Later: per-patient keys
+
+The stronger version: each private patient's clinical content is
+encrypted with a per-patient data key. That key is wrapped to the public
+key of each linked provider's device. The Back Office stores ciphertext and
+wrapped keys, so even its own admins and root can't read the content.
+
+It's deferred because of what it costs:
+- the staff web would need provider keys in the browser, or reading only on
+  the provider's phone;
+- the Back Office could no longer search, summarise, score questionnaires
+  or export that content;
+- a lost provider device needs re-wrapping, and recovery needs an escrow
+  key, which brings back the person who can read everything.
+
+The flag's rules are written so this can be added later without changing
+who may see what.
 
 ## Concepts
 
@@ -130,8 +178,8 @@ rules; everything goes in `api/openapi.yaml`):
 | `GET /measurements?patient_id=&type=&from=&to=` | staff, with `auditRead` |
 
 - **Who sees measurements:** the patient's linked providers, and the front
-  desk and admins of the practice. Revoked links stop access, like
-  messages.
+  desk and admins of the practice. For a private patient, only the linked
+  providers. Revoked links stop access, like messages.
 - **Feature switch:** `health_data`, off by default. Hidden for practice
   types without clinical features.
 - **Retention:** measurements are part of the record. They aren't deleted
@@ -192,10 +240,6 @@ rules; everything goes in `api/openapi.yaml`):
 
 ## Open questions
 
-- **A provider who is a patient at their own practice:** should a patient
-  be markable as **private to one provider**, so the front desk and admins
-  don't see their readings? The same question applies to messages; see the
-  therapy preset in PRACTICE_TYPES.md.
 - **ECG and irregular-rhythm notifications** (Apple Watch). They're
   clinically interesting, but they're documents and events, not single
   values. Later.
