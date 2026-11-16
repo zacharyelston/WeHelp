@@ -137,6 +137,64 @@ components:
             `proof_failed` (sign out), `proof_timestamp` (the device clock
             is off; keep the session and ask the user to fix the clock).
 
+    FormVersionSummary:
+      type: object
+      description: One version of a form, without its definition (#194).
+      required: [id, version, status, digest, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        status: { type: string, enum: [draft, published] }
+        digest: { type: string, description: "Hex SHA-256 of the canonical definition JSON." }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        published_at: { type: string, format: date-time }
+    FormSummary:
+      type: object
+      description: A form in the practice's library (#194). Practice content, not patient data.
+      required: [id, name, kind, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string, enum: [custom, instrument], description: "Built-in instruments are read-only." }
+        instrument_key: { type: string }
+        created_at: { type: string, format: date-time }
+        archived_at: { type: string, format: date-time }
+        latest: { $ref: "#/components/schemas/FormVersionSummary" }
+        published: { type: integer, description: "The highest published version number." }
+    FormDefinition:
+      type: object
+      description: >
+        A wehelp.form.v1 definition. The full JSON Schema is
+        schemas/wehelp.form.v1.json; internal/forms is the reference
+        validator. At most 200,000 bytes.
+      required: [format, title, sections]
+      properties:
+        format: { type: string, enum: [wehelp.form.v1] }
+        title: { type: string }
+      additionalProperties: true
+    FormDefinitionError:
+      type: object
+      description: The definition failed validation (#193). path names the field.
+      required: [error, code, path, kind]
+      properties:
+        error: { type: string, example: 'sections[0].pages[1].items[2].options: duplicate value "1"' }
+        code: { type: string, enum: [invalid_definition] }
+        path: { type: string }
+        kind:
+          type: string
+          enum: [json, size, schema, duplicate, reference, order, type, operator, depth, nodes, items, range]
+    FormVersion:
+      allOf:
+        - $ref: "#/components/schemas/FormVersionSummary"
+        - type: object
+          required: [form_id, form_name, kind, definition]
+          properties:
+            form_id: { type: string, format: uuid }
+            form_name: { type: string }
+            kind: { type: string, enum: [custom, instrument] }
+            definition: { $ref: "#/components/schemas/FormDefinition" }
+
     TokenResponse:
       type: object
       required: [access_token, refresh_token, token_type, expires_in]
@@ -4172,6 +4230,395 @@ paths:
               schema: { $ref: "#/components/schemas/Order" }
         "409":
           description: Not a move allowed from the current status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # Forms (#194): the practice's form library. Office LAN only (404 through
+  # the Relay). Staff read; admins change. 403 while the practice's forms
+  # switch is off (the default). Built-in instruments refuse changes (409).
+  /api/v1/forms:
+    get:
+      tags: [forms]
+      summary: The practice's forms, custom and built-in (staff, office LAN only, #194)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Every form with its latest version.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [forms]
+                properties:
+                  forms:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormSummary" }
+        "403":
+          description: Not staff, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    post:
+      tags: [forms]
+      summary: Create a custom form with its first draft (admins, office LAN only, #194)
+      description: Without a definition the draft is a one-page starter. Audited as form.create.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 200 }
+                definition: { $ref: "#/components/schemas/FormDefinition" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  form_id: { type: string, format: uuid }
+                  version_id: { type: string, format: uuid }
+                  version: { type: integer }
+        "400":
+          description: No name, or not JSON.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: The definition is invalid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDefinitionError" }
+
+  /api/v1/forms/import:
+    post:
+      tags: [forms]
+      summary: Import a definition file (admins, office LAN only, #194)
+      description: >
+        Without form_id the definition becomes a new custom form, named by its
+        title, with that draft. With form_id it becomes that form's next
+        draft (409 if the form already has a draft, is archived or is
+        built-in). Audited as form.import.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: form_id
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FormDefinition" }
+      responses:
+        "201":
+          description: Imported.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  form_id: { type: string, format: uuid }
+                  version_id: { type: string, format: uuid }
+                  version: { type: integer }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such form, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: The form already has a draft, is archived or is built-in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: The definition is invalid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDefinitionError" }
+
+  /api/v1/forms/{formID}:
+    get:
+      tags: [forms]
+      summary: A form and its versions (staff, office LAN only, #194)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: formID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The form and every version, newest first, without definitions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [form, versions]
+                properties:
+                  form: { $ref: "#/components/schemas/FormSummary" }
+                  versions:
+                    type: array
+                    items: { $ref: "#/components/schemas/FormVersionSummary" }
+        "403":
+          description: Not staff, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such form, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/forms/{formID}/draft:
+    post:
+      tags: [forms]
+      summary: Start a new draft from the latest version (admins, office LAN only, #194)
+      description: The draft gets the next version number. Audited as form_version.draft.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: formID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: The new draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  form_id: { type: string, format: uuid }
+                  version: { type: integer }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such form, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: The form already has a draft, is archived or is built-in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/forms/{formID}/archive:
+    post:
+      tags: [forms]
+      summary: Archive a form (admins, office LAN only, #194)
+      description: Its versions stay. Audited as form.archive.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: formID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Archived.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  archived_at: { type: string, format: date-time }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such form, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Already archived, or built-in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/form-versions/{versionID}:
+    get:
+      tags: [forms]
+      summary: One version with its definition (staff, office LAN only, #194)
+      description: Patients will get the versions assigned to them with the assignments issue (#196).
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The version; definition is in canonical form.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormVersion" }
+        "403":
+          description: Not staff, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    put:
+      tags: [forms]
+      summary: Save a draft's definition (admins, office LAN only, #194)
+      description: >
+        The body is the whole definition, validated by internal/forms.
+        Published versions can't change (409; the database refuses it too).
+        Audited as form_version.save.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FormDefinition" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  version: { type: integer }
+                  digest: { type: string }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Published, archived or built-in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: The definition is invalid.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDefinitionError" }
+
+  /api/v1/form-versions/{versionID}/publish:
+    post:
+      tags: [forms]
+      summary: Publish a draft (admins, office LAN only, #194)
+      description: Published versions are immutable. Audited as form_version.publish.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  version: { type: integer }
+                  digest: { type: string }
+                  published_at: { type: string, format: date-time }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Already published, archived or built-in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: The stored draft no longer validates.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDefinitionError" }
+
+  /api/v1/form-versions/{versionID}/export:
+    get:
+      tags: [forms]
+      summary: Download a version's definition (admins, office LAN only, #194)
+      description: >
+        Canonical JSON (sorted keys, compact, a final newline), so importing
+        the file and exporting it again gives the same bytes.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The definition file, as an attachment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormDefinition" }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such version, or through the Relay.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
