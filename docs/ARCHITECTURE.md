@@ -404,3 +404,27 @@ guard stops dashboards that starve a small host. Details are in
 | **Field** (the naturopath practice) | WeHelp production Registry | Production Relay | Practice Mac mini | Real patients, only after the V1 audit and pen test pass |
 
 Demo and field never share a Registry, a Back Office, a Relay or keys.
+
+## V2 intake and processing (specification, 2026-11-16)
+
+Questionnaires/intake (#201), shared patient health data (#207) and
+[patient notebooks](PATIENT_NOTEBOOKS.md) form the V2 workflow described in
+[V2_PLAN.md](V2_PLAN.md). Owner decision: **Git is the authoritative patient
+record**, organized as a collection of local repos per Patient, including
+notebooks. [PATIENT_REPOSITORIES.md](PATIENT_REPOSITORIES.md) defines source
+manifests, audited publication/recovery and explicit V1 migration. Postgres
+patient tables become verified rebuildable query projections; DB security
+audit, credentials, ledger and workflow coordination retain their authority.
+
+Notebooks are initially provider-owned patient-record views:
+typed bounded queries, notes/tables/charts, provenance and explicitly
+finalized internal review snapshots in Git. They reuse the Go Back Office,
+Postgres indexes/audit and LAN staff web, with a local Git storage adapter;
+no Python/kernel, cloud model, remote Git PHI hosting or Kubernetes.
+
+Source intake validation/scoring stays authoritative. Notebook reads obey
+each dataset's authorization and fail-closed audit; finalizing a review
+does not change source answers/scores or resolve clinical flags. Git cannot
+join pgx.Tx: the V2 storage protocol explicitly replaces the V1 DB-only PHI
+write invariant after a verified practice migration, preserving durable audit
+intent/completion. The specs stay under review and do not expand V1 gates.

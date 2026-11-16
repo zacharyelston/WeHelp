@@ -327,6 +327,18 @@ Before the audit:
 5. **Findings:** fixed or formally accepted before field deployment, and a
    retest done for every high or critical finding.
 
+## V2 authoritative patient repositories (specification)
+
+The owner selected Git as the patient-record authority on 2026-11-16.
+[PATIENT_REPOSITORIES.md](PATIENT_REPOSITORIES.md) defines local-only patient
+collections, private inert Git storage, one manifest publication point,
+durable DB audit prepare/completion and verified rebuildable query indexes.
+This changes the DB-only PHI write protocol only after explicit V2 migration;
+it does not replace the security audit/ledger authorities or current V1 rules.
+Remote Git hosting, arbitrary notebook execution and cloud AI are excluded.
+Review Git/DB crash boundaries, stale authorization indexes, repo configuration
+execution, history/backup retention and migration evidence before enabling.
+
 ## Open security decisions
 
 - **App Attest:** whether enrollment also requires Apple App Attest.

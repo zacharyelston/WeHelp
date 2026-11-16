@@ -199,6 +199,48 @@ care. Verdicts are provisional until the work issues are specified.
 | SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
 | Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
 
+## Patient-record notebooks and V2 intake processing (2026-11-16)
+
+Owner direction: notebooks join questionnaires and patient health data in V2,
+as the processing/review layer after intake. This is a specification, not
+runtime implementation or an expansion of the V1 release gate.
+
+| Candidate/pattern | Verdict |
+|---|---|
+| [Updated notebooks service](https://dev.azure.com/ancerallc/ontology/_git/notebooks?version=GBfeat%2Fagent), `feat/agent` at `15a1d3e` | **reference** after fetching and fast-forward pulling the clean local checkout on 2026-11-16. README, notebook domain and report flow describe chat-driven Marimo editing, per-notebook data scope, revocation, pinned report dates and draft/regenerate/lock behavior. Adapt those interactions to Back Office storage and typed queries. Do not carry over cloud Claude, shared platform auth, GitHub storage of patient content, SMTP delivery or Kubernetes/session pods. The repo includes BUSL-1.1 LICENSE/LICENSING.md; it is not treated as permissively licensed source for copying. Its reference Helm chart is documented as not deployed. |
+| [Roost data-exploration notebooks](https://dev.azure.com/ancerallc/ontology/_git/roost?version=GBfeature%2Fdata-exploration), commit `db573feae45eea99047e7e6d08021f029cc854c0` | **reference only**: reactive cells, controls, read-only query examples, named evidence, data profiles and limitations. Reviewed `exploration/lpp_fremont/salmonella_and_placements/notebooks/explore.py` and `exploration/fall_creek_tclab/tc_lot_subculture_history/notebooks/explore.py` (generated with Marimo 0.25.2). No example was executed and no source database was queried. The private examples/helper have no demonstrated reuse licence; copy no code/data without ownership/licence review. Their Azure notebook demo endpoint is unverified. |
+| [Marimo](https://github.com/marimo-team/marimo), [security model](https://docs.marimo.io/security/) | **reference** the reactive interaction model; **skip runtime adoption for first V2 release**. Apache-2.0 project with active upstream and published advisories; reviewed current documentation on 2026-11-16, but no runtime version is selected or declared vulnerability-free. Notebook cells execute arbitrary code and deployed run-mode outputs are trusted. A Python service would add sandboxing, filesystem/network and authorization responsibilities. |
+| [DuckDB security model](https://duckdb.org/docs/stable/operations_manual/securing_duckdb/overview) | **reference** why a read-only database connection is not a code/filesystem/network sandbox. **Skip as a new patient-data engine** in this release: bounded parameterized queries against the existing Postgres are sufficient for one practice. |
+| Existing Go/pgx/Postgres and staff web | **adopt/reuse**: typed, allowlisted query plans, parameter binding, request-scoped limits, source authorization and fail-closed read audit. After the subsequent Git-authority decision below, Postgres holds verified rebuildable query indexes; patient notebook content lives in local authoritative repos. Compute unsaved results in memory. No new execution runtime or monitoring platform. |
+| [FHIR R4 QuestionnaireResponse](https://www.hl7.org/fhir/R4/questionnaireresponse.html) | **reference** response-to-exact-questionnaire linkage and separate responses for different subjects/times. Preserve form/version/item/score provenance; never combine instrument versions because display labels happen to match. Existing WeHelp form scoring remains authoritative. FHIR export stays separate. |
+
+The updated service is the primary workflow reference; the Roost examples
+remain evidence of query/profile/provenance patterns. WeHelp adds no Python,
+DuckDB, model provider or notebook-service dependency in this release.
+
+### Authoritative patient Git collections (owner decision, 2026-11-16)
+
+The owner subsequently chose **Git as the authoritative patient record**,
+not merely versioning of templates or a mirror of Postgres. This supersedes
+the initial notebook draft's Postgres-only content storage. Repositories
+remain local to the Back Office and its encrypted backups; no remote PHI
+hosting is approved. Postgres retains audit/identity/workflow authority and
+rebuildable patient query projections, with explicit cross-store recovery.
+
+| Reference | Verdict |
+|---|---|
+| [Git repository layout](https://git-scm.com/docs/gitrepository-layout), [update-ref CAS/transactions](https://git-scm.com/docs/git-update-ref), [fsck](https://git-scm.com/docs/git-fsck) | **adopt** local Git object/history and expected-old-object ref updates. One patient manifest commit publishes an immutable map of component repo commits; Git ref transactions do not provide atomic transactions across repos or with Postgres. Git object integrity is not user authorization or independent audit anchoring. |
+| Existing Postgres audit/outbox/locking patterns | **reuse** for durable prepare/publish/completion intents, source-head fences, reconstruction of query indexes and fail-closed reads. A Git write cannot participate in pgx.Tx; the architecture must replace that assumption explicitly with audited publication/recovery rather than claim dual-write atomicity. |
+| Git CLI through fixed argument vectors and private service-owned repos | **adopt** existing host Git plumbing behind one bounded storage adapter; record supported version/advisory/licence review before shipping. Disable remotes, hooks, inherited/user configuration, filters/submodules/external helpers and repository execution. No git daemon, hosting server or Python kernel. |
+
+See `docs/PATIENT_REPOSITORIES.md` for authority, publication, migration and
+backup invariants. Patient notebook query/scoring behavior is unchanged;
+content persistence now follows that authoritative record contract.
+
+Design and acceptance tests: `docs/PATIENT_NOTEBOOKS.md`; cross-track order:
+`docs/V2_PLAN.md`. Library/version adoption still requires the repository's
+dependency/advisory/licence review before implementation.
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all

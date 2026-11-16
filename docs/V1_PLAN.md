@@ -242,6 +242,13 @@ can land any time and should not wait for M6.
 
 ## After V1 (not planned here)
 
+The next defined release is [V2: intake, patient data and notebooks](V2_PLAN.md):
+questionnaire epic #201, shared health-data epic #207, authoritative patient
+Git collections #220, and provider-owned notebooks #212 for bounded queries
+and review snapshots. That work is
+specified separately and does not change the V1 release gate. The historical
+deferred list below includes items now organized under that V2 milestone.
+
 Patient access to their health records (visit notes, check-ins #21,
 HealthKit #22), the in-office iPad kiosk (#8), a patient web portal, the
 ledger API (#23), message-body encryption (#25), FHIR (#26), SSO (#27),
