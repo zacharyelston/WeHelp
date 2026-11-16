@@ -85,6 +85,7 @@ func (r Report) Text(w io.Writer) {
 func (r Report) JSON(w io.Writer) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false) // a record for people: keep "&" and ">" as is
 	return enc.Encode(r)
 }
 
