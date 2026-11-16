@@ -37,9 +37,11 @@ struct Me: Decodable, Sendable {
     let tenantID: String
     let role: String
     let displayName: String?
+    /// True only from a demo build of the office: the app lock is skipped.
+    var demo: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case userID = "user_id", tenantID = "tenant_id", role, displayName = "display_name"
+        case userID = "user_id", tenantID = "tenant_id", role, displayName = "display_name", demo
     }
 }
 
