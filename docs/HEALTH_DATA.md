@@ -202,6 +202,10 @@ rules; everything goes in `api/openapi.yaml`):
 
 ## Order of work (one PR each)
 
+Filed under epic #207 in V2: #203 (measurements), #204 (plans and
+sharing), #205 (app sync) and #206 (Readings view). They stay
+`spec-review` until this design is approved.
+
 1. **Measurements in the Back Office:** the type catalogue, `measurements`
    (append-only, idempotent on `source_id`), `POST /me/measurements` and
    `GET /measurements`. This replaces the typed check-ins of #21.
