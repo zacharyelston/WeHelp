@@ -287,6 +287,23 @@ Office.
 | Separate databases or roles per service in one Postgres server | **adopt.** Grants enforce the boundary at the database too; one server keeps backup and operations simple |
 | A second machine for clinical data | **skip for now.** The scale budget doesn't need it. The mTLS boundary leaves it possible later |
 
+## V2 executable boundary contracts (2026-11-16, Codex integration)
+
+This completes the module proposal with implementable contracts; it does not
+copy another service runtime or claim that design review proves deployment
+security. Source PRs #192/#202/#225/#227 are integrated for review.
+
+| Primary reference | Application |
+|---|---|
+| [JWT BCP, RFC 8725](https://www.rfc-editor.org/rfc/rfc8725.html), [DPoP request-binding pattern, RFC 9449](https://www.rfc-editor.org/rfc/rfc9449.html) | Reuse the existing Go JWT library with fixed EdDSA, explicit issuer/audience/type, short expiry, unique nonce and method/target/body binding. Reference request-binding principles, not an invented claim of full OAuth DPoP compliance. The gateway remains a trusted identity authority; mTLS/signatures alone do not withstand its full compromise. |
+| [Postgres transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html), [privileges](https://www.postgresql.org/docs/current/ddl-priv.html) | Separate DB roles/databases; no cross-service DB transactions or grants. Durable intent/fencing and idempotent provisional booking replace the old single-transaction booking/link assumption. Per-source snapshots are explicit; no global snapshot across two services is claimed. |
+| [HealthKit privacy](https://developer.apple.com/documentation/healthkit/protecting-user-privacy), [anchored queries](https://developer.apple.com/documentation/healthkit/hkanchoredobjectquery), [statistics collection](https://developer.apple.com/documentation/healthkit/hkstatisticscollectionquery) | Read denial cannot be distinguished from no accessible samples. Advance a per-account anchor only after all batches are terminal; retry transient failures. Statistics collection applies to quantity samples; sleep categories need explicit interval processing. No extra HealthKit/network library. |
+| [Apple manually installed CA trust](https://support.apple.com/en-us/102390) and existing office StaffCert | The office-owned kiosk uses a configured LAN HTTPS URL, manually trusted office CA and an additional QR-installed staff key pin. StaffCert persists its key across renewals. No patient-phone LAN path, mDNS discovery or new ATS bypass. Real-device acceptance remains required. |
+
+Contracts and failure vectors: `docs/V2_CONTRACTS.md`. No new dependencies
+are selected beyond the existing JWT/pgx stack and previously reviewed local
+Git adapter. Implementers still pin/check tool/advisory versions in their PRs.
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all

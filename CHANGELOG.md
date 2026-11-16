@@ -6,6 +6,12 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Reconciled V2 module, clinical Git, questionnaires, HealthKit and notebook
+  implementation contracts: durable access fencing, booking/link recovery,
+  scoped request assertions, actor/privacy matrix, kiosk LAN trust, exact form
+  arithmetic/schedules, consent intervals and lossless sync retries. Notebook
+  operational cells share one gateway snapshot with explicit per-source
+  provenance and captured-review semantics. Design only; no runtime migration.
 - V2 Data Science & Security module design (`docs/DATA_MODULE.md`). The
   Back Office keeps scheduling and daily administration. Clinical records,
   notebooks and clinical access decisions move to a separate binary on the

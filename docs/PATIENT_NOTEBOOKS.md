@@ -14,12 +14,13 @@ This supersedes the first draft's Postgres-only content storage.
 Later owner decision (2026-11-16): notebooks run in the **Data Science &
 Security module**, not in `wehelpd` ([DATA_MODULE.md](DATA_MODULE.md)). The
 staff web reaches them through the Back Office, which forwards the routes
-below. Read "Back Office" in this document as "the module" for storage,
-execution, authorization and audit.
+below. The module owns clinical Git/projections/review. Operational facts
+remain Back Office DB sources and are read through its scoped batch API.
+See [V2_CONTRACTS.md](V2_CONTRACTS.md) for actor/source and client contracts.
 
 ## Purpose and references
 
-Questionnaires collect structured intake; the Back Office validates and
+Questionnaires collect structured intake; the module validates and
 scores submitted answers. A patient notebook lets an authorized provider
 ask questions of that record, inspect quality/limitations, compare results
 over time and retain a reviewed interpretation with its provenance.
@@ -31,7 +32,7 @@ report dates and draft/regenerate/lock behavior. Roost's examples at
 `db573feae45eea99047e7e6d08021f029cc854c0` provide profiling, named evidence
 and limitation patterns. See [LIT_REVIEW.md](LIT_REVIEW.md).
 
-We reuse those concepts in the Go Back Office, local patient repos, verified
+We reuse those concepts in the Go module, local patient repos, verified
 Postgres query projections and LAN staff
 web. We do not install that service, execute its Python, copy its licensed
 source, store PHI in GitHub or send prompts to its cloud agent. No new
@@ -39,9 +40,9 @@ infrastructure or model dependency is introduced.
 
 Questionnaire source design is [PR #192](https://github.com/zacharyelston/WeHelp/pull/192)
 and epic #201; health-data source design is [PR #202](https://github.com/zacharyelston/WeHelp/pull/202)
-and epic #207. Those documents are on separate unmerged branches when this
-spec is written. This spec neither approves the kiosk trust proposals nor
-sets a clinical response policy for instrument flags.
+and epic #207. This integration includes their documents and resolves kiosk
+transport in V2_CONTRACTS.md. Clinical flag response policy remains an owner
+field-release gate, not a notebook decision.
 
 ## First V2 release
 
@@ -79,13 +80,13 @@ Within a notebook, **each resource and field is authorized on every run**
 using the source store's current rules. A patient relationship alone never
 grants every thread or dataset. Check the feature switch, patient link,
 care-team/thread scope and permitted fields at start, and recheck current
-committed permissions before releasing results or finalizing a snapshot.
+committed clinical permissions before releasing results or finalizing a snapshot.
 Revocation during a run discards its outputs. Historical run ownership
 does not preserve access after relationship revocation.
 
 All definitions, patient-specific query parameters, notes, drafts, snapshots
-and provenance are PHI. Their authoritative record is in the Back Office's
-patient Git collection; query/index copies stay in local Postgres, all covered
+and provenance are PHI. Their authoritative record is in the office appliance's
+patient Git collection mounted only in the module; query/index copies stay in module Postgres, all covered
 by coordinated encrypted backups. The browser holds them only while displayed, with
 `Cache-Control: no-store`, no localStorage/IndexedDB/service-worker cache,
 no third-party scripts/fonts/telemetry and session/account-switch cleanup.
@@ -176,14 +177,37 @@ One explicit run resolves relative windows against a server-selected
 `as_of` instant in the office IANA time zone. Absolute intervals are
 inclusive-from/exclusive-to. Display both effective-data window and
 ingestion cutoff. New source rows/revisions committed after the run's
-database snapshot cannot appear partway through its cells. Backdated data
+respective source capture cannot appear partway through that source's cells. Backdated data
 can change a later Refresh; the old run's timestamp alone cannot recreate
 its values. No promise of historical reproducibility from a timestamp/hash.
 
-Each run pins one authoritative patient manifest/component map, verified
-projection head and a consistent Postgres source snapshot, plus notebook version,
-input set, catalogue/evaluator version and time zone. A final authorization
-check reads current committed permissions outside that source snapshot.
+Each run pins one authoritative clinical manifest/component map and verified
+module projection snapshot, notebook version, inputs, catalogue/evaluator
+version and time zone. Gather **all** operational query cells into one bounded
+gateway batch evaluated in a single repeatable-read read-only DB transaction.
+The request/response binds run ID, original actor/patient, ordered cell IDs and
+plan digests. Response includes source epoch, snapshot ID/capture time, exact
+row versions/digests, completeness and per-cell limits. Reject missing,
+duplicate, mixed-run or mismatched-plan results. No separate per-cell snapshot
+calls or retained gateway snapshot handle. Apply whole-run deadline/row/byte
+caps across the callback, including transport. Callback never waits on module
+locks or recursively calls module access endpoints.
+
+Clinical and operational capture times may differ. Display them separately;
+there is no cross-service global snapshot or globally instantaneous cutoff.
+The final clinical authorization check reads current Git outside the source
+snapshot; operational scopes use a bounded gateway authorization-only batch.
+Gateway account/device revocation bars new admissions; already-admitted bounded
+requests may finish under DATA_MODULE.md. Module grant revocation before the
+release/publication check withholds output. Do not promise a cross-DB account
+row lock or globally immediate credential revocation. Operational source
+permissions linearize at the gateway authorization batch; the resulting
+scope proof is bound to this operation/captured-scope digest, expires in at
+most 10 seconds and must be valid before module release/publication. A later
+gateway permission change bars new checks but may not retract this already
+admitted bounded operation. Stronger cross-service instantaneous revocation
+would require a separate shared fence protocol. Test both sides of this
+boundary rather than promising a cross-DB lock.
 Query statement timeout defaults to 2 seconds; whole run deadline 10 seconds;
 one active run per provider and two per office. Caps: 10,000 qualifying
 source rows inspected per query, 1,000 returned rows per query, 2,000 across
@@ -276,8 +300,11 @@ when the practice's clinical features are disabled.
 3. Provider writes their own interpretation, clearly attributed as authored
    narrative, and explicitly saves a review draft from the successful run.
 4. Regenerate keeps edits but creates a new output/input/as_of revision and
-   marks any previous review confirmation stale. Changing source versions
-   or losing access requires a new authorized run.
+   marks any previous review confirmation stale. Definition/input edits require
+   regeneration. New source facts do not rewrite or automatically invalidate
+   a captured draft: finalization is explicitly a review as of its recorded
+   per-source captures, not a guarantee of latest data. Show capture age and
+   offer Refresh; reconfirm after any regeneration. Loss of access refuses.
 5. Finalize review displays the exact draft version, source dates, completeness
    and unresolved flags. The provider explicitly confirms which submitted
    responses they reviewed, restricted to response/version IDs actually in
@@ -285,7 +312,11 @@ when the practice's clinical features are disabled.
    snapshot plus intake response-review events; DB audit/projection completion
    must succeed before the API acknowledges it, once per idempotency key.
 6. Reopening a finalized review displays frozen values and attribution; it
-   never reruns queries. A subsequent run/review references the earlier one
+   never reruns queries. Every artifact read/finalize rechecks the exact captured
+   source scopes, including gateway thread/dataset permissions through an
+   authorization-only batch; saved values are not an independent permission
+   grant. Unavailable gateway authority returns 503 for artifacts using those
+   sources; removed permission refuses. A subsequent run/review references the earlier one
    without changing it. Lost current authorization still refuses access.
 
 Finalization documents review, not diagnosis, treatment, clinical sign-off
@@ -306,8 +337,13 @@ Required synthetic scenarios:
 
 - Linked author succeeds; other provider, front desk/admin, unrelated
   patient/tenant, disabled author, revoked link/feature and Relay request
-  fail. Revocation during a paused query or before finalization discards
-  outputs. Saved definitions/drafts cannot extend source privileges.
+  fail at new admission. Gateway disable after admission may finish the bounded
+  request; the next read/save/finalize refuses. Clinical grant revocation before
+  the module's current-Git check refuses. Operational scope revocation before
+  the gateway authorization batch refuses; after proof issuance, completion
+  may finish only within its 10-second validity. Expired, wrong-operation or
+  wrong-scope-digest proof at CAS/release refuses. Saved definitions/drafts
+  cannot extend source privileges.
 - Published form versions stay separate; drafts/hidden items never appear;
   missing inputs stay null, stored scores remain authoritative, no extra
   clinical flag is generated or cleared, and first-open differs from review.
@@ -317,6 +353,10 @@ Required synthetic scenarios:
 - Invalid resource/field/op, injection-shaped literal, cycle/unknown ref,
   excessive plan/expression, timeout, cancellation and concurrency refuse
   before unbounded materialization. Normal API traffic remains responsive.
+- Edit an appointment between two operational cells: both use one gateway
+  snapshot or the run fails. Clinical/gateway captures remain separately shown.
+  Changed operational values after draft save do not rewrite/reject the captured
+  as-of review; removing its captured source permission prevents read/finalize.
 - Audit failure returns no PHI. Inject failure at every Git publication/DB
   audit-completion boundary and recover to one explained outcome. Retry
   creates one immutable review; corrupting a DB projection cannot change

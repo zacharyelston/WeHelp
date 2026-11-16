@@ -412,13 +412,14 @@ Questionnaires/intake (#201), shared patient health data (#207) and
 [V2_PLAN.md](V2_PLAN.md). Owner decision: **Git is the authoritative patient
 record**, organized as a collection of local repos per Patient, including
 notebooks. [PATIENT_REPOSITORIES.md](PATIENT_REPOSITORIES.md) defines source
-manifests, audited publication/recovery and explicit V1 migration. Postgres
-patient tables become verified rebuildable query projections; DB security
+manifests, audited publication/recovery and explicit V1 migration. Module Postgres
+clinical tables become verified rebuildable query projections; operational
+identity/contact, scheduling, communications and orders remain Back Office DB sources; DB security
 audit, credentials, ledger and workflow coordination retain their authority.
 
 Notebooks are initially provider-owned patient-record views:
 typed bounded queries, notes/tables/charts, provenance and explicitly
-finalized internal review snapshots in Git. They reuse the Go Back Office,
+finalized internal review snapshots in Git. They use the Go module,
 Postgres indexes/audit and LAN staff web, with a local Git storage adapter;
 no Python/kernel, cloud model, remote Git PHI hosting or Kubernetes.
 
@@ -429,8 +430,12 @@ notebooks) and the clinical access decisions run in a separate binary on
 the same Mac mini, with its own database, Git volume and audit chain.
 Phones and the staff web still reach only the Back Office, which forwards
 clinical routes over mutual TLS with a signed identity assertion and
-stores nothing clinical. Boundary, access mirror and operations:
-[DATA_MODULE.md](DATA_MODULE.md). Not yet approved; V1 is unchanged.
+persists no new structured clinical payload. Messages/reasons remain PHI in
+the operational DB. The gateway remains trusted for identity and plaintext;
+process separation is not protection against its full compromise. Boundary,
+durable access fencing, booking coordination and operations:
+[DATA_MODULE.md](DATA_MODULE.md), with actor/source contracts in
+[V2_CONTRACTS.md](V2_CONTRACTS.md). Under cross-review; V1 is unchanged.
 
 Source intake validation/scoring stays authoritative. Notebook reads obey
 each dataset's authorization and fail-closed audit; finalizing a review

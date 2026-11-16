@@ -336,6 +336,14 @@ durable DB audit prepare/completion and verified rebuildable query indexes.
 This changes the DB-only PHI write protocol only after explicit V2 migration;
 it does not replace the security audit/ledger authorities or current V1 rules.
 Remote Git hosting, arbitrary notebook execution and cloud AI are excluded.
+V2 structured clinical storage/authorization runs in the same-host module
+([DATA_MODULE.md](DATA_MODULE.md)); the gateway remains trusted for actor
+assertions and plaintext. Operational messages/reasons still contain PHI.
+Require per-request mTLS/body-bound replay-protected assertions, additive
+private/source permissions, durable access fences before grant mutations,
+restore epochs and idempotent booking/link coordination. No mirror fallback
+on uncertain access outcomes. [V2_CONTRACTS.md](V2_CONTRACTS.md) defines the
+patient-self/kiosk exceptions and mandatory negative/fault cases.
 Review Git/DB crash boundaries, stale authorization indexes, repo configuration
 execution, history/backup retention and migration evidence before enabling.
 

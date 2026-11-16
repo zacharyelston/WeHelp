@@ -37,7 +37,7 @@ not replace audit.Record, audit.Verify, ledger.Post or their pgx transactions.
 Patient relationships and record-access scopes are patient-record facts;
 their Postgres authorization indexes must be proven current before use.
 
-All patient repos are service-owned, bare and local on the Back Office's
+All patient repos are module-owned, bare and local on the office appliance's
 FileVault-protected data volume, included in encrypted backups. No remote,
 GitHub/Azure push, sync service, git daemon or direct clone API is enabled.
 The patient phone and staff UI access authorized APIs, never repository
@@ -64,14 +64,14 @@ Initial component kinds:
 
 | Kind | Authoritative content |
 |---|---|
-| `record` | Patient identity, relationships/care teams, appointments/requests, message events and patient orders currently held in V1 tables |
+| `record` | Clinical relationships/care teams, private status and clinical access facts; operational identity/contact, appointments/requests, communications and orders remain Back Office DB sources |
 | `intake` | Exact published form definition used, response/page events, submission, authoritative score/flag results and explicit review events |
 | `measurements` | Accepted readings/daily summaries, source/revision/withdrawal and sharing/monitoring facts |
 | `notebook` | One provider-owned notebook's definitions, notes, run provenance, saved drafts and immutable reviewed output |
 
 Kinds separate storage; they do not automatically grant a role access to
 every record in a repo. For example, admin scheduling access cannot read
-clinical messages in `record`. Notebook repositories retain their initial
+clinical access facts in `record`. Notebook repositories retain their initial
 author-only policy; sharing needs a separate audience design.
 
 Create component repos lazily, cap at 100 per patient initially and fail
@@ -109,9 +109,9 @@ Readers pin one manifest commit and load exactly its component commits.
 One operation can atomically publish intake + notebook review changes by
 advancing one manifest after both components are prepared.
 
-There is one bounded operation coordinator per patient, plus **durable
-business conflict-key reservations** (for example provider/day scheduling)
-across affected patients. Existing `pg_advisory_xact_lock` helpers release
+There is one bounded module operation coordinator per patient, plus durable
+patient/access conflict reservations. Back Office provider/day scheduling
+reservations belong to the separate booking coordinator in DATA_MODULE.md. Existing `pg_advisory_xact_lock` helpers release
 at a DB commit and cannot span this protocol. Each
 publication has an idempotency key and expected old manifest ID. Competing
 updates return 409/rebase at the application level; there is no automatic
@@ -141,9 +141,11 @@ writes and append-only financial/security tables keep their existing rules.
    plus `patient_record.publish_intent` in Postgres/audit. Recheck permissions
    and live head under coordinated actor/patient reservations. If anything changed,
    refuse/recover without publishing; never trust stale authorization indexes.
-5. **Publish Git.** Begin the completion DB transaction and hold the current
-   staff/account authorization row locks across CAS/completion so a concurrent
-   disable/recovery cannot race the final permission check. Verify durable
+5. **Publish Git.** Begin the module completion DB transaction. Recheck current
+   canonical clinical grants under patient reservations; require the gateway
+   fence ticket for access changes. Gateway credentials are admitted under
+   DATA_MODULE.md's bounded request assertion; the module cannot lock staff
+   rows in the other database. Verify durable
    operation ownership/fencing and reservations, then compare-and-swap
    `refs/heads/published` from expected old
    to candidate manifest using Git plumbing. Flush required object/ref writes
@@ -192,7 +194,7 @@ Every patient query projection includes source manifest/component IDs,
 schema/projector version and progress state. Before use, verify it matches
 the requested authoritative manifest. A stale, absent or corrupt projection
 is rebuilt or returns `record_recovering`; never accept absence as an empty
-clinical record or proof that a scheduling slot is free.
+clinical record. Scheduling availability remains a Back Office DB decision.
 
 Matching head/version tags is necessary but **does not prove index content**.
 For the first release, before querying a resource, derive its complete
@@ -206,12 +208,11 @@ or unprovable resources return an explicit bounded error, never unchecked
 query results. No persisted "verified=true" flag substitutes for this check.
 
 Evaluate access-control facts directly from the currently published Git
-record (plus live DB staff/device state), not an unverified SQL permission
-row. For provider/day business availability, prove the complete affected
-patient/appointment set from the authoritative patient collections, including
-patients absent from a damaged DB directory index, before trusting a derived
-schedule. Root patient collection discovery and its deterministic membership
-validation cannot depend solely on that potentially corrupt DB index.
+record (plus verified gateway identity admission), not an unverified SQL
+permission row. Do not reconstruct the Back Office directory or schedule from
+clinical Git: they are independent operational DB authorities. Validate root
+clinical collection membership during migration/restore independently of the
+derived clinical index.
 Faster authenticated projection proofs/caches require a separately reviewed
 scheme; they are not assumed by this spec.
 
@@ -222,34 +223,23 @@ or operator workflow state. Those database authorities need their own backup.
 
 Notebook SQL runs only over verified projections through typed source store
 adapters, not Git execution or arbitrary filesystem queries. Pin one patient
-manifest plus consistent Postgres snapshot for each run; record both in
-provenance. Recheck current published access facts and staff/device state
+manifest plus consistent module projection snapshot for each run; record both
+in provenance. Operational sources arrive as one separately captured gateway
+batch per run (PATIENT_NOTEBOOKS.md). Recheck current published access facts
 before returning/finalizing, even when source data is pinned historically.
 An old Git commit must never resurrect a revoked access grant.
 
-Cross-patient constraints such as provider double-booking use durable
-`patient_record_reservations` workflow rows, unique by tenant/conflict key,
-owned by operation ID plus fencing generation. Reserve all affected provider/
-local-day keys in canonical order at prepare (both old/new provider/days for
-reschedule); release only on terminal abort or completed projection/audit.
-The coarse per-provider/day reservation serializes booking commands; final
-overlap validation still uses exact time intervals on verified source facts.
-Include patient publication and any other command-specific shared resources.
-
-A process mutex helps one running appliance, but the committed reservations
-remain across DB transaction boundaries and restarts. A competing operation
-for another patient must block/recover the reservation owner before checking
-availability. Recovery cannot steal/release a reservation on elapsed time
-alone: reconcile the owning operation's actual Git head, audit state and
-projection first, and advance fencing ownership atomically. This prevents
-another patient booking into a Git-published but unprojected appointment.
-Rebuilding an affected provider index also honors these fences. Define and
-test every cross-patient command's key; freshness of just one patient index
-is insufficient to enforce a practice-wide business constraint.
+Durable module reservations are tenant/patient/access keys owned by operation
+ID and fencing generation. They survive DB commits and restart; elapsed time
+alone cannot release them. Reconcile actual Git publication/audit/projection
+before terminal release or ownership transfer. Back Office booking holds its
+own provider/day reservations while coordinating with the module; no clinical
+Git projection is used as the source of appointment availability. Test both
+sets independently and at their cross-service handoff (DATA_MODULE.md).
 
 ## Git adapter and deployment boundaries
 
-The only writer is the Back Office record adapter. No browser/client
+The only clinical Git writer is the module record adapter. No browser/client
 receives raw git, shell, clone, push, ref or object APIs. Use fixed executable
 and argument vectors, allowlisted operations and server-derived paths;
 never shell interpolation or client revision/path expressions.
@@ -266,7 +256,7 @@ Config defaults in internal/config/config.go will add backend selection,
 private record root and budgets. Field startup/doctor verifies directory
 ownership/modes (0700; files 0600), supported Git/object format, writable
 durable volume, encrypted-backup coverage, recovery state and projection
-freshness. This is a new local storage adapter, not an extra network service.
+freshness. This adapter runs only within the separate local module specified in DATA_MODULE.md.
 Pin/review the packaged Git binary and advisories before shipping; the
 developer's installed version is not a claim of a safe field dependency.
 
@@ -275,10 +265,11 @@ developer's installed version is not a claim of a safe field dependency.
 Do not put a Git mirror next to a writable Postgres patient record and call
 both authoritative. Enable `git` only at an explicit practice migration:
 
-1. Take/verify an encrypted V1 DB/keys backup. Quiesce patient-record writes
+1. Take/verify encrypted backups of both DB authorities/keys. Quiesce clinical writes
    and background patient writers; record the DB source watermark/schema.
-2. Export patient records at that consistent boundary, keeping stable IDs
-   and current source relationships. Build initial patient collections and
+2. Export clinical records/access facts at that boundary, keeping stable IDs
+   and current source relationships. Do not move operational records into Git.
+   Build initial patient collections and
    audited baseline manifests through the publication adapter.
 3. Record honestly that legacy rows provide a baseline current snapshot;
    do not invent historical revisions or pretend old audit detail contains
@@ -287,7 +278,9 @@ both authoritative. Enable `git` only at an explicit practice migration:
    counts, ownership, source/scoring versions and role visibility against
    the export. Verify fsck, every manifest component and audit binding.
 5. Activate the backend gate for the whole practice only after every
-   patient command/read path is converted and verification passes. Older
+   clinical command/read path is converted and verification passes. Operational
+   identity/contact, appointments/requests, communications and orders stay in
+   the Back Office DB; privacy-gated paths adopt the confirmed access mirror. Older
    binaries/DB-only writers refuse a migrated installation. No silent
    fallback to stale pre-migration tables.
 
@@ -297,7 +290,7 @@ restart the old V1 snapshot and lose new care data. Rehearse on synthetic
 500-patient data and measure downtime/disk/index rebuild costs before a
 practice migration. This spec authorizes design/tests, not a real migration.
 
-Encrypted backups include DB authorities, all patient repos/staging intents,
+Encrypted backups include both DB authorities, all patient repos/staging intents,
 manifest heads, keys, format/projector versions and a consistent recovery
 boundary. A quiesced/coordinated snapshot is acceptable at this appliance
 scale. Restore verifies Git objects + manifest references, audit anchors,
@@ -318,11 +311,12 @@ until its retention, audit and backup implications are separately reviewed.
   DB/Git/fsync failures at every phase converge to one auditable outcome;
   no success, notification, PHI response or mixed-head read escapes early.
 - Rebuild patient projections from Git only and compare golden facts and
-  access scopes; deliberately stale indexes refuse reads/booking. Disabling
-  an author or revoking a relationship mid-run prevents result/finalization.
-- Modify/remove/add clinical, patient-directory and permission projection
+  access scopes; deliberately stale indexes refuse clinical reads. Disabling
+  a relationship mid-run prevents result/finalization at the canonical recheck.
+  Gateway credential disable follows bounded admission in DATA_MODULE.md.
+- Modify/remove/add clinical and permission projection
   rows while leaving all source-head/version tags unchanged. Verification
-  must reject/rebuild before a query, authorization or booking uses them.
+  must reject/rebuild before a clinical query or authorization uses them.
 - Notebook finalize + intake-review events publish through one manifest;
   retry yields one immutable review, old review remains byte-identical.
 - Corrupt/missing objects, changed history versus audit anchors, malicious
