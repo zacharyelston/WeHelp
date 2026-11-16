@@ -45,13 +45,10 @@ func TestOfficeRole(t *testing.T) {
 		return c.do("POST", "/appointments", body)
 	}
 
-	// The front desk books for either provider, needs to say which, and
-	// still needs that provider's link to the patient.
+	// The front desk books for either provider and needs to say which.
+	// Booking an unlinked pair makes the link: TestBookingMakesLink.
 	if code, _ := book(desk, "", jordan, start); code != http.StatusBadRequest {
 		t.Errorf("office booking without provider_id: %d, want 400", code)
-	}
-	if code, _ := book(desk, ada, sam, start); code != http.StatusForbidden {
-		t.Errorf("office booking an unlinked pair: %d, want 403", code)
 	}
 	code, out = book(desk, ada, jordan, start)
 	if code != http.StatusCreated || out["provider_id"] != ada {

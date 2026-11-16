@@ -1648,8 +1648,11 @@ paths:
       description: |
         A provider books their own schedule; the front desk (office) and
         admins book for the provider named in provider_id (#106).
-        Requires an active provider-patient link. The provider cannot
-        double-book — overlapping appointments are rejected with 409.
+        A provider needs an active link with the patient. A front-desk or
+        admin booking makes that link if there is none (or activates a
+        pending invite), audited as link.create; a revoked link is refused
+        with 409. The provider cannot double-book: overlapping appointments
+        are rejected with 409.
       requestBody:
         required: true
         content:
@@ -1676,7 +1679,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: Overlapping appointment exists
+          description: Overlapping appointment exists, or the link was revoked
           content:
             application/json:
               schema:

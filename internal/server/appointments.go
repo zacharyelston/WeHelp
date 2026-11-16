@@ -94,15 +94,53 @@ func bookingProvider(ctx context.Context, tx pgx.Tx, w http.ResponseWriter, id I
 	return uuid.Nil, false
 }
 
+// linkForBooking makes the provider–patient link active for a booking by
+// the front desk or an admin: it creates it, or activates a pending invite,
+// with a link.create audit event in the booking's transaction. A revoked
+// link stays revoked: the patient or provider ended it. It returns 0, or
+// an HTTP status and message.
+func linkForBooking(ctx context.Context, tx pgx.Tx, id Identity, providerID, patientID uuid.UUID) (int, string) {
+	var isPatient bool
+	if err := tx.QueryRow(ctx, `select exists (select 1 from users where id = $1 and tenant_id = $2
+		and role = 'patient' and disabled_at is null)`, patientID, id.TenantID).Scan(&isPatient); err != nil {
+		return http.StatusInternalServerError, "patient check failed"
+	}
+	if !isPatient {
+		return http.StatusBadRequest, "no such patient in this practice"
+	}
+	tag, err := tx.Exec(ctx, `
+		insert into provider_patients (tenant_id, provider_id, patient_id, status)
+		values ($1, $2, $3, 'active')
+		on conflict (provider_id, patient_id) do update set status = 'active'
+		where provider_patients.status = 'pending' and provider_patients.tenant_id = excluded.tenant_id`,
+		id.TenantID, providerID, patientID)
+	if err != nil {
+		return http.StatusInternalServerError, "link failed"
+	}
+	if tag.RowsAffected() == 0 {
+		return http.StatusConflict, "this patient's link with that provider was revoked; the provider can invite them again"
+	}
+	if err := audit.Record(ctx, tx, audit.Event{
+		TenantID: id.TenantID, ActorID: &id.UserID,
+		Action: "link.create", ResourceType: "provider_patient",
+		ResourceID: providerID.String() + ":" + patientID.String(),
+		Detail:     mustJSON(map[string]string{"via": "booking"}),
+	}); err != nil {
+		return http.StatusInternalServerError, "audit failed"
+	}
+	return 0, ""
+}
+
 type updateAppointmentRequest struct {
 	StartsAt *string `json:"starts_at"`
 	EndsAt   *string `json:"ends_at"`
 	Status   *string `json:"status"`
 }
 
-// CreateAppointment schedules a new appointment (provider only).
-// Requires an active provider-patient link and rejects overlapping
-// appointments for the same provider.
+// CreateAppointment schedules a new appointment. A provider books their
+// own patients (an active link is required); the front desk or an admin
+// books any provider, and the booking makes the link if there is none.
+// Rejects overlapping appointments for the same provider.
 // Route: POST /api/v1/appointments
 func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 	id, _ := identityFrom(r.Context())
@@ -151,6 +189,16 @@ func (s *Server) CreateAppointment(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "link check failed")
 		return
+	}
+	if !linked && practiceWide(id.Role) {
+		// The front desk or an admin booking a provider with a patient is
+		// how the practice assigns them: the booking makes the link.
+		status, msg := linkForBooking(ctx, tx, id, providerID, req.PatientID)
+		if status != 0 {
+			writeErr(w, status, msg)
+			return
+		}
+		linked = true
 	}
 	if !linked {
 		writeErr(w, http.StatusForbidden, "no active link between that provider and patient")
