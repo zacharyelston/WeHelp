@@ -16,8 +16,6 @@ All notable changes to WeHelp are documented here. Format follows
   volume. The demo topology now runs a fresh Registry on Barnacle on :8090,
   with the Relay and the office re-registered (new key and IDs; phones
   re-pair).
-
-### Added
 - The Relay logs each video visit's TURN usage when its last allocation
   goes: `relay: TURN visit ended` with the office, the duration, bytes in
   and out, average kbit/s, and the allocation count. Counts only, no
