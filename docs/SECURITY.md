@@ -327,9 +327,33 @@ Before the audit:
 5. **Findings:** fixed or formally accepted before field deployment, and a
    retest done for every high or critical finding.
 
-## Open security decisions
+## Approved security direction awaiting implementation (2026-11-16)
 
-- **App Attest:** whether enrollment also requires Apple App Attest.
-- **Breached-password list:** a local copy versus k-anonymity lookups (a
-  local copy keeps the Back Office offline-safe).
+These decisions are specification targets, not completed checklist controls.
+The issue acceptance criteria and verification evidence govern completion.
+
+- **App Attest (#11):** require it for new field enrollment. The phone
+  obtains attestation; the Back Office validates it locally. Apple outages
+  may delay new pairing but do not interrupt ordinary enrolled sessions.
+- **Account lifecycle (#162/#163):** a versioned local password blocklist,
+  operator-assisted recovery, holder-confirmed staff pairing, hardware-backed
+  user presence and a non-sliding mobile renewal deadline. Patients have no
+  passwords. Precise lifetimes and rollout tests are in the issue specs.
+- **Phone storage (#164):** persist opaque account/routing identifiers only;
+  display names remain in memory. A Keychain copy of patient names is not a
+  substitute for the no-PHI-at-rest policy.
+- **Compatibility and trust (#165/#166/#168):** explicit version enforcement,
+  field HTTPS/TLS policy, planned current/next pin overlap, and out-of-band
+  compromise recovery. A compromised key cannot establish its own replacement.
+- **Evidence (#56/#167/#169):** separate operational/security sinks, remotely
+  retained audit anchors with durable receipts, and distinct live-row integrity
+  checks. An IDs-only export cannot recompute the current source audit hash,
+  which includes canonical detail. Full source verification runs in the Back
+  Office or an owner-controlled restore against independent retained anchors.
+
+## Open deployment decisions
+
 - **Production Relay host and operator:** these determine the BAA position.
+- **Audit retention destination:** the operator must establish #56's durable
+  receipt, retention, access and BAA-covered destination contract before field
+  use. Generic syslog/TLS or a local collector success is insufficient evidence.

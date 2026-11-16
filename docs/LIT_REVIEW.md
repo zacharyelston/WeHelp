@@ -4,6 +4,26 @@ Every `needs-spec` issue starts here: survey what exists before designing.
 Verdicts: **adopt** (depend on it), **reference** (steal the design),
 **skip** (hand-roll — nothing good exists).
 
+## V1 specification completion (owner-approved direction, 2026-11-16)
+
+These are implementation targets, not claims that the controls already ship.
+The linked GitHub issues carry acceptance criteria and verification. New
+specifications go through `spec-review` before `agent-ready`.
+
+| Prior art | Verdict and application |
+|---|---|
+| [Apple App Attest validation](https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server) | **adopt** for new field enrollments (#11). The phone obtains attestation; the Back Office validates it against Apple's root and its own one-time challenge. Existing enrolled devices do not depend on Apple being reachable for ordinary sessions. Apple's optional fraud-metric request is separate. No third-party Go verifier is selected by this spec; dependency review must precede adopting one. |
+| [Apple associated domains](https://developer.apple.com/documentation/xcode/supporting-associated-domains) | **adopt** for company-owned practice hostnames (#5). Requires both AASA and app entitlements/URL handling. Public URLs navigate only; they cannot install office keys or enroll a device. |
+| [Apple Keychain user presence](https://developer.apple.com/documentation/localauthentication/accessing-keychain-items-with-face-id-or-touch-id) | **adopt** for device credentials (#163). Use passcode-required device-only accessibility and user presence, with a bounded authentication context rather than an interactive prompt for every HTTP request. Store no patient names in account preferences (#164). |
+| [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b.html) | **reference** for local staff/console lifecycle (#162): a local common/compromised-password blocklist, no arbitrary periodic password changes, documented operator-assisted recovery and session revocation. This is not a claim of a certified authentication assurance level. No external identity service or per-password network query in V1. |
+| [RFC 5425 section 6.3](https://www.rfc-editor.org/rfc/rfc5425.html#section-6.3), [OTLP delivery semantics](https://opentelemetry.io/docs/specs/otlp/) | **reference** for #56. Syslog/TLS has no application acknowledgment; OTLP retries can duplicate and partial acceptance needs explicit handling. Separate privacy-safe event export, source-chain anchors, durable destination receipts and verification guarantees. Do not describe an identifier-only projection as full recomputation of the source hash: the current hash includes canonical detail. |
+| [Alloy Docker deployment](https://grafana.com/docs/alloy/latest/set-up/install/docker/), [Unix exporter](https://grafana.com/docs/alloy/latest/reference/components/prometheus/prometheus.exporter.unix/) | **adopt** existing Alloy/OTel direction (#53–#57, #63), with native macOS host measurements distinguished from Linux VM/container measurements. No new monitoring platform. #58's corporate multi-tenant PoC is deferred beyond V1. |
+| Existing Flyway migrations, demo seed, backup/restore and `doctor` | **reference/reuse** for #190, #169 and #45–#47. Rebuild only a positively identified demo database; re-pair demo phones; retain office keys/Registry enrollment. FileVault already has a host-side doctor check; continuous status is a separate target. No mutation of applied migrations or append-only audit rows. |
+
+Primary references above were checked on 2026-11-16. No new library version is
+selected here. When an implementation adds or upgrades a dependency, record
+its release/activity, advisory and licence review in the implementing PR.
+
 ## Messaging / memos / check-ins (#2, #10)
 
 | Candidate | Verdict |

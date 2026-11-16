@@ -69,7 +69,7 @@ haven't landed. Until they do, the step runs in its interim form, shown here.
 | Step | V1 form | Today | Waiting on |
 |---|---|---|---|
 | Registry entry | Registry console | `wehelp-registry` CLI on the Registry host | #61 |
-| Who enters the practice | Decision pending | WeHelp support | #79 |
+| Who enters the practice | WeHelp support (approved 2026-11-16) | WeHelp support | #79 verification |
 | Provider roster to Back Office | Pulled from the Registry | Staff accounts created by hand | #62 |
 | Back Office install | `appliance.sh init-office` | Works (Barnacle installed 2026-11-14) | — |
 | Relay connection | Automatic from `wehelpd serve` | Works on the Demo topology | — |
@@ -122,9 +122,11 @@ can all run, and phase 5 waits.
 
 ## Phase 1: WeHelp support sets up the practice in the Registry
 
-> **Open question (#79):** whether practices self-register with WeHelp
-> approval, or WeHelp support enters them. V1 assumes support enters them.
-> This phase is written that way, and changes if #79 decides otherwise.
+> **Decision (#79, approved 2026-11-16):** authorized WeHelp support enters
+> the practice and provider roster from the approved practice order, assigns
+> its Relay, and issues the install token. Record business/workforce details
+> and the approval reference only, never patient data. Self-registration and
+> hybrid practice invitations are deferred beyond V1.
 
 Today this is the `wehelp-registry` CLI on the Registry host (REGISTRY.md).
 Once the Registry console lands (#61), the same steps are console screens.

@@ -61,6 +61,13 @@ All notable changes to WeHelp are documented here. Format follows
   that screen with only "Try again".
 
 ### Changed
+- Record the owner-approved remaining V1 direction and prior art: support-entered
+  registration, the shared provider app, field identity/privacy/transport
+  hardening, truthful audit-export guarantees, Mac host telemetry and demo
+  reset semantics. GitHub specifications now separate acceptance evidence,
+  failure cases and release gates; #143 is split into #208–#210, and the
+  corporate Cloud Dashboards PoC (#58) is deferred to Post-V1. These are
+  specifications, not claims that the controls are implemented.
 - Demo practices don't lock the app. A demo build of the office (build tag
   `demo`, as on Barnacle) answers `/me` with `demo: true`. The app then
   skips its Face ID or passcode lock for that practice, so testers can use

@@ -36,13 +36,12 @@ audit events leave the box for long-term retention. Architecture is in
             └── optional: syslog (RFC 5424 over TLS) or OTLP to a SIEM
 ```
 
-- **Alloy (always on, on every host).** One Grafana Alloy collector per
-  Back Office, Relay and Registry host, as a Compose sidecar with a memory
-  limit. It
-  collects container logs, host metrics, OTLP from our binaries, and (on the
-  Back Office) the audit stream. It forwards to whatever destinations are
-  configured. It's the only telemetry component that must run next to the
-  service.
+- **Alloy (always on, on every host).** A capped Compose collector takes
+  explicitly allowed operational container logs and OTLP from our binaries.
+  Physical Mac host metrics use a native macOS collector configuration (#53):
+  Docker Desktop's Linux VM metrics are labeled separately, never presented
+  as measurements of the Mac. Hosts with several services share collectors
+  where possible. Security/audit files are excluded from ordinary log discovery.
 - **Dashboards (optional, anywhere).** Grafana with Loki (logs) and
   Prometheus (metrics), shipped as a separate Compose profile. They can run
   on the same host, on another machine, or not at all. Several hosts can feed
@@ -50,7 +49,9 @@ audit events leave the box for long-term retention. Architecture is in
   (`backoffice`, `relay` or `registry`).
 - **Remote export (optional, per deployment).**
   - **Ops stream:** to a Grafana or OTLP endpoint.
-  - **Audit stream:** to syslog (RFC 5424 over TLS) or OTLP.
+  - **Audit stream:** an approved durable retention destination with explicit
+    per-chain receipts (#56). Syslog/TLS or OTLP may mirror projections, but
+    their ordinary send success does not establish end-to-end durable retention.
 
   Endpoints and credentials live in the host's `.env`, mode 600. Nothing is
   exported unless configured.
@@ -70,10 +71,14 @@ audit events leave the box for long-term retention. Architecture is in
 - **Labels:** low-cardinality only (`office_id`, `role`, `service`, route
   template, status class). Per-request values (request ID, audit seq) go in
   log lines or structured metadata, never labels, so Loki's index stays small.
-- **Audit integrity:** the audit stream carries `prev_hash` and `hash`, so
-  the remote copy can be checked with the same chain rule as `audit.Verify`.
-  The exporter resumes from the last acknowledged `seq`. The database stays
-  the source of truth.
+- **Audit integrity (#56):** export privacy-safe event projections with original
+  source hashes and independently retain chain-head receipts. Remote checks
+  establish link continuity against retained anchors. Full `audit.Verify`
+  recomputation needs canonical source detail, which is not exported; run it
+  in the Back Office or an owner-controlled restore and compare the anchors.
+  Historical weak-verification modes remain explicit. Resume only after a
+  validated durable receipt, per committed source chain, with replay/dedup
+  and conflict detection; a global sequence cursor can skip late commits.
 
 ## What each service emits
 
@@ -81,7 +86,7 @@ audit events leave the box for long-term retention. Architecture is in
 - HTTP request rate, latency and status by route template, through OTel
   middleware;
 - database pool use;
-- River job counts and failures;
+- reminder polling/send counts and failures (the implemented worker is not River);
 - device enrollments and refresh failures (counts);
 - audit-chain verify result;
 - application logs as JSON on stdout, with no PHI (enforced by #42).
@@ -128,7 +133,11 @@ Dashboards are the first thing to go when a small host is under pressure:
 | **WeHelp Cloud Dashboards** | Our multi-tenant cloud Grafana stack | The corporate offering, below |
 | **Bring your own** | Their SIEM or Grafana | Syslog or OTLP export only |
 
-## WeHelp Cloud Dashboards (corporate offering, PoC)
+## WeHelp Cloud Dashboards (corporate offering, Post-V1 PoC)
+
+Owner decision, 2026-11-16: #58 is deferred to Post-V1. It is not a release
+dependency for required V1 telemetry or audit retention. No hosted platform
+purchase or new cloud infrastructure is implied by the specification.
 
 A paid option where offices ship telemetry to a Grafana stack we operate.
 
