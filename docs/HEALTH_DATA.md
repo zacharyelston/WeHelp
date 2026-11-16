@@ -162,7 +162,7 @@ verified projections and have no direct source-write handler.
   `audit_events`). It holds:
   - tenant, patient, type key, `kind`;
   - value (or systolic and diastolic), unit;
-  - `effective_at`, or local `day`, IANA zone, UTC interval and algorithm version;
+  - `effective_at`, or local `day`, IANA zone, UTC interval, coverage and algorithm version;
   - `source_id`: sample UUID, or patient/type/day/zone/plan/algorithm identity
     for summaries; server-assigned revision and expected-current-revision CAS;
   - `device` (HealthKit source name and model; no serial numbers);

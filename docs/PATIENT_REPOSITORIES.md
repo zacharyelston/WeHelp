@@ -86,6 +86,11 @@ such as `records/<kind>/<record-id>/revisions/<revision-id>.json`.
 Corrections/withdrawals reference old revisions rather than overwrite them.
 Preserve exact questionnaire/scoring versions and measurement revisions.
 Existing notebook JSON stays data, never an executable notebook file.
+The only non-JSON clinical blobs are pinned form media: validated bounded
+JPEG/PNG/MP4 bytes at content-addressed intake asset paths, referenced by typed
+definition metadata. They have no executable bit, Git configuration or external
+fetch behavior; exact bytes are retained with the patient collection. Module
+library configuration is not the only copy needed to reconstruct a response.
 
 Each published component also carries a versioned canonical current-record
 catalogue mapping resource/record IDs to exact revision/object IDs. Updating

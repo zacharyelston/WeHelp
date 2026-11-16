@@ -48,8 +48,12 @@ copied into clinical Git with the response. A later publish never changes an
 open occurrence. Media is module-local, validated by file type/size, immutable
 and content-addressed; allow JPEG/PNG images and MP4 video, maximum 10 MiB per
 asset, 64 MiB and 20 assets per version, 20 megapixels per decoded image.
-Serve same-origin with no autoplay/external embeds. Pinned assets are retained and encrypted-backed-up for
-the life of referring records. No remote media URLs or executable content.
+Serve same-origin with no autoplay/external embeds. When an occurrence pins a
+definition, copy its exact referenced asset bytes into content-addressed inert
+Git blobs in that patient's intake component; typed JSON records the hash,
+size and media type. The library asset store is not the only retained copy.
+Pinned assets are retained/encrypted-backed-up for the life of referring
+records. No remote media URLs or executable content.
 
 Every table has tenant_id. Clinical assignments, occurrence events, page
 revisions, answers, submission, scores/flags and review events are Git source;
@@ -147,8 +151,14 @@ Sharing is an append-only interval history per patient/practice/type. Accept
 new readings only when a plan and sharing are currently active AND the
 effective sample instant belongs to an authorized plan/sharing interval. On
 reenabling, start a new interval; do not backfill a previous off period. A
-daily summary requires its complete day interval to be covered by both gates;
-partial first/last days remain unavailable rather than disclose off-period data.
+daily summary requires its entire represented interval to be covered by both
+gates. A closed day represents midnight-to-midnight; today's provisional
+summary represents midnight-to-capture and records `coverage_end` and
+`complete_day=false`. It cannot imply a complete daily total/average. A plan
+or sharing interval beginning after midnight makes that day unavailable;
+never aggregate an off-period prefix. On withdrawal/plan end, retain earlier
+authorized provisional data with its incomplete coverage, not a fabricated
+complete day. Do not send new summaries after either current gate closes.
 Withdrawals of a previously accepted owned source are allowed while sharing
 is off. Ending a plan/offline disable stops new intake, not retained access
 or correction/withdrawal history. Distinguish permanent policy rejection from
@@ -162,7 +172,7 @@ transient service/authority failures.
 | Sleep | HealthKit category samples, select asleep stages only, clip to day, union overlapping intervals across sources/stages, sum duration; exclude awake/in-bed, never double count overlap |
 
 The practice IANA zone is pinned in each monitoring-plan version. Summaries
-store local date, IANA zone, UTC interval and algorithm version; an offset alone
+store local date, IANA zone, UTC interval, coverage and algorithm version; an offset alone
 is insufficient. A zone change starts a new plan interval, never relabels
 previous days. HealthKit statistics collection queries apply only to quantity
 types; sleep must use category queries and the explicit interval algorithm.
