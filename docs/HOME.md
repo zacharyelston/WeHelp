@@ -191,6 +191,17 @@ does this.
 
 ## Order of work (after V1)
 
+Filed under epic #248 in the "Post-V1: Home" milestone, with no agent lane
+labels until the owner schedules it:
+- #240 spike H1 (cameras);
+- #241 household type and Home app target;
+- #242 self-service households;
+- #243 base station image;
+- #244 calendar and chores;
+- #245 location;
+- #246 camera recording;
+- #247 kids' privacy and stores.
+
 1. **Spike H1, cameras on MiniZ:**
    - go2rtc and one camera;
    - live view in the app at home and away through Barnacle's Relay;
