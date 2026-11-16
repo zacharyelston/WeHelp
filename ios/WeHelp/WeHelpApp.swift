@@ -7,8 +7,20 @@ struct WeHelpApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            // Debug builds only: `-sampleForm` opens the bundled sample form,
+            // so the walker can be checked without pairing (#198).
+            if ProcessInfo.processInfo.arguments.contains("-sampleForm"), let def = SampleForms.intake {
+                NavigationStack {
+                    FormWalkerView(session: FormSession(definition: def, sink: InMemoryFormSink(definition: def)))
+                }
+            } else {
+                RootView().environment(appState)
+            }
+            #else
             RootView()
                 .environment(appState)
+            #endif
         }
     }
 }

@@ -33,6 +33,7 @@ struct TodayView: View {
                 Label("Daily check-in", systemImage: "checkmark.circle")
                 Label("Weight reminder", systemImage: "scalemass")
                 Label("Sync health monitors", systemImage: "waveform.path.ecg")
+                FormsSection()
                 Section("From your practice") {
                     NavigationLink { LibraryView() } label: { Label("Library", systemImage: "books.vertical") }
                 }
