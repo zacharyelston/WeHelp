@@ -23,6 +23,16 @@ All notable changes to WeHelp are documented here. Format follows
   by the phone's address. `docs/RELAY.md` also records the first measured
   visit on Barnacle: about 2.2 Mbit/s each way at the Relay.
 
+- A training seed profile (#80): `wehelpd seed --profile training`
+  (`appliance.sh seed training` on a demo host) adds a synthetic week at a
+  naturopath office to Demo Clinic. That's 3 providers, a front desk and an
+  admin, 25 fictional patients with links, this week's schedule
+  (completed, no-show, cancelled, scheduled), appointment requests and
+  message threads. The layout comes from a fixed seed. It's idempotent
+  within a week, and every write is audited. It runs only where `seed`
+  already may: a demo build with `WEHELP_ENV=dev|demo` (#161), never the
+  field image. There's no reset: audit events can't be deleted.
+
 ### Fixed
 - iOS: a push that arrives while the app is open refreshes the messages
   list, the open conversation and appointments at once. Before, the banner

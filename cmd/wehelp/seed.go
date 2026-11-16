@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zacharyelston/wehelp/internal/config"
@@ -17,21 +18,34 @@ import (
 	"github.com/zacharyelston/wehelp/internal/store"
 )
 
+var seedProfile string
+
 var seedCmd = &cobra.Command{
 	Use:   "seed",
-	Short: "Seed a demo tenant, provider, two patients, a link, messages, and an appointment",
-	Long: `Seed creates a demo dataset so devs and agents can exercise the API
-instantly. It is idempotent: re-running against an already-seeded database
-performs no writes and appends no duplicate audit events. Demo credentials
-are printed to stdout.
+	Short: "Seed demo data: the default demo practice, or a training week (--profile training)",
+	Long: `Seed creates demo data so devs, agents and trainers can use the API and
+the apps at once. Profiles:
 
-Requires an already-migrated database: 'make db-migrate' or the compose
-migrate service (which runs automatically before 'server' starts).`,
+  default   Demo Clinic: an admin, a front desk, a provider, two patients,
+            a link, messages and an appointment.
+  training  the default, plus a synthetic week at a naturopath office for
+            staff training (#80): 3 providers, 2 staff, 25 patients, this
+            week's schedule, requests and message threads.
+
+It is idempotent: re-running in the same week writes nothing and appends no
+audit events. Credentials are printed to stdout. There is no reset: audit
+events can't be deleted, so starting over means a fresh demo database.
+
+Runs only in a demo build with WEHELP_ENV=dev or demo, never against a field
+Back Office. Requires an already-migrated database.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		cfg := config.C()
 		if cfg.Env != "dev" && cfg.Env != "demo" {
 			return fmt.Errorf("seed writes demo accounts with known passwords: run it only with WEHELP_ENV=dev or WEHELP_ENV=demo (now %q), and never against a field Back Office", cfg.Env)
+		}
+		if seedProfile != "default" && seedProfile != "training" {
+			return fmt.Errorf("unknown profile %q: want default or training", seedProfile)
 		}
 
 		pool, err := store.NewPool(ctx, cfg.DatabaseURL)
@@ -40,9 +54,22 @@ migrate service (which runs automatically before 'server' starts).`,
 		}
 		defer pool.Close()
 
+		if seedProfile == "training" {
+			loc := time.Local
+			if cfg.Timezone != "" {
+				if l, err := time.LoadLocation(cfg.Timezone); err == nil {
+					loc = l
+				}
+			}
+			_, err = seed.RunTraining(ctx, pool, os.Stdout, time.Now(), loc)
+			return err
+		}
 		_, err = seed.Run(ctx, pool, os.Stdout)
 		return err
 	},
 }
 
-func init() { demoCommands = append(demoCommands, seedCmd) }
+func init() {
+	seedCmd.Flags().StringVar(&seedProfile, "profile", "default", "default or training")
+	demoCommands = append(demoCommands, seedCmd)
+}
