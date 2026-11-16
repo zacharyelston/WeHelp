@@ -6,6 +6,10 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Android spike A1 (#127): `android/spike/`, a throwaway app that pairs
+  through the Relay with both pins failing closed and an Android Keystore
+  device key, and `docs/spikes/A1.md`. It passes on an emulator; the
+  physical phone run is pending.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot

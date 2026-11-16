@@ -199,6 +199,18 @@ care. Verdicts are provisional until the work issues are specified.
 | SurveyJS (JSON form schema) | **reference**: a mature JSON schema for branching forms, with a declarative expression language |
 | Apple ResearchKit | **reference**: native iOS survey steps and navigation rules; may suit the kiosk walker |
 
+## Android client transport and keys (spike A1, #127)
+
+Reviewed 2026-11-16 in [spikes/A1.md](spikes/A1.md).
+
+| Candidate | Verdict |
+|---|---|
+| Platform `SSLSocket` (Conscrypt), layered with `createSocket(socket, host, port, true)` | **adopt for the Relay hop.** TLS 1.3 to the Relay pinned by a trust manager, then the office's TLS on top. It works on Android 15 with no dependency |
+| OkHttp | **evaluate in #128 for the office hop**, with a custom `SocketFactory` that does the Relay hop. It has no support for a TLS connection to a proxy, so it can't do the Relay hop itself |
+| OkHttp `CertificatePinner`, network-security-config `<pin-set>` | **reject.** Both pin the SPKI hash, not WeHelp's X9.63 hash, so every pin would fail (MOBILE_CLIENT.md §3) |
+| Android Keystore P-256 (`AndroidKeyStore`, StrongBox when present) | **adopt.** The DER SPKI and `SHA256withECDSA` DER signatures verify unchanged against `internal/auth` |
+| Google code scanner (`play-services-code-scanner`) | **adopt for the spike; decide in #130.** It needs no camera permission and supplies the UI, but requires Google Play services. The fallback is ZXing, or CameraX with ML Kit's bundled model |
+
 ## Non-Go prior art worth knowing
 
 OpenEMR (PHP), GNU Health (Python), HAPI FHIR (Java), Medplum (TS) — all
