@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- A Linux Back Office test host, MiniZ (Ubuntu 24.04, Docker Engine). It's
+  documented in `docs/APPLIANCE.md` ("Linux host"), with what's still
+  macOS-only, and listed in the ARCHITECTURE.md test topologies.
 - The Registry runs on an always-on host (#182): `deploy/registry.sh`
   (`up`, `down`, `status`, `logs`, `cli …`) drives its own Compose project,
   `deploy/registry/` (Postgres, Flyway and a distroless nonroot
