@@ -86,6 +86,10 @@ targets:
     platform: iOS
     sources:
       - path: WeHelpTests
+      # The shared wehelp.form.v1 vectors (#193), as a folder resource "forms".
+      - path: ../testdata/forms
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: WeHelp
     settings:

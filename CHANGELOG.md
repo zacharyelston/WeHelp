@@ -47,6 +47,28 @@ All notable changes to WeHelp are documented here. Format follows
     first demo patient a synthetic three-page branching form with a score,
     open for a week (`seed.RunDemoForms`).
   - `docs/MOBILE_CLIENT.md` §16 has the app contract.
+- iOS Forms client, first part (#198):
+  - `ios/WeHelp/Forms/`, a Swift `wehelp.form.v1` evaluator, ported from
+    `web/forms-eval.js` with Go's exact number handling. It covers:
+    - a JSON reader that keeps number text as written;
+    - exact rationals within 128 bits;
+    - the compiler and validator;
+    - visibility, branching, scores and missing policies;
+    - `checkAnswers`.
+  - `FormEvaluatorTests` runs every shared vector and the 39 shared invalid
+    definitions in `testdata/forms/`, which are bundled into the test target.
+  - The walker (`FormWalkerView`, `FormSession`): one page per screen with
+    progress, Back and Next, and inline errors.
+    - Next checks the page's required, range and type problems.
+    - Submit appears only on a complete last page.
+    - Afterwards it shows "Thank you" and any `showScore` results.
+    - Controls: radio list, buttons, checkboxes, dropdown, yes/no, a number
+      keypad with a Done key, a slider with end labels, a date picker, and
+      short and long text with a counter.
+  - Answers stay in memory. A `FormSink` protocol takes page saves and the
+    submit; the Back Office implementation follows #196 and #197.
+  - Until then, Today shows a bundled sample form in demo builds only. Debug
+    builds open it directly with the `-sampleForm` launch argument.
 - A form builder in the staff web (#195): a Forms tab for admins, shown
   while the `forms` switch is on. The code is in `web/forms.js`.
   - **Forms list:** shows custom and built-in forms with their latest and
