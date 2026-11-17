@@ -42,6 +42,14 @@ private struct FailingSink: FormSink {
     }
 }
 
+/// A sink whose page save is always stale, and whose reload returns `state`.
+private struct StaleSink: FormSink {
+    let state: FormResponseState
+    func savePage(_ pageID: String, answers: [String: FormJSON]) async throws { throw FormsAPIError.staleRevision(state.revision) }
+    func submit(answers: [String: FormJSON]) async throws -> [String: FormResult.ScoreOut]? { [:] }
+    func reload() async throws -> FormResponseState? { state }
+}
+
 @MainActor
 final class FormSessionServerErrorTests: XCTestCase {
     private func session(_ sink: FormSink) throws -> FormSession {
@@ -68,6 +76,25 @@ final class FormSessionServerErrorTests: XCTestCase {
         XCTAssertFalse(moved)
         XCTAssertTrue(s.closed)
         XCTAssertEqual(s.saveError, "This form has closed. Your practice can send it again if needed.")
+    }
+
+    func testResumeOpensFirstUnsavedPage() throws {
+        let def = try XCTUnwrap(SampleForms.intake)
+        let answers: [String: FormJSON] = ["consent": .bool(true), "age": .number("40"), "visit": .string("sleep")]
+        XCTAssertEqual(FormSession.resumePage(def, answers, []), "p_about")
+        XCTAssertEqual(FormSession.resumePage(def, answers, ["p_about"]), "p_sleep")
+        XCTAssertEqual(FormSession.resumePage(def, answers, ["p_about", "p_sleep", "p_notes"]), "p_notes")
+    }
+
+    func testStaleRevisionShowsTheServersAnswers() async throws {
+        let server: [String: FormJSON] = ["consent": .bool(true), "age": .number("55"), "visit": .string("other")]
+        let sink = StaleSink(state: FormResponseState(id: "r1", revision: 9, answers: server, savedPages: ["p_about"]))
+        let s = try session(sink)
+        let moved = await s.next()
+        XCTAssertFalse(moved)
+        XCTAssertEqual(s.answer("age"), .number("55"))
+        XCTAssertEqual(s.pageID, "p_about")
+        XCTAssertNotNil(s.saveError)
     }
 
     func testSubmitProblemsJumpToTheirPage() async throws {

@@ -11,6 +11,13 @@ protocol FormSink: Sendable {
     /// Submits the canonical answers. Returns the server's scores when the
     /// form shows them; the walker never shows its own preview as the result.
     func submit(answers: [String: FormJSON]) async throws -> [String: FormResult.ScoreOut]?
+    /// The server's current answers after a stale revision; nil if the sink
+    /// has no server (the sample).
+    func reload() async throws -> FormResponseState?
+}
+
+extension FormSink {
+    func reload() async throws -> FormResponseState? { nil }
 }
 
 /// The sample form's sink: nothing leaves memory, and the "server" scores are
@@ -40,20 +47,20 @@ final class FormSession: Identifiable {
     private(set) var submitted = false
     private(set) var resultScores: [String: FormResult.ScoreOut]?
 
-    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:]) {
+    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:], savedPages: [String] = []) {
         self.definition = definition
         self.sink = sink
         self.answers = answers
-        let walk = Self.walk(definition, answers)
-        // Resume at the first page with an unanswered required item, else the first.
-        let firstOpen = walk.first { pid in
-            let page = definition.pages[definition.pageIndex[pid]!]
-            return page.items.contains { ii in
-                let it = definition.items[ii]
-                return it.required && answers[it.id] == nil
-            }
-        }
-        pageID = firstOpen ?? walk.first ?? definition.pages[0].id
+        pageID = Self.resumePage(definition, answers, savedPages)
+    }
+
+    /// Resume (docs/MOBILE_CLIENT.md §16): the first visible page with no
+    /// save, else the last saved one; a new response starts at the first.
+    static func resumePage(_ def: FormDefinition, _ answers: [String: FormJSON], _ saved: [String]) -> String {
+        let walk = walk(def, answers)
+        let savedSet = Set(saved)
+        if let firstUnsaved = walk.first(where: { !savedSet.contains($0) }) { return firstUnsaved }
+        return walk.last(where: { savedSet.contains($0) }) ?? walk.first ?? def.pages[0].id
     }
 
     var result: FormResult { definition.evaluate(answers) }
@@ -190,6 +197,18 @@ final class FormSession: Identifiable {
             return true
         } catch let FormsAPIError.invalidAnswers(problems) {
             show(problems)
+            return false
+        } catch FormsAPIError.staleRevision {
+            // Saved from another device since: show what the Back Office
+            // holds, merge nothing, and let the patient check this page.
+            if let fresh = try? await sink.reload() {
+                answers = fresh.answers
+                problems = [:]
+                if !pages.contains(pageID) { pageID = Self.resumePage(definition, answers, fresh.savedPages) }
+                saveError = "Your answers were changed on another device. Check this page, then continue."
+            } else {
+                saveError = "Couldn't save this page. Check your connection and try again."
+            }
             return false
         } catch {
             report(error, fallback: "Couldn't save this page. Check your connection and try again.")

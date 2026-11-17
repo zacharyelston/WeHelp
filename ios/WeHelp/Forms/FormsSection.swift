@@ -116,7 +116,7 @@ struct FormsSection: View {
             let def = try await api.definition(versionID: f.versionID)
             let state = try await api.start(occurrenceID: f.occurrenceID)
             let sink = APIFormSink(forms: api, occurrenceID: f.occurrenceID, state: state)
-            session = FormSession(definition: def, sink: sink, answers: state.answers)
+            session = FormSession(definition: def, sink: sink, answers: state.answers, savedPages: state.savedPages)
             message = nil
         } catch let e as FormsAPIError {
             message = e.errorDescription

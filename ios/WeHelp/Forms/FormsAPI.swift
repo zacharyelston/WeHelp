@@ -78,6 +78,9 @@ struct FormResponseState: Sendable {
     let id: String
     let revision: Int
     let answers: [String: FormJSON]
+    /// Pages with a save, in document order (resume opens the first page
+    /// without one, or the last saved one).
+    var savedPages: [String] = []
 }
 
 struct FormsAPI: Sendable {
@@ -119,7 +122,8 @@ struct FormsAPI: Sendable {
         let r = try await call("POST", "api/v1/responses", body: .object([("occurrence_id", .string(occurrenceID))]))
         guard let id = r["id"]?.string else { throw FormsAPIError.server(200, "No response id.") }
         return FormResponseState(id: id, revision: r["revision"]?.intValue ?? 0,
-                                 answers: Dictionary(uniqueKeysWithValues: r["answers"]?.objectPairs ?? []))
+                                 answers: Dictionary(uniqueKeysWithValues: r["answers"]?.objectPairs ?? []),
+                                 savedPages: (r["pages"]?.array ?? []).compactMap { $0["page_id"]?.string })
     }
 
     /// Saves one page; returns the new revision.
@@ -165,19 +169,19 @@ actor APIFormSink: FormSink {
             key = UUID().uuidString.lowercased()
             pending = (pageID, answers, key)
         }
-        do {
-            revision = try await forms.savePage(responseID: responseID, pageID: pageID, answers: answers, revision: revision, idempotencyKey: key)
-        } catch FormsAPIError.staleRevision {
-            // Someone else saved (another device, or a lost reply): pick up the
-            // current revision and save this page again, once.
-            let fresh = try await forms.start(occurrenceID: occurrenceID)
-            responseID = fresh.id
-            revision = fresh.revision
-            let retryKey = UUID().uuidString.lowercased()
-            pending = (pageID, answers, retryKey)
-            revision = try await forms.savePage(responseID: responseID, pageID: pageID, answers: answers, revision: revision, idempotencyKey: retryKey)
-        }
+        revision = try await forms.savePage(responseID: responseID, pageID: pageID, answers: answers, revision: revision, idempotencyKey: key)
         pending = nil
+    }
+
+    /// After a stale revision (another device saved): fetch what the Back
+    /// Office holds now. The walker shows those answers and merges nothing
+    /// (docs/MOBILE_CLIENT.md §16).
+    func reload() async throws -> FormResponseState? {
+        let fresh = try await forms.start(occurrenceID: occurrenceID)
+        responseID = fresh.id
+        revision = fresh.revision
+        pending = nil
+        return fresh
     }
 
     func submit(answers: [String: FormJSON]) async throws -> [String: FormResult.ScoreOut]? {
