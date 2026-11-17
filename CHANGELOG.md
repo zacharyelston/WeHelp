@@ -5,6 +5,21 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- The staff web has a menu and a cleaner look:
+  - a **sidebar grouped** into Care (patients, appointments, messages, inbox,
+    care teams, links), Forms (forms, due forms), Practice (orders, store,
+    website) and Admin (settings, staff), showing only groups with something
+    in them;
+  - a **user menu** for My profile, My devices and Log out;
+  - on narrow screens the sidebar becomes a slide-in menu behind a ☰ button;
+  - menus close on Escape or a click elsewhere, the current page is marked
+    for screen readers, and items show keyboard focus.
+- **Brand colours and mark:** a deep teal replaces the default blue, with an
+  inline house-and-keyhole mark. The name and mark live in one `BRAND`
+  constant in `web/app.js`, so a rename to Keepdom is a one-line change.
+- **Denser tables and cards,** so more fits on screen.
+
 ### Fixed
 - The form builder no longer says "Not saved: missing bearer token" when the
   staff session has ended (30 minutes idle). It says the user was signed out
