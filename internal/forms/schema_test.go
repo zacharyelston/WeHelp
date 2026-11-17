@@ -37,7 +37,7 @@ func TestSchemaMatchesValidator(t *testing.T) {
 		return sorted(out)
 	}
 
-	if got, want := keys(schema.Properties), sorted([]string{"format", "title", "locale", "description", "code", "sections", "scores"}); !reflect.DeepEqual(got, want) {
+	if got, want := keys(schema.Properties), sorted([]string{"format", "title", "locale", "description", "copyright", "code", "sections", "scores", "flags"}); !reflect.DeepEqual(got, want) {
 		t.Errorf("top-level fields: schema %v, validator %v", got, want)
 	}
 	for typ, extra := range itemFields {

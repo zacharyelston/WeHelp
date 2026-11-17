@@ -362,6 +362,24 @@
    "shared": true
   },
   {
+   "file": "flag-dangling.json",
+   "path": "flags[0].when.answered",
+   "kind": "reference",
+   "shared": true
+  },
+  {
+   "file": "flag-not-boolean.json",
+   "path": "flags[0].when",
+   "kind": "type",
+   "shared": true
+  },
+  {
+   "file": "flag-duplicate-id.json",
+   "path": "flags[0].id",
+   "kind": "duplicate",
+   "shared": true
+  },
+  {
    "file": "count-display.json",
    "path": "scores[0].expr.count[1]",
    "kind": "type",

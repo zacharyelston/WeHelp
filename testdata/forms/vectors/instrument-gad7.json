@@ -1,0 +1,205 @@
+{
+  "description": "GAD7 golden vectors (#199): published scoring (sum of 0-3 items), bands.",
+  "definition": "valid/instrument-gad7.json",
+  "cases": [
+    {
+      "name": "all zeros",
+      "answers": {
+        "gad7_1": "0",
+        "gad7_2": "0",
+        "gad7_3": "0",
+        "gad7_4": "0",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "0",
+          "band": "minimal"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "gad7_1": "0",
+          "gad7_2": "0",
+          "gad7_3": "0",
+          "gad7_4": "0",
+          "gad7_5": "0",
+          "gad7_6": "0",
+          "gad7_7": "0"
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "all at the maximum",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "3",
+        "gad7_3": "3",
+        "gad7_4": "3",
+        "gad7_5": "3",
+        "gad7_6": "3",
+        "gad7_7": "3"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "21",
+          "band": "severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 4",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "1",
+        "gad7_3": "0",
+        "gad7_4": "0",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "4",
+          "band": "minimal"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 5",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "2",
+        "gad7_3": "0",
+        "gad7_4": "0",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "5",
+          "band": "mild"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 9",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "3",
+        "gad7_3": "3",
+        "gad7_4": "0",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "9",
+          "band": "mild"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 10",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "3",
+        "gad7_3": "3",
+        "gad7_4": "1",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "10",
+          "band": "moderate"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 14",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "3",
+        "gad7_3": "3",
+        "gad7_4": "3",
+        "gad7_5": "2",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "14",
+          "band": "moderate"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 15",
+      "answers": {
+        "gad7_1": "3",
+        "gad7_2": "3",
+        "gad7_3": "3",
+        "gad7_4": "3",
+        "gad7_5": "3",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": "15",
+          "band": "severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "a missing item: no total, and the item is required",
+      "answers": {
+        "gad7_2": "0",
+        "gad7_3": "0",
+        "gad7_4": "0",
+        "gad7_5": "0",
+        "gad7_6": "0",
+        "gad7_7": "0"
+      },
+      "scores": {
+        "gad7_total": {
+          "value": null,
+          "band": null,
+          "reason": "missing"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "gad7_2": "0",
+          "gad7_3": "0",
+          "gad7_4": "0",
+          "gad7_5": "0",
+          "gad7_6": "0",
+          "gad7_7": "0"
+        },
+        "errors": [
+          {
+            "item": "gad7_1",
+            "code": "required"
+          }
+        ]
+      }
+    }
+  ]
+}

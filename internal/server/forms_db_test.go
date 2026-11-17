@@ -190,8 +190,10 @@ func TestFormsLibrary(t *testing.T) {
 		t.Errorf("unknown form: %d, want 404", code)
 	}
 	code, out = desk.do("GET", "/forms", nil)
-	if list, _ := out["forms"].([]any); code != http.StatusOK || len(list) != 4 {
-		t.Errorf("list: %d, %d forms, want 4", code, len(list))
+	// Three custom forms; the hand-made built-in is hidden, since built-ins
+	// are off on a field install until forms_instruments is set (#199).
+	if list, _ := out["forms"].([]any); code != http.StatusOK || len(list) != 3 {
+		t.Errorf("list: %d, %d forms, want 3", code, len(list))
 	}
 
 	// Audit: ids and version numbers, never the definition.

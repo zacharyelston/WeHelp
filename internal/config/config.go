@@ -46,6 +46,11 @@ type Config struct {
 	// Form occurrences (#196): how often the runner creates occurrences, marks
 	// missed ones and sends form_due. 0 = off.
 	FormsInterval time.Duration `mapstructure:"forms_interval"`
+	// FormsInstruments makes the built-in clinical instruments (PHQ-9, PHQ-2,
+	// GAD-7, GAD-2, #199) available on a field install. Leave it off until the
+	// owner has approved who monitors the PHQ-9 self-harm flag and when, what
+	// patients are told, and the escalation steps. Demo builds always have them.
+	FormsInstruments bool `mapstructure:"forms_instruments"`
 
 	// Provider roster (#62): how often the Back Office pulls it from the Registry.
 	RosterInterval time.Duration `mapstructure:"roster_interval"` // 0 = only when an admin presses Sync now
@@ -142,6 +147,7 @@ func Load(cfgFile string) error {
 	viper.SetDefault("roster_interval", "15m")
 	viper.SetDefault("timezone", "")
 	viper.SetDefault("forms_interval", "5m")
+	viper.SetDefault("forms_instruments", false)
 
 	viper.SetDefault("relay_dir", defaultRelayDir())
 	viper.SetDefault("relay_id", "")

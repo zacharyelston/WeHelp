@@ -1203,7 +1203,8 @@ async function showPatientForms(patientId, name) {
     html += "<table><thead><tr><th>Form</th><th>Sent</th><th>Scores</th><th></th></tr></thead><tbody>";
     for (const r of sent) {
       const scores = Object.entries(r.scores || {}).map(([id, v]) => `${esc(id)}: ${v.value === null ? "—" : esc(v.value)}${v.band ? " (" + esc(v.band) + ")" : ""}`).join(", ");
-      html += `<tr><td>${esc(r.form_name)} v${r.version}${r.new ? ' <span class="badge badge-pending">new</span>' : ""}</td>
+      const flagged = (r.flags || []).length ? ` <span class="badge badge-revoked fb-flag">flag: ${esc(r.flags.map((x) => x.id).join(", "))}</span>` : "";
+      html += `<tr${flagged ? ' class="fb-flagged"' : ""}><td>${esc(r.form_name)} v${r.version}${r.new ? ' <span class="badge badge-pending">new</span>' : ""}${flagged}</td>
         <td>${esc(fmtWhen(r.submitted_at))}</td><td>${scores}</td>
         <td><button class="btn btn-sm" ${fbAct("showFormResponse", r.id, patientId, name)}>Open</button></td></tr>`;
     }
@@ -1284,7 +1285,8 @@ async function showFormResponse(id, patientId, name) {
   }
   let html = `<div class="fb-item"><div class="fb-titlebar"><strong>${esc(r.title || r.form_name)} · v${r.version}</strong>
     <span class="hint">Sent ${esc(fmtWhen(r.submitted_at))} · ${r.channel === "kiosk" ? "kiosk" : "app"}</span></div>`;
-  if ((r.flags || []).length) html += `<div class="alert alert-error">Flagged: ${esc(r.flags.map((x) => x.text || x.id || x).join(", "))}</div>`;
+  // Flags (#199) are staff-side: shown here in red, never to the patient.
+  if ((r.flags || []).length) html += `<div class="alert alert-error fb-flag"><strong>Flagged</strong><ul>${r.flags.map((x) => `<li>${esc(x.text || x.id)}</li>`).join("")}</ul></div>`;
   if ((r.scores || []).length) {
     html += '<table class="fb-scores"><tbody>';
     for (const sc of r.scores) {
@@ -1313,7 +1315,19 @@ async function loadDueForms(container) {
     }
     return html + "</tbody></table></div>";
   };
-  container.innerHTML = section("Due today", data.due_today || [], "Nothing due today.") +
+  const flagged = data.flagged_this_week || [];
+  let flaggedHTML = `<div class="card${flagged.length ? " fb-flagged-card" : ""}"><h2>Flagged this week <span class="badge badge-${flagged.length ? "revoked" : "active"}">${flagged.length}</span></h2>`;
+  if (!flagged.length) {
+    flaggedHTML += '<p class="empty">No flagged answers this week.</p></div>';
+  } else {
+    flaggedHTML += `<table><thead><tr><th>${esc(Word("patient"))}</th><th>Form</th><th>Sent</th><th>Flag</th><th>${esc(Word("providers"))}</th></tr></thead><tbody>`;
+    for (const d of flagged) {
+      flaggedHTML += `<tr class="fb-flagged"><td>${esc(d.patient_name)}</td><td>${esc(d.form_name)}</td><td>${esc(fmtWhen(d.submitted_at))}</td>
+        <td class="fb-flag">${esc((d.flags || []).map((x) => x.text || x.id).join("; "))}</td><td>${esc((d.providers || []).map((p) => p.name).join(", ") || "—")}</td></tr>`;
+    }
+    flaggedHTML += "</tbody></table></div>";
+  }
+  container.innerHTML = flaggedHTML + section("Due today", data.due_today || [], "Nothing due today.") +
     section("Overdue", data.overdue || [], "Nothing overdue.") +
     section("Missed this week", data.missed_this_week || [], "Nothing missed this week.");
 }

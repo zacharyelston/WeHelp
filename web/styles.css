@@ -206,3 +206,6 @@ tr:last-child td { border-bottom: none; }
 .fb-req, .fb-problem { color: var(--danger); }
 .fb-scores td { padding: 0.2rem 0.5rem; }
 .fb-add { margin-top: 0.5rem; }
+.fb-flag { color: var(--danger); font-weight: 600; }
+.fb-flagged td { background: #fdecee; }
+.fb-flagged-card { border-color: var(--danger); border-width: 2px; }

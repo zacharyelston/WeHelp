@@ -1,0 +1,163 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "GAD-2",
+  "locale": "en-US",
+  "description": "Generalized Anxiety Disorder-2 (anxiety screen). Built-in, read-only. A total of 3 or more is a positive screen.",
+  "copyright": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute.",
+  "sections": [
+    {
+      "id": "gad2_s1",
+      "pages": [
+        {
+          "id": "gad2_p1",
+          "items": [
+            {
+              "id": "gad2_stem",
+              "type": "display",
+              "text": "Over the last 2 weeks, how often have you been bothered by the following problems?"
+            },
+            {
+              "id": "gad2_1",
+              "type": "choice",
+              "required": true,
+              "text": "Feeling nervous, anxious, or on edge",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "69725-0"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "gad2_2",
+              "type": "choice",
+              "required": true,
+              "text": "Not being able to stop or control worrying",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "68509-9"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "gad2_attribution",
+              "type": "display",
+              "text": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "gad2_total",
+      "text": "GAD-2 total score",
+      "expr": {
+        "sum": [
+          {
+            "scoreOf": "gad2_1"
+          },
+          {
+            "scoreOf": "gad2_2"
+          }
+        ]
+      },
+      "bands": [
+        {
+          "min": 0,
+          "id": "negative",
+          "text": "Negative screen"
+        },
+        {
+          "min": 3,
+          "id": "positive",
+          "text": "Positive screen"
+        }
+      ]
+    }
+  ]
+}

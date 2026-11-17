@@ -1,0 +1,94 @@
+{
+  "description": "GAD2 golden vectors (#199): published scoring (sum of 0-3 items), bands.",
+  "definition": "valid/instrument-gad2.json",
+  "cases": [
+    {
+      "name": "all zeros",
+      "answers": {
+        "gad2_1": "0",
+        "gad2_2": "0"
+      },
+      "scores": {
+        "gad2_total": {
+          "value": "0",
+          "band": "negative"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "gad2_1": "0",
+          "gad2_2": "0"
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "all at the maximum",
+      "answers": {
+        "gad2_1": "3",
+        "gad2_2": "3"
+      },
+      "scores": {
+        "gad2_total": {
+          "value": "6",
+          "band": "positive"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 2",
+      "answers": {
+        "gad2_1": "2",
+        "gad2_2": "0"
+      },
+      "scores": {
+        "gad2_total": {
+          "value": "2",
+          "band": "negative"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 3",
+      "answers": {
+        "gad2_1": "3",
+        "gad2_2": "0"
+      },
+      "scores": {
+        "gad2_total": {
+          "value": "3",
+          "band": "positive"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "a missing item: no total, and the item is required",
+      "answers": {
+        "gad2_2": "0"
+      },
+      "scores": {
+        "gad2_total": {
+          "value": null,
+          "band": null,
+          "reason": "missing"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "gad2_2": "0"
+        },
+        "errors": [
+          {
+            "item": "gad2_1",
+            "code": "required"
+          }
+        ]
+      }
+    }
+  ]
+}

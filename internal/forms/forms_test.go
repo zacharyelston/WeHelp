@@ -124,6 +124,7 @@ type vectorCase struct {
 	Path    []string                   `json:"path"`
 	Scores  map[string]json.RawMessage `json:"scores"`
 	Error   string                     `json:"error"`
+	Flags   []string                   `json:"flags"`
 	Check   *struct {
 		Answers json.RawMessage `json:"answers"`
 		Errors  []struct {
@@ -205,6 +206,9 @@ func runCase(t *testing.T, def *Definition, c vectorCase) {
 		if got := NextSection(def, answers, id); got != want {
 			t.Errorf("NextSection(%s) = %q, want %q", id, got, want)
 		}
+	}
+	if c.Flags != nil && !reflect.DeepEqual(res.Flags, c.Flags) {
+		t.Errorf("flags = %v, want %v", res.Flags, c.Flags)
 	}
 	if c.Path != nil && !reflect.DeepEqual(res.Path, c.Path) {
 		t.Errorf("path = %v, want %v", res.Path, c.Path)

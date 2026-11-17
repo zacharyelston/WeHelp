@@ -82,6 +82,9 @@ type Definition struct {
 	Code        *Coding
 	Sections    []*Section
 	Scores      []*ScoreDef
+	Flags       []*FlagDef // staff-side flags (#199)
+	// Copyright is the source and licence line an instrument carries.
+	Copyright string
 
 	sections map[string]*Section
 	pages    map[string]*Page
@@ -254,6 +257,7 @@ type parser struct {
 	rawItemWhen  map[*Item]any
 	rawNextWhen  map[*Branch]any
 	rawScoreExpr map[*ScoreDef]any
+	rawFlagWhen  map[*FlagDef]any
 }
 
 // --- generic JSON helpers ---------------------------------------------------
@@ -420,7 +424,7 @@ func (p *parser) declare(path, id string) error {
 // --- the document -----------------------------------------------------------
 
 func (p *parser) document(doc any) error {
-	o, err := object("", doc, "format", "title", "locale", "description", "code", "sections", "scores")
+	o, err := object("", doc, "format", "title", "locale", "description", "copyright", "code", "sections", "scores", "flags")
 	if err != nil {
 		if e, ok := err.(*Error); ok && e.Path == "" {
 			e.Msg = "definition must be a JSON object"
@@ -447,6 +451,9 @@ func (p *parser) document(doc any) error {
 	if def.Description, err = o.str("description", false); err != nil {
 		return err
 	}
+	if def.Copyright, err = o.str("copyright", false); err != nil {
+		return err
+	}
 	if def.Code, err = o.coding("code"); err != nil {
 		return err
 	}
@@ -455,6 +462,7 @@ func (p *parser) document(doc any) error {
 	p.rawItemWhen = map[*Item]any{}
 	p.rawNextWhen = map[*Branch]any{}
 	p.rawScoreExpr = map[*ScoreDef]any{}
+	p.rawFlagWhen = map[*FlagDef]any{}
 
 	sections, err := o.array("sections", true)
 	if err != nil {
@@ -482,7 +490,42 @@ func (p *parser) document(doc any) error {
 		}
 		def.Scores = append(def.Scores, s)
 	}
+	flags, err := o.array("flags", false)
+	if err != nil {
+		return err
+	}
+	for i, fv := range flags {
+		fp := index("flags", i)
+		fo, err := object(fp, fv, "id", "text", "when")
+		if err != nil {
+			return err
+		}
+		fl := &FlagDef{}
+		if fl.ID, err = fo.str("id", true); err != nil {
+			return err
+		}
+		if err := p.declare(join(fp, "id"), fl.ID); err != nil {
+			return err
+		}
+		if fl.Text, err = fo.str("text", true); err != nil {
+			return err
+		}
+		if !fo.has("when") {
+			return errf(join(fp, "when"), KindSchema, "required")
+		}
+		p.rawFlagWhen[fl] = fo.m["when"]
+		def.Flags = append(def.Flags, fl)
+	}
 	return p.expressions()
+}
+
+// FlagDef is a staff-side flag (#199): when its rule holds on the submitted
+// answers, the response carries the flag (for example PHQ-9 item 9 above
+// zero raises self_harm). Flags are never shown to the patient.
+type FlagDef struct {
+	ID   string
+	Text string // for staff
+	When *Expr
 }
 
 func (p *parser) section(path string, v any, i int, pageIndex *int) (*Section, error) {

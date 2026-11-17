@@ -307,6 +307,12 @@ components:
         value: { type: string, nullable: true }
         band: { type: string, nullable: true }
         reason: { type: string, enum: [missing, divideByZero, belowMinAnswered, overflow] }
+    FormFlag:
+      type: object
+      description: A staff-side flag the response raised (#199), such as self_harm for PHQ-9 item 9. Never sent to the patient.
+      properties:
+        id: { type: string }
+        text: { type: string }
     FormSavedPage:
       type: object
       properties:
@@ -5036,11 +5042,30 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [due_today, overdue, missed_this_week]
+                required: [due_today, overdue, missed_this_week, flagged_this_week]
                 properties:
                   due_today: { type: array, items: { $ref: "#/components/schemas/DueOccurrence" } }
                   overdue: { type: array, items: { $ref: "#/components/schemas/DueOccurrence" } }
                   missed_this_week: { type: array, items: { $ref: "#/components/schemas/DueOccurrence" } }
+                  flagged_this_week:
+                    type: array
+                    description: Submitted responses that raised a staff flag in the last 7 days (#199), newest first.
+                    items:
+                      type: object
+                      properties:
+                        response_id: { type: string, format: uuid }
+                        patient_id: { type: string, format: uuid }
+                        patient_name: { type: string }
+                        form_name: { type: string }
+                        submitted_at: { type: string, format: date-time }
+                        flags: { type: array, items: { $ref: "#/components/schemas/FormFlag" } }
+                        providers:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: { type: string, format: uuid }
+                              name: { type: string }
         "403":
           description: Not staff, or forms are turned off.
           content:
@@ -5154,6 +5179,7 @@ paths:
                         status: { type: string, enum: [submitted] }
                         submitted_at: { type: string, format: date-time }
                         new: { type: boolean, description: "No staff member has opened it yet." }
+                        flags: { type: array, items: { $ref: "#/components/schemas/FormFlag" } }
                         scores:
                           type: object
                           additionalProperties: { $ref: "#/components/schemas/FormScore" }
@@ -5225,7 +5251,7 @@ paths:
                         band: { type: string, nullable: true }
                         band_text: { type: string }
                         reason: { type: string }
-                  flags: { type: array, items: {} }
+                  flags: { type: array, items: { $ref: "#/components/schemas/FormFlag" } }
         "403":
           description: Not staff, not linked to the patient, or forms are turned off.
           content:

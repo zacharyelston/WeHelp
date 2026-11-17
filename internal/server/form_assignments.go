@@ -417,6 +417,14 @@ func (s *Server) CreateAssignment(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusConflict, "this form is archived")
 			return nil, errHandled
 		}
+		if kind == "instrument" {
+			if ok, err := s.instrumentsAvailable(ctx, id.TenantID); err != nil {
+				return nil, err
+			} else if !ok {
+				writeErr(w, http.StatusConflict, "built-in instruments aren't available on this practice")
+				return nil, errHandled
+			}
+		}
 		if published == 0 {
 			if req.VersionID != nil {
 				writeErr(w, http.StatusBadRequest, "version_id must be a published version of this form")
@@ -604,7 +612,52 @@ func (s *Server) DueForms(w http.ResponseWriter, r *http.Request) {
 			out["due_today"] = append(out["due_today"], d)
 		}
 	}
-	writeJSON(w, http.StatusOK, out)
+	// Responses with a staff flag in the last 7 days (#199), newest first.
+	frows, err := s.pool.Query(r.Context(), `
+		select r.id, r.patient_id, p.display_name, f.name, r.submitted_at, r.flags,
+		       coalesce((select json_agg(json_build_object('id', pr.id, 'name', pr.display_name) order by pr.display_name)
+		                 from provider_patients pp join users pr on pr.id = pp.provider_id
+		                 where pp.patient_id = r.patient_id and pp.tenant_id = r.tenant_id and pp.status = 'active'), '[]')
+		from form_responses r join users p on p.id = r.patient_id
+		join form_versions v on v.id = r.version_id join forms f on f.id = v.form_id
+		where r.tenant_id = $1 and r.status = 'submitted' and jsonb_array_length(r.flags) > 0
+		  and r.submitted_at >= $3::timestamptz - interval '7 days'
+		  and ($2::uuid is null or exists (select 1 from provider_patients pp where pp.provider_id = $2
+		       and pp.patient_id = r.patient_id and pp.status = 'active'))
+		order by r.submitted_at desc`, id.TenantID, provider, now)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "load failed")
+		return
+	}
+	flagged, err := pgx.CollectRows(frows, func(row pgx.CollectableRow) (flaggedResponse, error) {
+		var x flaggedResponse
+		var provs []byte
+		err := row.Scan(&x.ResponseID, &x.PatientID, &x.PatientName, &x.FormName, &x.SubmittedAt, &x.Flags, &provs)
+		if err == nil {
+			err = json.Unmarshal(provs, &x.Providers)
+		}
+		return x, err
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "load failed")
+		return
+	}
+	if flagged == nil {
+		flagged = []flaggedResponse{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"due_today": out["due_today"], "overdue": out["overdue"],
+		"missed_this_week": out["missed_this_week"], "flagged_this_week": flagged})
+}
+
+// flaggedResponse is a submitted response that raised a staff flag (#199).
+type flaggedResponse struct {
+	ResponseID  uuid.UUID       `json:"response_id"`
+	PatientID   uuid.UUID       `json:"patient_id"`
+	PatientName string          `json:"patient_name"`
+	FormName    string          `json:"form_name"`
+	SubmittedAt time.Time       `json:"submitted_at"`
+	Flags       json.RawMessage `json:"flags"`
+	Providers   []providerRef   `json:"providers"`
 }
 
 // --- the patient ------------------------------------------------------------
@@ -738,6 +791,9 @@ type formsRunStats struct{ Created, Missed, Reminded int }
 // once per occurrence for opening and once for closing).
 func (s *Server) runForms(ctx context.Context, now time.Time) (formsRunStats, error) {
 	var st formsRunStats
+	if _, err := s.syncAllInstruments(ctx); err != nil { // #199
+		slog.Warn("instruments: sync failed", "err", err)
+	}
 	rows, err := s.pool.Query(ctx, `select `+assignmentColumns+` from form_assignments a where a.ended_at is null`)
 	if err != nil {
 		return st, err

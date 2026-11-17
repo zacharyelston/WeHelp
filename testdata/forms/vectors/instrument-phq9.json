@@ -1,0 +1,419 @@
+{
+  "description": "PHQ9 golden vectors (#199): published scoring (sum of 0-3 items), bands, and the item 9 self_harm flag.",
+  "definition": "valid/instrument-phq9.json",
+  "cases": [
+    {
+      "name": "all zeros",
+      "answers": {
+        "phq9_1": "0",
+        "phq9_2": "0",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "0",
+          "band": "minimal"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "phq9_1": "0",
+          "phq9_2": "0",
+          "phq9_3": "0",
+          "phq9_4": "0",
+          "phq9_5": "0",
+          "phq9_6": "0",
+          "phq9_7": "0",
+          "phq9_8": "0",
+          "phq9_9": "0"
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "all at the maximum",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "3",
+        "phq9_6": "3",
+        "phq9_7": "3",
+        "phq9_8": "3",
+        "phq9_9": "3"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "27",
+          "band": "severe"
+        }
+      },
+      "flags": [
+        "self_harm"
+      ]
+    },
+    {
+      "name": "total 4",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "1",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "4",
+          "band": "minimal"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 5",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "2",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "5",
+          "band": "mild"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 9",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "9",
+          "band": "mild"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 10",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "1",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "10",
+          "band": "moderate"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 14",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "2",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "14",
+          "band": "moderate"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 15",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "3",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "15",
+          "band": "moderately_severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 19",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "3",
+        "phq9_6": "3",
+        "phq9_7": "1",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "19",
+          "band": "moderately_severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 20",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "3",
+        "phq9_6": "3",
+        "phq9_7": "2",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "20",
+          "band": "severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 24",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "3",
+        "phq9_6": "3",
+        "phq9_7": "3",
+        "phq9_8": "3",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "24",
+          "band": "severe"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "item 9 = 0: no flag",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "1",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "4",
+          "band": "minimal"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "item 9 = 1: flag",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "1",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "1"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "5",
+          "band": "mild"
+        }
+      },
+      "flags": [
+        "self_harm"
+      ]
+    },
+    {
+      "name": "item 9 = 2: flag",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "1",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "2"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "6",
+          "band": "mild"
+        }
+      },
+      "flags": [
+        "self_harm"
+      ]
+    },
+    {
+      "name": "item 9 = 3: flag",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "1",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "3"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "7",
+          "band": "mild"
+        }
+      },
+      "flags": [
+        "self_harm"
+      ]
+    },
+    {
+      "name": "the difficulty question is not scored",
+      "answers": {
+        "phq9_1": "3",
+        "phq9_2": "3",
+        "phq9_3": "3",
+        "phq9_4": "3",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0",
+        "phq9_difficulty": "very"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": "12",
+          "band": "moderate"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "phq9_1": "3",
+          "phq9_2": "3",
+          "phq9_3": "3",
+          "phq9_4": "3",
+          "phq9_5": "0",
+          "phq9_6": "0",
+          "phq9_7": "0",
+          "phq9_8": "0",
+          "phq9_9": "0",
+          "phq9_difficulty": "very"
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "a missing item: no total, and the item is required",
+      "answers": {
+        "phq9_2": "0",
+        "phq9_3": "0",
+        "phq9_4": "0",
+        "phq9_5": "0",
+        "phq9_6": "0",
+        "phq9_7": "0",
+        "phq9_8": "0",
+        "phq9_9": "0"
+      },
+      "scores": {
+        "phq9_total": {
+          "value": null,
+          "band": null,
+          "reason": "missing"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "phq9_2": "0",
+          "phq9_3": "0",
+          "phq9_4": "0",
+          "phq9_5": "0",
+          "phq9_6": "0",
+          "phq9_7": "0",
+          "phq9_8": "0",
+          "phq9_9": "0"
+        },
+        "errors": [
+          {
+            "item": "phq9_1",
+            "code": "required"
+          }
+        ]
+      }
+    }
+  ]
+}
