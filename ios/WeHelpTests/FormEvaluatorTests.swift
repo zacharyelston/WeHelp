@@ -80,6 +80,9 @@ final class FormEvaluatorTests: XCTestCase {
                     }
                 }
                 XCTAssertEqual(res.error?.kind, c["error"]?.string, "\(name): error")
+                if let flags = c["flags"]?.array {
+                    XCTAssertEqual(res.flags, flags.compactMap(\.string), "\(name): flags")
+                }
 
                 if let check = c["check"] {
                     let today = c["today"]?.string ?? "2026-11-16"
