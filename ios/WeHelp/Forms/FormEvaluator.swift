@@ -60,6 +60,12 @@ final class FormDefinition: @unchecked Sendable {
         var minLabel: String? { raw["minLabel"]?.string }
         var maxLabel: String? { raw["maxLabel"]?.string }
         var step: FormRational? { if case let .number(t)? = raw["step"] { return FormRational.parse(t) }; return nil }
+        /// A display item's picture or video: an asset of this form version.
+        var media: Media? {
+            guard let m = raw["media"], let asset = m["asset"]?.string else { return nil }
+            return Media(kind: m["type"]?.string ?? "image", asset: asset, alt: m["alt"]?.string ?? "")
+        }
+        struct Media: Sendable, Equatable { let kind: String; let asset: String; let alt: String }
         var position: (Int, Int) { (page, index) }
     }
 

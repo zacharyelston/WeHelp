@@ -117,6 +117,17 @@ struct FormsAPI: Sendable {
         return try FormDefinition(def)
     }
 
+    /// An image on the version (PNG or JPEG bytes), only for the patient's
+    /// open occurrences. The transport's session is ephemeral, so nothing is
+    /// cached on disk; the walker keeps decoded images in memory.
+    func asset(versionID: String, name: String) async throws -> Data {
+        let path = "api/v1/form-versions/\(versionID)/assets/" + (name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name)
+        let (status, data) = try await api.authorizedRaw("GET", path)
+        guard (200..<300).contains(status) else { throw FormsAPIError.from(status: status, data: data) }
+        guard FormImages.isPNGOrJPEG(data) else { throw FormsAPIError.server(status, "Not an image.") }
+        return data
+    }
+
     /// Starts a response, or returns the in-progress one with its saved answers.
     func start(occurrenceID: String) async throws -> FormResponseState {
         let r = try await call("POST", "api/v1/responses", body: .object([("occurrence_id", .string(occurrenceID))]))
