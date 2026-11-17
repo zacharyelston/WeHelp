@@ -5,6 +5,14 @@ All notable changes to WeHelp are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+- The form builder no longer says "Not saved: missing bearer token" when the
+  staff session has ended (30 minutes idle). It says the user was signed out
+  and that the changes are kept on the page, and pauses autosave. A
+  **Sign in to save** dialog over the editor signs in again (with the
+  authenticator code), takes the new CSRF token, and saves the draft at once,
+  without leaving the page or losing the form.
+
 ### Added
 - Answer lists and a grid editor in the form builder (#259), builder only.
   A grid saves as ordinary choice questions with identical answers, so the

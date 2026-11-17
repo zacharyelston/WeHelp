@@ -204,7 +204,7 @@ function openEditor(defFile) {
   p.ctx.clearTimeout = (id) => { if (id && timers[id - 1]) timers[id - 1].fn = null; };
   p.ctx.__respond = () => ({ status: 200, body: { id: 'v1', version: 1, digest: 'x' } });
   p.ctx.fetch = async (url, opts) => {
-    calls.push({ url, method: opts.method, body: opts.body });
+    calls.push({ url, method: opts.method, body: opts.body, opts });
     const r = p.ctx.__respond(url, opts);
     return { ok: r.status < 300, status: r.status, statusText: '', json: async () => r.body };
   };
@@ -295,6 +295,40 @@ test('a refused autosave keeps the draft and shows the error at its path (#260)'
   assert.equal(p.run('fbCanLeave()'), false);
   p.ctx.confirm = () => true;
   assert.equal(p.run('fbCanLeave()'), true);
+});
+
+test('a signed-out autosave keeps the draft, stops retrying, and saves after signing in again', async () => {
+  const { p, calls, fire, def } = openEditor('valid/minimal.json');
+  // The staff session has ended (30 minutes idle).
+  p.ctx.__respond = () => ({ status: 401, body: { error: 'missing bearer token' } });
+  p.run('fb.def.title = "Edited"; changed();');
+  await fire();
+  assert.equal(def().title, 'Edited', 'the local copy is kept');
+  assert.equal(p.run('fb.save.state'), 'signedout');
+  assert.match(p.run('saveStatusText()'), /signed out\. Your changes are kept on this page/);
+  assert.equal(p.run('fb.error'), null, 'no error box for a sign-out');
+  // More edits don't keep hitting the server while signed out.
+  const before = calls.length;
+  p.run('fb.def.title = "Edited again"; changed();');
+  assert.deepEqual(await fire(), [], 'no autosave scheduled while signed out');
+  assert.equal(calls.length, before);
+  // Signing in from the dialog saves at once, with the new session.
+  p.ctx.__respond = (url) => url.endsWith('/staff/login')
+    ? { status: 200, body: { status: 'active', csrf_token: 'new-csrf', practice: 'Demo Clinic' } }
+    : { status: 200, body: { id: 'v1', version: 1, digest: 'x' } };
+  p.run('openSignIn()');
+  for (const [id, v] of [['fb-signin-tenant', 'Demo Clinic'], ['fb-signin-email', 'a@b.c'], ['fb-signin-password', 'pw'], ['fb-signin-code', '123456']]) {
+    p.run(`document.getElementById(${JSON.stringify(id)}).value = ${JSON.stringify(v)}`);
+  }
+  await p.run('submitSignIn()');
+  const login = calls.find((c) => c.url.endsWith('/staff/login'));
+  assert.ok(login, 'signed in');
+  const save = calls[calls.length - 1];
+  assert.equal(save.method, 'PUT');
+  assert.equal(JSON.parse(save.body).title, 'Edited again', 'the latest draft is saved');
+  assert.equal(save.opts.headers['x-csrf-token'], 'new-csrf', 'with the new CSRF token');
+  assert.equal(p.run('saveStatusText()'), 'Saved');
+  assert.equal(p.run('fb.dirty'), false);
 });
 
 test('nothing goes to localStorage or IndexedDB (#260)', () => {

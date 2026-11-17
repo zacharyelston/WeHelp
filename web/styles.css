@@ -213,3 +213,7 @@ tr:last-child td { border-bottom: none; }
 .fb-grid-block { border-left: 3px solid var(--primary); }
 .fb-grid-rows input { width: 100%; }
 .fb-grid-rows .fb-gridid { width: 9rem; }
+
+/* Signing in again from the form builder without losing the draft. */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: flex-start; justify-content: center; z-index: 50; overflow-y: auto; }
+.fb-signin { background: var(--card, #fff); }
