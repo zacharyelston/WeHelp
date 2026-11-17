@@ -102,6 +102,39 @@ struct FormWalkerView: View {
     }
 }
 
+/// A display item's picture (#198), loaded once through the pinned
+/// connection and kept in memory. VoiceOver reads its description; if it
+/// can't load, the description is shown instead. Video isn't played in the
+/// app yet, so a video shows its description.
+struct FormMediaView: View {
+    let media: FormDefinition.Item.Media
+    let session: FormSession
+
+    var body: some View {
+        Group {
+            if media.kind == "image", let image = session.images[media.asset] {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: 360)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .accessibilityLabel(media.alt.isEmpty ? "Picture" : media.alt)
+            } else if media.kind == "image", !session.failedImages.contains(media.asset) {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .accessibilityLabel("Loading picture")
+            } else if !media.alt.isEmpty {
+                Label(media.alt, systemImage: media.kind == "video" ? "film" : "photo")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .task(id: media.asset) {
+            if media.kind == "image" { await session.loadImage(media.asset) }
+        }
+    }
+}
+
 /// One question, with the control its type and `control` hint ask for.
 struct FormItemView: View {
     let item: FormDefinition.Item
@@ -128,7 +161,9 @@ struct FormItemView: View {
         case "integer", "decimal": number
         case "date": date
         case "text": text
-        default: EmptyView() // display: the text above is the item
+        default:
+            // display: the text above is the item, plus its picture if any.
+            if let media = item.media { FormMediaView(media: media, session: session) }
         }
     }
 
