@@ -453,6 +453,7 @@ function renderEditor() {
     head += `<button class="btn btn-outline" ${fbAct("undoEdit")} ${fb.undo.length ? "" : "disabled"} title="Undo (Cmd/Ctrl+Z)">Undo</button>
       <button class="btn btn-outline" ${fbAct("redoEdit")} ${fb.redo.length ? "" : "disabled"} title="Redo (Shift+Cmd/Ctrl+Z)">Redo</button>
       <span id="fb-save-status" class="fb-save-status">${esc(saveStatusText())}</span>
+      <button id="fb-signin" class="btn" ${fbAct("openSignIn")} ${fb.save.state === "signedout" ? "" : "hidden"}>Sign in to save</button>
       <button class="btn" ${fbAct("saveDraft")}>Save</button>
       <button class="btn" ${fbAct("publishDraft")}>Publish</button>`;
   }
@@ -830,9 +831,12 @@ function scheduleAutosave() {
   if (fb.save.timer) clearTimeout(fb.save.timer);
   fb.save.timer = null;
   if (fbReadOnly() || !fb.dirty) {
-    if (!fb.save.inFlight && fb.save.state !== "failed") fb.save.state = "saved";
+    if (!fb.save.inFlight && fb.save.state !== "failed" && fb.save.state !== "signedout") fb.save.state = "saved";
     return;
   }
+  // Signed out: keep editing in page memory, but don't try to save until
+  // the user signs in again (each try would only be refused).
+  if (fb.save.state === "signedout") return;
   fb.save.state = "pending";
   fb.save.timer = setTimeout(autosave, FB_AUTOSAVE_MS);
 }
@@ -869,6 +873,13 @@ async function persist() {
     if (!fb.dirty) fb.error = localError();
     return true;
   } catch (err) {
+    if (err.status === 401) {
+      // The staff session ended (30 minutes idle, or signed out elsewhere).
+      // The draft stays in page memory; signing in again saves it.
+      fb.save.state = "signedout";
+      fb.save.message = "";
+      return false;
+    }
     fb.save.state = "failed";
     fb.save.message = err.message || String(err);
     if (err.path !== undefined) fb.error = { path: err.path, message: err.message };
@@ -885,7 +896,64 @@ function saveStatusText() {
     case "saving": return "Saving…";
     case "pending": return "Unsaved changes";
     case "failed": return "Not saved: " + s.message;
+    case "signedout": return "Not saved: you were signed out. Your changes are kept on this page; sign in to save them.";
     default: return "Saved";
+  }
+}
+
+// Signing in again from the editor (the staff session ends after 30 minutes
+// idle). A dialog over the editor, so the unsaved draft stays on the page;
+// after sign-in the draft saves at once.
+function openSignIn() {
+  if (typeof document === "undefined") return;
+  let box = document.getElementById("fb-signin-dialog");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "fb-signin-dialog";
+    document.body.appendChild(box);
+  }
+  const practice = (session && session.practice) || "";
+  box.innerHTML = `<div class="modal-backdrop"><div class="card login-card fb-signin">
+      <h2>Sign in to save</h2>
+      <p class="hint">You were signed out after 30 minutes without activity. Your form is still here.</p>
+      <div id="fb-signin-error"></div>
+      <div class="form-group"><label>Practice</label><input type="text" id="fb-signin-tenant" value="${attr(practice)}" required></div>
+      <div class="form-group"><label>Email</label><input type="email" id="fb-signin-email" autocomplete="username" required></div>
+      <div class="form-group"><label>Password</label><input type="password" id="fb-signin-password" autocomplete="current-password" required></div>
+      <div class="form-group"><label>Authenticator code</label><input type="text" id="fb-signin-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7"></div>
+      <button class="btn" ${fbAct("submitSignIn")}>Sign in and save</button>
+      <button class="btn btn-outline" ${fbAct("closeSignIn")}>Cancel</button>
+    </div></div>`;
+  box.hidden = false;
+}
+
+function closeSignIn() {
+  if (typeof document === "undefined") return;
+  const box = document.getElementById("fb-signin-dialog");
+  if (box) { box.innerHTML = ""; box.hidden = true; }
+}
+
+async function submitSignIn() {
+  const val = (id) => document.getElementById(id).value;
+  const errBox = document.getElementById("fb-signin-error");
+  try {
+    const res = await fetch("/api/v1/staff/login", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tenant: val("fb-signin-tenant"), email: val("fb-signin-email"),
+        password: val("fb-signin-password"), code: val("fb-signin-code") }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status !== "active") {
+      throw new Error(res.ok ? "Finish setting up two-step sign-in in a new tab, then try again." : (data.error || res.statusText));
+    }
+    session = data; // the new CSRF token comes with it
+    closeSignIn();
+    fb.save.state = fb.dirty ? "pending" : "saved";
+    await saveDraft();
+  } catch (err) {
+    if (errBox) errBox.innerHTML = `<div class="alert alert-error">${esc(err.message || String(err))}</div>`;
   }
 }
 
@@ -898,8 +966,10 @@ function showSaveStatus() {
   const el = document.getElementById("fb-save-status");
   if (el) {
     el.textContent = saveStatusText();
-    el.className = "fb-save-status" + (fb.save.state === "failed" ? " fb-flag" : "");
+    el.className = "fb-save-status" + (fb.save.state === "failed" || fb.save.state === "signedout" ? " fb-flag" : "");
   }
+  const signIn = document.getElementById("fb-signin");
+  if (signIn) signIn.hidden = fb.save.state !== "signedout";
   const box = document.getElementById("fb-errbox");
   if (box) box.innerHTML = errorBox();
   if (fb.container && fb.container.querySelectorAll) {
@@ -1845,6 +1915,8 @@ const FB_ACTIONS = {
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
   // Undo and redo (#260)
   redoEdit, undoEdit,
+  // Signing in again after the session ends, without losing the draft
+  closeSignIn, openSignIn, submitSignIn,
   // Starting points (#258)
   copyForm, duplicateItem, duplicatePage,
   // Answer lists and grids (#259)
