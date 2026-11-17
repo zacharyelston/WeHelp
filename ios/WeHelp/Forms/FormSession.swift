@@ -63,7 +63,7 @@ final class FormSession: Identifiable {
         pageID = Self.resumePage(definition, answers, savedPages)
     }
 
-    /// Loads a display item's picture once; a failure shows its description.
+    /// Loads a display item's picture once; one that fails isn't shown or retried.
     func loadImage(_ name: String) async {
         guard images[name] == nil, !failedImages.contains(name), let assets else {
             if assets == nil { failedImages.insert(name) }

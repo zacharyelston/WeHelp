@@ -103,9 +103,8 @@ struct FormWalkerView: View {
 }
 
 /// A display item's picture (#198), loaded once through the pinned
-/// connection and kept in memory. VoiceOver reads its description; if it
-/// can't load, the description is shown instead. Video isn't played in the
-/// app yet, so a video shows its description.
+/// connection and kept in memory. VoiceOver reads its description. A picture
+/// that can't load, or a video (not played in the app yet), shows nothing.
 struct FormMediaView: View {
     let media: FormDefinition.Item.Media
     let session: FormSession
@@ -123,11 +122,9 @@ struct FormMediaView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 120)
                     .accessibilityLabel("Loading picture")
-            } else if !media.alt.isEmpty {
-                Label(media.alt, systemImage: media.kind == "video" ? "film" : "photo")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
             }
+            // A picture that can't load, or a video (not played in the app
+            // yet), shows nothing (owner, 2026-11-17).
         }
         .task(id: media.asset) {
             if media.kind == "image" { await session.loadImage(media.asset) }

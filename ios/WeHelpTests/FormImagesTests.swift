@@ -63,7 +63,7 @@ final class FormSessionImageTests: XCTestCase {
         XCTAssertNotNil(s.images["a.png"])
     }
 
-    func testFailuresShowTheDescriptionInstead() async throws {
+    func testFailuresAreNotShownOrRetried() async throws {
         let s = try session(FakeAssets(data: ["bad.png": Data("nope".utf8)]))
         await s.loadImage("missing.png")
         await s.loadImage("bad.png")
