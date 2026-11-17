@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/zacharyelston/wehelp/internal/audit"
 	"github.com/zacharyelston/wehelp/internal/forms"
+	"github.com/zacharyelston/wehelp/internal/forms/templates"
 )
 
 // Forms and form versions (#194): the practice's form library. A form is
@@ -403,6 +404,7 @@ func refuseChange(w http.ResponseWriter, kind string, archived *time.Time) bool 
 type createFormRequest struct {
 	Name       string          `json:"name"`
 	Definition json.RawMessage `json:"definition"` // optional; a starter draft if absent
+	Template   string          `json:"template"`   // or a starter template's key (#258)
 }
 
 // CreateForm adds a custom form with its first draft. Admin, LAN; audited
@@ -424,7 +426,21 @@ func (s *Server) CreateForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	raw := []byte(req.Definition)
-	if len(raw) == 0 || string(raw) == "null" {
+	hasDef := len(raw) > 0 && string(raw) != "null"
+	detail := map[string]any{}
+	switch {
+	case req.Template != "" && hasDef:
+		writeErr(w, http.StatusBadRequest, "send a definition or a template, not both")
+		return
+	case req.Template != "":
+		tpl, ok := templates.Get(req.Template)
+		if !ok {
+			writeErr(w, http.StatusBadRequest, "no template "+req.Template)
+			return
+		}
+		raw = retitle(tpl.Canonical, req.Name)
+		detail["copied_from"] = map[string]any{"template": tpl.Key}
+	case !hasDef:
 		raw = starterDefinition(req.Name)
 	}
 	_, canon, ok := validDefinition(w, raw)
@@ -436,7 +452,8 @@ func (s *Server) CreateForm(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if err := formAudit(ctx, tx, id, "form.create", "form", fid, map[string]any{"form_id": fid, "version_id": vid, "version": 1}); err != nil {
+		detail["form_id"], detail["version_id"], detail["version"] = fid, vid, 1
+		if err := formAudit(ctx, tx, id, "form.create", "form", fid, detail); err != nil {
 			return nil, err
 		}
 		return map[string]any{"form_id": fid, "version_id": vid, "version": 1}, nil

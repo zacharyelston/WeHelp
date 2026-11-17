@@ -222,6 +222,9 @@ func (s *Server) Router() chi.Router {
 			r.Get("/forms/{formID}", s.GetForm)
 			r.Post("/forms/{formID}/draft", s.NewFormDraft)
 			r.Post("/forms/{formID}/archive", s.ArchiveForm)
+			// Starting points (#258).
+			r.Post("/forms/{formID}/copy", s.CopyForm)
+			r.Get("/form-templates", s.ListFormTemplates)
 			r.Put("/form-versions/{versionID}", s.SaveFormVersion)
 			r.Post("/form-versions/{versionID}/publish", s.PublishFormVersion)
 			r.Get("/form-versions/{versionID}/export", s.ExportFormVersion)

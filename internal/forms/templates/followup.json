@@ -1,0 +1,48 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Follow-up visit",
+  "locale": "en-US",
+  "description": "A starting point for a check-in before a follow-up visit. Synthetic and practice-neutral: adapt the questions to your practice before you publish.",
+  "sections": [
+    {
+      "id": "s_followup",
+      "pages": [
+        {
+          "id": "p_since",
+          "title": "Since your last visit",
+          "items": [
+            {
+              "id": "overall", "type": "choice", "required": true, "text": "Since your last visit, how are you doing overall?", "control": "buttons",
+              "options": [
+                { "value": "better", "text": "Better" },
+                { "value": "same", "text": "About the same" },
+                { "value": "worse", "text": "Worse" }
+              ]
+            },
+            {
+              "id": "worse_details", "type": "text", "control": "long", "maxLength": 2000, "text": "What has got worse?",
+              "enableWhen": { "eq": [{ "answer": "overall" }, { "str": "worse" }] }
+            },
+            { "id": "plan_followed", "type": "boolean", "text": "Have you been able to follow the plan we agreed?", "control": "buttons" },
+            {
+              "id": "plan_barriers", "type": "text", "control": "long", "maxLength": 1000, "text": "What made it hard?",
+              "enableWhen": { "eq": [{ "answer": "plan_followed" }, { "bool": false }] }
+            }
+          ]
+        },
+        {
+          "id": "p_changes",
+          "title": "Changes",
+          "items": [
+            { "id": "med_changes", "type": "boolean", "text": "Have any of your medicines changed?", "control": "buttons" },
+            {
+              "id": "med_change_details", "type": "text", "control": "long", "maxLength": 1000, "text": "What changed?",
+              "enableWhen": { "eq": [{ "answer": "med_changes" }, { "bool": true }] }
+            },
+            { "id": "questions", "type": "text", "control": "long", "maxLength": 2000, "text": "What would you like to talk about at this visit?" }
+          ]
+        }
+      ]
+    }
+  ]
+}

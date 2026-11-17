@@ -4435,6 +4435,7 @@ paths:
               properties:
                 name: { type: string, maxLength: 200 }
                 definition: { $ref: "#/components/schemas/FormDefinition" }
+                template: { type: string, description: "A starter template key from GET /form-templates (#258), instead of a definition. The draft takes the form's name as its title." }
       responses:
         "201":
           description: Created.
@@ -5408,3 +5409,90 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FormAnswerErrors" }
+
+  # Starting points (#258).
+  /api/v1/forms/{formID}/copy:
+    post:
+      tags: [forms]
+      summary: Copy a form or a built-in into a new custom form (admins, office LAN only, #258)
+      description: >
+        Duplicates a version of a custom form, or copies a built-in instrument
+        into an editable custom form that keeps its copyright, with a note in
+        the description that edits make it no longer the validated
+        instrument. Built-ins can be copied only where they are available
+        (#199). Images come too. Audited as form.create with copied_from.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: formID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version_id: { type: string, format: uuid, description: "Default: the latest published version, else the latest." }
+                name: { type: string, maxLength: 200, description: "Default: the source's name with (copy)." }
+      responses:
+        "201":
+          description: The new custom form and its draft.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  form_id: { type: string, format: uuid }
+                  version_id: { type: string, format: uuid }
+                  version: { type: integer }
+                  name: { type: string }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such form or version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: A built-in on a practice where built-ins aren't available.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/form-templates:
+    get:
+      tags: [forms]
+      summary: Starter templates for New form (admins, office LAN only, #258)
+      description: Synthetic, practice-neutral starting points bundled with the server.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: The templates.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: { type: string }
+                        name: { type: string }
+                        description: { type: string }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }

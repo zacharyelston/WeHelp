@@ -6,6 +6,22 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Starting points in the form builder (#258).
+  - **Duplicate a form:** `POST /forms/{id}/copy` makes a new custom form,
+    named "(copy)", with a draft from any version and its images.
+  - **Copy a built-in to edit:** a copy of a built-in such as PHQ-9 is a
+    custom, editable form.
+    - It keeps the copyright, and its description says that once edited it's
+      no longer the validated instrument. The builder shows that note too.
+    - Built-ins can only be copied where they're available (#199).
+  - **Starter templates:** new patient intake, follow-up visit and symptom
+    checklist, under New form (`GET /form-templates`; `POST /forms`
+    with `template`). They're synthetic and practice-neutral, in
+    `internal/forms/templates`, and checked by Go and JavaScript.
+  - **Duplicate a page or a question:** the copy gets fresh ids, and rules
+    inside a copied page point at the copied questions; rules elsewhere are
+    unchanged.
+  - **Audit:** every copy is `form.create` with a `copied_from` detail.
 - The form builder keeps your work (#260):
   - **Autosave:** a draft saves itself 2 seconds after the last change,
     through the existing save route. A status line shows "Unsaved

@@ -300,3 +300,78 @@ test('nothing goes to localStorage or IndexedDB (#260)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'forms.js'), 'utf8');
   assert.doesNotMatch(src, /(localStorage|sessionStorage|indexedDB)\s*[.[]/);
 });
+
+test('duplicate a page: fresh ids, rules inside the copy re-pointed, others untouched (#258)', () => {
+  const { p, def } = openEditor('valid/branching.json');
+  const before = def();
+  p.run('duplicatePage(0, 1)'); // p_symptoms: symptoms, and pain_level shown when symptoms includes pain
+  const after = def();
+  const pages = after.sections[0].pages;
+  assert.equal(pages.length, before.sections[0].pages.length + 1);
+  const copy = pages[2];
+  assert.equal(copy.id, 'p_symptoms_copy');
+  assert.deepEqual(copy.items.map((i) => i.id), ['symptoms_copy', 'pain_level_copy']);
+  assert.deepEqual(copy.items[1].enableWhen, { in: [{ answer: 'symptoms_copy' }, { str: 'pain' }] }, 'the copy points at the copied question');
+  assert.deepEqual(copy.enableWhen, before.sections[0].pages[1].enableWhen, 'a rule on an earlier page is unchanged');
+  assert.deepEqual(pages[1], before.sections[0].pages[1], 'the original page is unchanged');
+  assert.deepEqual(after.sections[0].next, before.sections[0].next, 'rules elsewhere are unchanged');
+  const ids = new Set();
+  for (const s of after.sections) for (const pg of s.pages) { ids.add(pg.id); for (const it of pg.items) ids.add(it.id); }
+  assert.equal(p.run('localError()'), null, 'the result validates');
+  // A second copy gets another fresh id.
+  p.run('duplicatePage(0, 1)');
+  assert.equal(def().sections[0].pages[2].id, 'p_symptoms_copy2');
+  p.run('undoEdit(); undoEdit()');
+  assert.deepEqual(def(), before, 'undo removes the copies');
+});
+
+test('duplicate a question keeps its rule and gets a fresh id (#258)', () => {
+  const { p, def } = openEditor('valid/branching.json');
+  p.run('duplicateItem(0, 0, 2)'); // smoker, shown when age >= 18
+  const items = def().sections[0].pages[0].items;
+  assert.equal(items[3].id, 'smoker_copy');
+  assert.deepEqual(items[3].enableWhen, items[2].enableWhen);
+  assert.equal(items[3].text, items[2].text);
+  assert.equal(p.run('localError()'), null);
+});
+
+test('New form offers the templates and sends the chosen one; Duplicate and Copy to edit call copy (#258)', async () => {
+  const { p, calls } = openEditor('valid/minimal.json');
+  p.ctx.__respond = (url, opts) => {
+    if (url.endsWith('/form-templates')) return { status: 200, body: { templates: [{ key: 'intake', name: 'New patient intake', description: 'd' }] } };
+    if (url.endsWith('/copy')) return { status: 201, body: { form_id: 'f2', version_id: 'v2', version: 1, name: 'PHQ-9 (copy)' } };
+    if (opts.method === 'POST' && url.endsWith('/forms')) return { status: 201, body: { form_id: 'f3', version_id: 'v3', version: 1 } };
+    return { status: 404, body: { error: 'no' } };
+  };
+  p.run('fb.view = "list"; fb.list = [{ id: "f9", name: "PHQ-9", kind: "instrument", latest: { id: "v9", version: 1, status: "published" }, published: 1 }, { id: "f8", name: "Intake", kind: "custom", latest: { id: "v8", version: 2, status: "draft" } }]; fb.newForm = false;');
+  await p.run('toggleNewForm()');
+  const list = p.run('renderFormList()');
+  assert.match(list, /<option value="intake" title="d">Start from: New patient intake<\/option>/);
+  assert.match(list, /data-fb="copyForm" data-fb-args="\[&quot;f9&quot;,null\]">Copy to edit/);
+  assert.match(list, /data-fb="copyForm" data-fb-args="\[&quot;f8&quot;,null\]">Duplicate/);
+  p.elements['fb-new-name'] = { value: 'My intake' };
+  p.elements['fb-new-template'] = { value: 'intake' };
+  p.ctx.openVersion = async () => {};
+  await p.run('createForm()');
+  const create = calls.find((c) => c.method === 'POST' && c.url.endsWith('/forms'));
+  assert.deepEqual(JSON.parse(create.body), { name: 'My intake', template: 'intake' });
+  await p.run('fb.view = "list"; copyForm("f9", null)');
+  const copy = calls.find((c) => c.url.endsWith('/forms/f9/copy'));
+  assert.ok(copy && copy.method === 'POST' && copy.body === '{}', 'Copy to edit posts to the copy route');
+});
+
+test('an edited copy of an instrument says it is no longer the validated instrument (#258)', () => {
+  const { p } = openEditor('valid/instrument-phq9.json');
+  const html = p.run('renderEditor()');
+  assert.match(html, /fb-copynote">Based on a published instrument\. Once edited, it's no longer the validated instrument; keep the attribution: Developed by Drs\. Robert L\. Spitzer/);
+});
+
+test('the starter templates validate and evaluate in JavaScript (#258)', () => {
+  for (const key of ['intake', 'followup', 'symptoms']) {
+    const p = page();
+    p.ctx.__def = fixture(`valid/template-${key}.json`);
+    const res = JSON.parse(p.run('JSON.stringify(WeHelpForms.evaluate(WeHelpForms.compile(__def), {}))'));
+    assert.equal(res.error, null, key);
+    assert.ok(res.path.length >= 1, key);
+  }
+});

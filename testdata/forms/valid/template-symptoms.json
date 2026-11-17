@@ -1,0 +1,62 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Symptom checklist",
+  "locale": "en-US",
+  "description": "A starting point for a recurring symptom checklist with a simple total. Synthetic and practice-neutral, not a validated instrument: adapt it to your practice before you publish.",
+  "sections": [
+    {
+      "id": "s_symptoms",
+      "pages": [
+        {
+          "id": "p_symptoms",
+          "title": "Your symptoms",
+          "items": [
+            { "id": "intro", "type": "display", "text": "In the past week, how often have you had each of these?" },
+            {
+              "id": "headache", "type": "choice", "required": true, "text": "Headaches", "control": "buttons",
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 }, { "value": "sometimes", "text": "Sometimes", "score": 1 },
+                { "value": "often", "text": "Often", "score": 2 }, { "value": "always", "text": "Always", "score": 3 }
+              ]
+            },
+            {
+              "id": "fatigue", "type": "choice", "required": true, "text": "Tiredness", "control": "buttons",
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 }, { "value": "sometimes", "text": "Sometimes", "score": 1 },
+                { "value": "often", "text": "Often", "score": 2 }, { "value": "always", "text": "Always", "score": 3 }
+              ]
+            },
+            {
+              "id": "sleep", "type": "choice", "required": true, "text": "Trouble sleeping", "control": "buttons",
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 }, { "value": "sometimes", "text": "Sometimes", "score": 1 },
+                { "value": "often", "text": "Often", "score": 2 }, { "value": "always", "text": "Always", "score": 3 }
+              ]
+            },
+            {
+              "id": "digestion", "type": "choice", "required": true, "text": "Stomach or digestion problems", "control": "buttons",
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 }, { "value": "sometimes", "text": "Sometimes", "score": 1 },
+                { "value": "often", "text": "Often", "score": 2 }, { "value": "always", "text": "Always", "score": 3 }
+              ]
+            },
+            {
+              "id": "aches", "type": "choice", "required": true, "text": "Muscle or joint aches", "control": "buttons",
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 }, { "value": "sometimes", "text": "Sometimes", "score": 1 },
+                { "value": "often", "text": "Often", "score": 2 }, { "value": "always", "text": "Always", "score": 3 }
+              ]
+            },
+            { "id": "other", "type": "text", "maxLength": 500, "text": "Anything else you've noticed?" }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "symptom_total", "text": "Symptom total (0-15)",
+      "expr": { "sum": [{ "scoreOf": "headache" }, { "scoreOf": "fatigue" }, { "scoreOf": "sleep" }, { "scoreOf": "digestion" }, { "scoreOf": "aches" }] }
+    }
+  ]
+}

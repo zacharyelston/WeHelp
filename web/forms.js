@@ -306,7 +306,9 @@ function renderFormList() {
   if (fb.newForm) {
     html += `<div class="inline-form" style="margin-top:0.5rem">
       <input id="fb-new-name" placeholder="Form name, for example New patient intake" maxlength="200">
-      <button class="btn" ${fbAct("createForm")}>Create</button></div>`;
+      <select id="fb-new-template"><option value="">Start blank</option>${(fb.templates || []).map((t) => `<option value="${attr(t.key)}" title="${attr(t.description)}">Start from: ${esc(t.name)}</option>`).join("")}</select>
+      <button class="btn" ${fbAct("createForm")}>Create</button></div>
+      <p class="hint">Templates are synthetic starting points: adapt the questions to your practice before you publish.</p>`;
   }
   html += "</div><div class=\"card\">";
   if (fb.list.length === 0) {
@@ -317,6 +319,7 @@ function renderFormList() {
       const latest = f.latest ? `v${f.latest.version} <span class="badge badge-${f.latest.status === "published" ? "active" : "pending"}">${esc(f.latest.status)}</span>` : "";
       const actions = [];
       if (f.latest) actions.push(`<button class="btn btn-sm" ${fbAct("openVersion", f.latest.id)}>${f.kind === "instrument" || f.archived_at ? "View" : "Open"}</button>`);
+      if (f.latest) actions.push(`<button class="btn btn-sm btn-outline" ${fbAct("copyForm", f.id, null)}>${f.kind === "instrument" ? "Copy to edit" : "Duplicate"}</button>`);
       if (f.kind === "custom" && !f.archived_at) actions.push(`<button class="btn btn-sm btn-danger" ${fbAct("archiveForm", f.id, f.name)}>Archive</button>`);
       html += `<tr><td>${esc(f.name)}${f.archived_at ? ' <span class="badge badge-revoked">archived</span>' : ""}</td>
         <td>${f.kind === "instrument" ? "Built-in" : "Custom"}</td><td>${latest}</td>
@@ -327,8 +330,15 @@ function renderFormList() {
   return html + "</div>";
 }
 
-function toggleNewForm() {
+async function toggleNewForm() {
   fb.newForm = !fb.newForm;
+  if (fb.newForm && !fb.templates) {
+    try {
+      fb.templates = (await fbFetch("GET", "/form-templates")).templates || [];
+    } catch (_) {
+      fb.templates = []; // the picker just offers a blank form
+    }
+  }
   fbRender();
 }
 
@@ -340,7 +350,10 @@ async function createForm() {
     return;
   }
   try {
-    const out = await fbFetch("POST", "/forms", { name });
+    const tpl = document.getElementById("fb-new-template");
+    const body = { name };
+    if (tpl && tpl.value) body.template = tpl.value;
+    const out = await fbFetch("POST", "/forms", body);
     fb.newForm = false;
     await openVersion(out.version_id);
   } catch (err) {
@@ -428,7 +441,8 @@ function renderEditor() {
   const hasDraft = fb.form && fb.form.versions.some((x) => x.status === "draft");
   const badge = `<span class="badge badge-${v.status === "published" ? "active" : "pending"}">${esc(v.status)}</span>`;
   let head = `<div class="card fb-head"><div><h2>${esc(f.name)} · v${v.version} ${badge}${v.kind === "instrument" ? ' <span class="badge badge-scheduled">built-in</span>' : ""}</h2>`;
-  if (v.kind === "instrument") head += '<p class="hint">Built-in instruments are read-only; you can preview them.</p>';
+  if (v.kind === "instrument") head += '<p class="hint">Built-in instruments are read-only; you can preview them, or copy one to edit.</p>';
+  else if (def.copyright) head += `<p class="hint fb-copynote">Based on a published instrument. Once edited, it's no longer the validated instrument; keep the attribution: ${esc(def.copyright)}</p>`;
   else if (v.status === "published") head += '<p class="hint">Published versions can\'t be changed. Start a new version to edit.</p>';
   head += `</div><div class="inline-form">
     <button class="btn btn-outline" ${fbAct("backToList")}>Back to forms</button>`;
@@ -445,6 +459,7 @@ function renderEditor() {
   if (v.status === "published" && v.kind !== "instrument" && !hasDraft && !(fb.form && fb.form.form.archived_at)) {
     head += `<button class="btn" ${fbAct("newVersion")}>New version</button>`;
   }
+  head += `<button class="btn btn-outline" ${fbAct("copyForm", v.form_id, v.id)}>${v.kind === "instrument" ? "Copy to edit" : "Duplicate"}</button>`;
   head += `<a class="btn btn-outline" href="/api/v1/form-versions/${attr(v.id)}/export" download>Export JSON</a></div></div>`;
 
   const err = `<div id="fb-errbox">${errorBox()}</div>`;
@@ -509,7 +524,7 @@ function renderPage(p, si, pi, ro) {
   const path = ["sections", si, "pages", pi], n = fb.def.sections[si].pages.length;
   const g = pageGlobalIndex(si, pi);
   let html = `<div class="fb-page" data-fb-anchor="${attr(pathString(path))}">
-    <div class="fb-titlebar"><h4>Page ${pi + 1}</h4>${moveButtons("page", ["sections", si, "pages"], pi, n, ro)}</div>
+    <div class="fb-titlebar"><h4>Page ${pi + 1}</h4><span>${ro ? "" : `<button class="btn btn-sm btn-outline" ${fbAct("duplicatePage", si, pi)} title="Duplicate this page">Duplicate</button>`}${moveButtons("page", ["sections", si, "pages"], pi, n, ro)}</span></div>
     <div class="fb-row">${field("Id", [...path, "id"], p.id, "req", ro)}${field("Title", [...path, "title"], p.title, "str", ro)}</div>
     ${renderRule("Show this page only when", [...path, "enableWhen"], p.enableWhen, { kind: "page", page: g }, ro, false)}`;
   (p.items || []).forEach((it, ii) => { html += renderItem(it, si, pi, ii, g, ro); });
@@ -537,7 +552,7 @@ function renderItem(it, si, pi, ii, g, ro) {
   const path = ["sections", si, "pages", pi, "items", ii], n = fb.def.sections[si].pages[pi].items.length;
   const typeLabel = (ITEM_TYPES.find((x) => x[0] === it.type) || [it.type, it.type])[1];
   let html = `<div class="fb-item" data-fb-anchor="${attr(pathString(path))}">
-    <div class="fb-titlebar"><strong>${esc(typeLabel)}</strong>${moveButtons("item", ["sections", si, "pages", pi, "items"], ii, n, ro)}</div>
+    <div class="fb-titlebar"><strong>${esc(typeLabel)}</strong><span>${ro ? "" : `<button class="btn btn-sm btn-outline" ${fbAct("duplicateItem", si, pi, ii)} title="Duplicate this question">Duplicate</button>`}${moveButtons("item", ["sections", si, "pages", pi, "items"], ii, n, ro)}</span></div>
     <div class="fb-row">${field("Id", [...path, "id"], it.id, "req", ro)}`;
   if (it.type !== "display") html += check("Required", [...path, "required"], it.required, ro);
   if (CONTROLS[it.type]) html += choose("Shown as", [...path, "control"], it.control, CONTROLS[it.type], ro);
@@ -1472,6 +1487,78 @@ async function loadDueForms(container) {
 }
 
 // ---------------------------------------------------------------------------
+// Starting points (#258): copy a form or a built-in, duplicate a page or a
+// question.
+// ---------------------------------------------------------------------------
+
+// copyForm makes a new custom form from a form (a version of it, or its
+// latest published one) and opens its draft. A built-in becomes an
+// editable copy that keeps its attribution.
+async function copyForm(formId, versionId) {
+  if (fb.view === "edit" && !fbCanLeave()) return;
+  try {
+    const out = await fbFetch("POST", `/forms/${formId}/copy`, versionId ? { version_id: versionId } : {});
+    showAlert(`Created "${out.name}"`, "success");
+    await openVersion(out.version_id);
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// freshId returns an unused id based on base (taken holds ids already
+// handed out in this copy).
+function freshId(def, base, taken) {
+  const ids = allIds(def);
+  const root = String(base).replace(/_copy\d*$/, "").slice(0, 50) + "_copy";
+  let id = root;
+  for (let n = 2; ids.has(id) || taken.has(id); n++) id = root + n;
+  taken.add(id);
+  return id;
+}
+
+// repointRefs rewrites item references inside a rule tree by map.
+function repointRefs(node, map) {
+  if (Array.isArray(node)) return node.map((x) => repointRefs(x, map));
+  if (!node || typeof node !== "object") return node;
+  const out = {};
+  for (const [k, v] of Object.entries(node)) {
+    if ((k === "answer" || k === "scoreOf" || k === "answered") && typeof v === "string") out[k] = map[v] || v;
+    else if (k === "count" && Array.isArray(v)) out[k] = v.map((x) => (typeof x === "string" && map[x]) || x);
+    else out[k] = repointRefs(v, map);
+  }
+  return out;
+}
+
+// duplicatePage copies a page right after itself with fresh ids. Rules
+// inside the copy that use questions of the copied page point at the
+// copies; rules anywhere else are unchanged.
+function duplicatePage(si, pi) {
+  const pages = fb.def.sections[si].pages;
+  const copy = JSON.parse(JSON.stringify(pages[pi]));
+  const taken = new Set();
+  const map = {};
+  copy.id = freshId(fb.def, copy.id, taken);
+  for (const it of copy.items) map[it.id] = freshId(fb.def, it.id, taken);
+  for (const it of copy.items) {
+    it.id = map[it.id];
+    if (it.enableWhen) it.enableWhen = repointRefs(it.enableWhen, map);
+  }
+  if (copy.enableWhen) copy.enableWhen = repointRefs(copy.enableWhen, map);
+  pages.splice(pi + 1, 0, copy);
+  changed();
+}
+
+// duplicateItem copies a question right after itself with a fresh id; its
+// rule keeps pointing at the same earlier questions.
+function duplicateItem(si, pi, ii) {
+  const items = fb.def.sections[si].pages[pi].items;
+  const copy = JSON.parse(JSON.stringify(items[ii]));
+  copy.id = freshId(fb.def, copy.id, new Set());
+  items.splice(ii + 1, 0, copy);
+  changed();
+}
+
+// ---------------------------------------------------------------------------
 // Events: one allowlist, no window lookups
 // ---------------------------------------------------------------------------
 
@@ -1481,6 +1568,8 @@ const FB_ACTIONS = {
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
   // Undo and redo (#260)
   redoEdit, undoEdit,
+  // Starting points (#258)
+  copyForm, duplicateItem, duplicatePage,
   // Assignments (#196)
   assignForm, closePatientForms, endAssignment, showPatientForms,
   // Responses (#197)
