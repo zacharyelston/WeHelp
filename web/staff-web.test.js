@@ -40,6 +40,7 @@ function page() {
     location: { hash: '', pathname: '/' },
     history: { replaceState() {} },
     fetch: () => Promise.reject(new Error('offline in tests')),
+    FormData: class FormData {},
     setTimeout,
     console,
     scrollY: 0,
@@ -190,4 +191,112 @@ test('the patient Forms panel and the Due forms view render from the API (#196)'
   assert.match(el.innerHTML, /Nothing overdue/);
   assert.match(el.innerHTML, /Dr\. Ada/);
   assert.match(el.innerHTML, /fb-flagged-card.*Flagged this week.*<td class="fb-flag">Item 9 above Not at all/s);
+});
+
+
+// openEditor puts a draft in the builder with fake timers and fetch (#260).
+function openEditor(defFile) {
+  const p = page();
+  const timers = [];
+  const calls = [];
+  p.ctx.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  p.ctx.clearTimeout = (id) => { if (id && timers[id - 1]) timers[id - 1].fn = null; };
+  p.ctx.__respond = () => ({ status: 200, body: { id: 'v1', version: 1, digest: 'x' } });
+  p.ctx.fetch = async (url, opts) => {
+    calls.push({ url, method: opts.method, body: opts.body });
+    const r = p.ctx.__respond(url, opts);
+    return { ok: r.status < 300, status: r.status, statusText: '', json: async () => r.body };
+  };
+  p.ctx.__def = fixture(defFile);
+  p.run(`session = { status: "active", role: "admin", csrf_token: "x" };
+    fb.container = document.getElementById("tab-content");
+    fb.view = "edit";
+    fb.version = { id: "v1", form_id: "f1", form_name: "F", kind: "custom", status: "draft", version: 1, assets: [] };
+    fb.form = { form: { name: "F" }, versions: [{ id: "v1", version: 1, status: "draft" }] };
+    fb.def = __def;
+    resetHistory();`);
+  // fire runs the timers that are due, as time passing would.
+  const fire = async () => {
+    const due = timers.filter((x) => x.fn);
+    for (const x of due) {
+      const fn = x.fn;
+      x.fn = null;
+      await fn();
+    }
+    return due.map((x) => x.ms);
+  };
+  const def = () => JSON.parse(p.run('JSON.stringify(fb.def)'));
+  return { p, timers, calls, fire, def };
+}
+
+test('undo and redo across add, remove and move (#260)', () => {
+  const { p, def } = openEditor('valid/branching.json');
+  const start = def();
+  p.run('addSection()');
+  assert.equal(def().sections.length, start.sections.length + 1);
+  p.run('moveNode(["sections"], 0, 1)');
+  assert.equal(def().sections[1].id, start.sections[0].id);
+  p.run('removeNode(["sections", 1, "pages", 0, "items"], 0)');
+  p.run('undoEdit()');
+  p.run('undoEdit()');
+  assert.equal(def().sections[0].id, start.sections[0].id, 'undo the move');
+  p.run('undoEdit()');
+  assert.deepEqual(def(), start, 'undo the add');
+  assert.equal(p.run('fb.dirty'), false, 'back to the saved state');
+  p.run('redoEdit()');
+  p.run('redoEdit()');
+  assert.equal(def().sections[1].id, start.sections[0].id, 'redo the add and the move');
+  p.run('addPage(0)');
+  assert.equal(p.run('fb.redo.length'), 0, 'a new edit clears redo');
+  // The undo and redo buttons are drawn with their state.
+  const html = p.run('renderEditor()');
+  assert.match(html, /data-fb="undoEdit" data-fb-args="\[\]"\s+title="Undo/);
+  assert.match(html, /data-fb="redoEdit" data-fb-args="\[\]" disabled/);
+});
+
+test('at least 50 undo steps (#260)', () => {
+  const { p, def } = openEditor('valid/minimal.json');
+  const start = def();
+  for (let i = 0; i < 60; i++) p.run(`fb.def.title = "T${i}"; changed();`);
+  for (let i = 0; i < 60; i++) p.run('undoEdit()');
+  assert.deepEqual(def(), start);
+  assert.equal(p.run('fb.redo.length'), 60);
+});
+
+test('autosave waits for a pause, saves once, then shows Saved (#260)', async () => {
+  const { p, calls, fire } = openEditor('valid/minimal.json');
+  p.run('fb.def.title = "A"; changed();');
+  p.run('fb.def.title = "AB"; changed();');
+  assert.equal(calls.length, 0, 'nothing saved while editing');
+  assert.equal(p.run('saveStatusText()'), 'Unsaved changes');
+  const delays = await fire();
+  assert.deepEqual(delays, [2000], 'one pending autosave, two seconds after the last edit');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'PUT');
+  assert.match(calls[0].url, /\/api\/v1\/form-versions\/v1$/);
+  assert.equal(JSON.parse(calls[0].body).title, 'AB');
+  assert.equal(p.run('saveStatusText()'), 'Saved');
+  assert.equal(p.run('fb.dirty'), false);
+  assert.equal(p.run('fbCanLeave()'), true, 'nothing to warn about');
+});
+
+test('a refused autosave keeps the draft and shows the error at its path (#260)', async () => {
+  const { p, fire, def } = openEditor('valid/minimal.json');
+  p.ctx.__respond = () => ({ status: 422, body: { error: 'sections[0].pages[0].items[0].options: duplicate value "1"', code: 'invalid_definition', path: 'sections[0].pages[0].items[0].options', kind: 'duplicate' } });
+  p.run('fb.def.title = "Edited"; changed();');
+  await fire();
+  assert.equal(def().title, 'Edited', 'the local copy is kept');
+  assert.match(p.run('saveStatusText()'), /^Not saved: sections\[0\]\.pages\[0\]\.items\[0\]\.options: duplicate value/);
+  assert.equal(p.run('fb.error.path'), 'sections[0].pages[0].items[0].options');
+  assert.equal(p.run('fb.dirty'), true);
+  // Leaving now asks.
+  p.ctx.confirm = () => false;
+  assert.equal(p.run('fbCanLeave()'), false);
+  p.ctx.confirm = () => true;
+  assert.equal(p.run('fbCanLeave()'), true);
+});
+
+test('nothing goes to localStorage or IndexedDB (#260)', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'forms.js'), 'utf8');
+  assert.doesNotMatch(src, /(localStorage|sessionStorage|indexedDB)\s*[.[]/);
 });

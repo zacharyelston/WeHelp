@@ -221,6 +221,8 @@ function bindDashboard() {
   if (session.role === "admin") showBackupWarning();
   document.querySelectorAll(".tab").forEach((t) => {
     t.onclick = () => {
+      // Leaving the form builder with unsaved changes asks first (#260).
+      if (activeTab === "forms" && t.dataset.tab !== "forms" && typeof fbCanLeave === "function" && !fbCanLeave()) return;
       activeTab = t.dataset.tab;
       document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
       t.classList.add("active");
