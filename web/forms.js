@@ -527,11 +527,11 @@ function renderPage(p, si, pi, ro) {
     <div class="fb-titlebar"><h4>Page ${pi + 1}</h4><span>${ro ? "" : `<button class="btn btn-sm btn-outline" ${fbAct("duplicatePage", si, pi)} title="Duplicate this page">Duplicate</button>`}${moveButtons("page", ["sections", si, "pages"], pi, n, ro)}</span></div>
     <div class="fb-row">${field("Id", [...path, "id"], p.id, "req", ro)}${field("Title", [...path, "title"], p.title, "str", ro)}</div>
     ${renderRule("Show this page only when", [...path, "enableWhen"], p.enableWhen, { kind: "page", page: g }, ro, false)}`;
-  (p.items || []).forEach((it, ii) => { html += renderItem(it, si, pi, ii, g, ro); });
+  html += renderItems(p, si, pi, g, ro); // grids where rows share answers (#259)
   if (!ro) {
     html += `<div class="inline-form fb-add"><select data-fb-newtype="${attr(JSON.stringify([si, pi]))}">
-      ${ITEM_TYPES.map(([t, l]) => `<option value="${t}">${esc(l)}</option>`).join("")}</select>
-      <button class="btn btn-sm btn-outline" ${fbAct("addItem", si, pi)}>Add item</button></div>`;
+      ${NEW_ITEMS.map(([t, l]) => `<option value="${t}">${esc(l)}</option>`).join("")}</select>
+      <button class="btn btn-sm btn-outline" ${fbAct("addFormItem", si, pi)}>Add item</button></div>`;
   }
   return html + "</div>";
 }
@@ -569,7 +569,12 @@ function renderItem(it, si, pi, ii, g, ro) {
           <td>${moveButtons("option", [...path, "options"], oi, it.options.length, ro)}</td></tr>`;
       });
       html += "</tbody></table>";
-      if (!ro) html += `<button class="btn btn-sm btn-outline" ${fbAct("addOption", path)}>Add option</button>`;
+      if (!ro) {
+        html += `<div class="inline-form"><button class="btn btn-sm btn-outline" ${fbAct("addOption", path)}>Add option</button>
+          ${answerListPicker(`data-fb-itemlist="${attr(JSON.stringify(path))}"`)}
+          ${copyFromPicker(`data-fb-itemcopy="${attr(JSON.stringify(path))}"`, [it.id])}
+          ${(it.options || []).length && it.options.every((o) => typeof o.score === "number") ? `<button class="btn btn-sm btn-outline" ${fbAct("reverseScores", path)}>Reverse scores</button>` : ""}</div>`;
+      }
       break;
     }
     case "integer": case "decimal": {
@@ -948,9 +953,16 @@ function newItem(type) {
   }
 }
 
-function addItem(si, pi) {
+function addFormItem(si, pi) {
   const sel = document.querySelector(`[data-fb-newtype="${CSS.escape(JSON.stringify([si, pi]))}"]`);
   const type = sel ? sel.value : "choice";
+  if (type.startsWith("grid:")) return addGrid(si, pi, type.slice(5)); // #259
+  if (type.startsWith("choice:")) {
+    const it = newItem("choice");
+    it.options = listOptions(type.slice(7));
+    fb.def.sections[si].pages[pi].items.push(it);
+    return changed();
+  }
   fb.def.sections[si].pages[pi].items.push(newItem(type));
   changed();
 }
@@ -1559,17 +1571,284 @@ function duplicateItem(si, pi, ii) {
 }
 
 // ---------------------------------------------------------------------------
+// Answer lists and the grid editor (#259). Builder only: a grid is a run of
+// ordinary single-choice questions with identical options, so the format,
+// scoring, the server and the app don't change.
+// ---------------------------------------------------------------------------
+
+const ANSWER_LISTS = {
+  freq4: { label: "Never / Sometimes / Often / Always", options: [["never", "Never", 0], ["sometimes", "Sometimes", 1], ["often", "Often", 2], ["always", "Always", 3]] },
+  yesno: { label: "Yes / No / Not sure", options: [["yes", "Yes"], ["no", "No"], ["not_sure", "Not sure"]] },
+  severity: { label: "None / Mild / Moderate / Severe", options: [["none", "None", 0], ["mild", "Mild", 1], ["moderate", "Moderate", 2], ["severe", "Severe", 3]] },
+  zero10: { label: "0 to 10", options: Array.from({ length: 11 }, (_, i) => [String(i), String(i), i]) },
+};
+
+function listOptions(key) {
+  const l = ANSWER_LISTS[key];
+  return l.options.map(([value, text, score]) => (score === undefined ? { value, text } : { value, text, score }));
+}
+
+// NEW_ITEMS is the "Add item" menu: the item types, choice questions with an
+// answer list, and a grid.
+const NEW_ITEMS = [
+  ...ITEM_TYPES,
+  ...Object.entries(ANSWER_LISTS).map(([k, l]) => [`choice:${k}`, `Choice: ${l.label}`]),
+  ["grid:freq4", "Grid (rows share one answer list)"],
+];
+
+function sameOptions(a, b) {
+  return JSON.stringify(a.options || []) === JSON.stringify(b.options || []);
+}
+
+function gridable(it) {
+  return it && it.type === "choice" && !it.multiple && !it.enableWhen && (it.options || []).length > 0;
+}
+
+// gridRuns finds the grids on a page: runs of 2 or more consecutive
+// single-choice questions with identical options, required and control,
+// and no rule. Each is {start, end} (end exclusive).
+function gridRuns(items) {
+  const runs = [];
+  let i = 0;
+  while (i < items.length) {
+    let j = i + 1;
+    if (gridable(items[i])) {
+      while (j < items.length && gridable(items[j]) && sameOptions(items[i], items[j]) &&
+        !!items[j].required === !!items[i].required && (items[j].control || "") === (items[i].control || "")) j++;
+    }
+    if (j - i >= 2) runs.push({ start: i, end: j });
+    i = Math.max(j, i + 1);
+  }
+  return runs;
+}
+
+function rowsOf(si, pi, start, end) {
+  return fb.def.sections[si].pages[pi].items.slice(start, end);
+}
+
+// Item-level answer list actions.
+
+function applyAnswerList(path, key) {
+  if (!ANSWER_LISTS[key]) return;
+  getAt(fb.def, path).options = listOptions(key);
+  changed();
+}
+
+function copyOptionsFrom(path, fromId) {
+  const from = itemById(fb.def, fromId);
+  if (!from || !from.options) return;
+  getAt(fb.def, path).options = JSON.parse(JSON.stringify(from.options));
+  changed();
+}
+
+// reverseOptions flips the scores: the first option gets the last score.
+function reverseOptions(options) {
+  const scores = options.map((o) => o.score);
+  options.forEach((o, i) => {
+    const s = scores[scores.length - 1 - i];
+    if (s === undefined) delete o.score;
+    else o.score = s;
+  });
+}
+
+function reverseScores(path) {
+  reverseOptions(getAt(fb.def, path).options || []);
+  changed();
+}
+
+// Grid actions: each takes the page and the run's [start, end).
+
+function gridEach(si, pi, start, end, fn) {
+  rowsOf(si, pi, start, end).forEach(fn);
+  changed();
+}
+
+function gridApplyList(si, pi, start, end, key) {
+  if (!ANSWER_LISTS[key]) return;
+  gridEach(si, pi, start, end, (it) => { it.options = listOptions(key); });
+}
+
+function gridCopyFrom(si, pi, start, end, fromId) {
+  const from = itemById(fb.def, fromId);
+  if (!from || !from.options) return;
+  gridEach(si, pi, start, end, (it) => { it.options = JSON.parse(JSON.stringify(from.options)); });
+}
+
+function gridReverse(si, pi, start, end) {
+  gridEach(si, pi, start, end, (it) => reverseOptions(it.options));
+}
+
+function gridSetOption(si, pi, start, end, oi, field, value) {
+  gridEach(si, pi, start, end, (it) => {
+    const o = it.options[oi];
+    if (!o) return;
+    if (value === undefined) delete o[field];
+    else o[field] = value;
+  });
+}
+
+function gridAddOption(si, pi, start, end) {
+  const first = rowsOf(si, pi, start, end)[0];
+  let n = first.options.length + 1;
+  while (first.options.some((o) => o.value === String(n))) n++;
+  gridEach(si, pi, start, end, (it) => { it.options.push({ value: String(n), text: "Option " + n }); });
+}
+
+function gridRemoveOption(si, pi, start, end, oi) {
+  gridEach(si, pi, start, end, (it) => { it.options.splice(oi, 1); });
+}
+
+function gridShared(si, pi, start, end, field, value) {
+  gridEach(si, pi, start, end, (it) => {
+    if (value === undefined || value === "" || value === false) delete it[field];
+    else it[field] = value;
+  });
+}
+
+function gridRowCode(si, pi, ii, code) {
+  const it = fb.def.sections[si].pages[pi].items[ii];
+  if (code) it.code = { system: "http://loinc.org", code };
+  else delete it.code;
+  changed();
+}
+
+function newRow(template, text) {
+  const row = JSON.parse(JSON.stringify(template));
+  row.id = freshId(fb.def, "row", new Set());
+  row.text = text;
+  delete row.code;
+  return row;
+}
+
+function gridAddRow(si, pi, start, end) {
+  const items = fb.def.sections[si].pages[pi].items;
+  items.splice(end, 0, newRow(items[end - 1], "Row " + (end - start + 1)));
+  changed();
+}
+
+// gridPaste adds one row per non-empty line of the paste box.
+function gridPaste(si, pi, start, end) {
+  const box = document.getElementById(`fb-gridpaste-${si}-${pi}-${start}`);
+  const lines = (box ? box.value : "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const items = fb.def.sections[si].pages[pi].items;
+  const rows = [];
+  for (const line of lines) {
+    const row = newRow(items[end - 1], line);
+    items.splice(end + rows.length, 0, row); // reserve the id before the next
+    rows.push(row);
+  }
+  changed();
+}
+
+// gridSum adds a score that is the sum of the grid rows' option scores.
+function gridSum(si, pi, start, end) {
+  const rows = rowsOf(si, pi, start, end);
+  if (!rows.every(scorable)) return;
+  const scores = fb.def.scores || (fb.def.scores = []);
+  scores.push({ id: newId(fb.def, "grid_total"), text: "Total", expr: { sum: rows.map((it) => ({ scoreOf: it.id })) } });
+  changed();
+}
+
+function addGrid(si, pi, key) {
+  const items = fb.def.sections[si].pages[pi].items;
+  const taken = new Set();
+  for (let i = 1; i <= 3; i++) {
+    items.push({ id: freshId(fb.def, "row", taken), type: "choice", text: "Row " + i, control: "buttons", options: listOptions(key) });
+  }
+  changed();
+}
+
+function answerListPicker(attrs) {
+  return `<select ${attrs}><option value="">Use an answer list…</option>
+    ${Object.entries(ANSWER_LISTS).map(([k, l]) => `<option value="${attr(k)}">${esc(l.label)}</option>`).join("")}</select>`;
+}
+
+function copyFromPicker(attrs, exclude) {
+  const others = fbItems(fb.def).map((x) => x.item).filter((it) => it.type === "choice" && !exclude.includes(it.id));
+  if (!others.length) return "";
+  return `<select ${attrs}><option value="">Copy options from…</option>
+    ${others.map((it) => `<option value="${attr(it.id)}">${esc(it.id)}: ${esc((it.text || "").slice(0, 40))}</option>`).join("")}</select>`;
+}
+
+function renderGrid(si, pi, run, ro) {
+  const rows = rowsOf(si, pi, run.start, run.end);
+  const first = rows[0];
+  const key = [si, pi, run.start, run.end];
+  const k = attr(JSON.stringify(key));
+  const pathOf = (ii) => ["sections", si, "pages", pi, "items", ii];
+  let html = `<div class="fb-item fb-grid-block" data-fb-anchor="${attr(pathString(pathOf(run.start)))}">
+    <div class="fb-titlebar"><strong>Grid: ${rows.length} rows share these answers</strong></div>
+    <div class="fb-row">
+      <label class="fb-check"><input type="checkbox" data-fb-gridshared="${k}" data-fb-field="required" ${first.required ? "checked" : ""} ${ro ? "disabled" : ""}> Every row required</label>
+      <label class="fb-field"><span>Shown as</span><select data-fb-gridshared="${k}" data-fb-field="control" ${ro ? "disabled" : ""}>
+        ${CONTROLS.choice.map(([v, l]) => `<option value="${attr(v)}" ${(first.control || "") === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
+    </div>
+    <table class="fb-options"><thead><tr><th>Value</th><th>Answer</th><th>Score</th><th></th></tr></thead><tbody>`;
+  first.options.forEach((o, oi) => {
+    const a = (field) => `data-fb-gridopt="${attr(JSON.stringify([...key, oi, field]))}" ${ro ? "disabled" : ""}`;
+    html += `<tr><td><input ${a("value")} value="${attr(o.value)}"></td><td><input ${a("text")} value="${attr(o.text)}"></td>
+      <td><input type="number" step="any" class="fb-num" ${a("score")} value="${attr(o.score ?? "")}"></td>
+      <td>${ro || first.options.length < 2 ? "" : `<button class="btn btn-sm btn-outline" ${fbAct("gridRemoveOption", ...key, oi)} title="Remove this answer from every row">✕</button>`}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  if (!ro) {
+    html += `<div class="inline-form">
+      <button class="btn btn-sm btn-outline" ${fbAct("gridAddOption", ...key)}>Add answer</button>
+      ${answerListPicker(`data-fb-gridlist="${k}"`)}
+      ${copyFromPicker(`data-fb-gridcopy="${k}"`, rows.map((r) => r.id))}
+      ${first.options.every((o) => typeof o.score === "number") ? `<button class="btn btn-sm btn-outline" ${fbAct("gridReverse", ...key)}>Reverse scores</button>
+      <button class="btn btn-sm btn-outline" ${fbAct("gridSum", ...key)}>Score = sum of these rows</button>` : ""}</div>`;
+  }
+  html += '<table class="fb-options fb-grid-rows"><thead><tr><th>Row (question)</th><th>Id</th><th>Code (LOINC, optional)</th><th></th></tr></thead><tbody>';
+  rows.forEach((it, r) => {
+    const ii = run.start + r;
+    html += `<tr data-fb-anchor="${attr(pathString(pathOf(ii)))}"><td><input ${fbPathAttr([...pathOf(ii), "text"], "req")} value="${attr(it.text)}" ${ro ? "disabled" : ""}></td>
+      <td><input ${fbPathAttr([...pathOf(ii), "id"], "req")} value="${attr(it.id)}" ${ro ? "disabled" : ""} class="fb-gridid"></td>
+      <td><input data-fb-gridcode="${attr(JSON.stringify([si, pi, ii]))}" value="${attr(it.code ? it.code.code : "")}" ${ro ? "disabled" : ""} class="fb-num"></td>
+      <td>${moveButtons("item", ["sections", si, "pages", pi, "items"], ii, fb.def.sections[si].pages[pi].items.length, ro)}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  if (!ro) {
+    html += `<div class="inline-form"><button class="btn btn-sm btn-outline" ${fbAct("gridAddRow", ...key)}>Add row</button></div>
+      <div class="inline-form"><textarea id="fb-gridpaste-${si}-${pi}-${run.start}" rows="2" placeholder="Paste rows, one per line"></textarea>
+      <button class="btn btn-sm btn-outline" ${fbAct("gridPaste", ...key)}>Add pasted rows</button></div>`;
+  }
+  return html + "</div>";
+}
+
+// renderItems draws a page's items, with grids where the rows share answers.
+function renderItems(p, si, pi, g, ro) {
+  const items = p.items || [];
+  const runs = gridRuns(items);
+  let html = "";
+  for (let ii = 0; ii < items.length;) {
+    const run = runs.find((r) => r.start === ii);
+    if (run) {
+      html += renderGrid(si, pi, run, ro);
+      ii = run.end;
+    } else {
+      html += renderItem(items[ii], si, pi, ii, g, ro);
+      ii++;
+    }
+  }
+  return html;
+}
+
+// ---------------------------------------------------------------------------
 // Events: one allowlist, no window lookups
 // ---------------------------------------------------------------------------
 
 const FB_ACTIONS = {
-  addBand, addBranch, addCond, addItem, addOption, addPage, addScore, addSection, archiveForm, backToList,
+  addBand, addBranch, addCond, addFormItem, addOption, addPage, addScore, addSection, archiveForm, backToList,
   clearRule, createForm, deleteAsset, moveNode, newVersion, openVersion, previewMove, previewRestart,
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
   // Undo and redo (#260)
   redoEdit, undoEdit,
   // Starting points (#258)
   copyForm, duplicateItem, duplicatePage,
+  // Answer lists and grids (#259)
+  gridAddOption, gridAddRow, gridPaste, gridRemoveOption, gridReverse, gridSum, reverseScores,
   // Assignments (#196)
   assignForm, closePatientForms, endAssignment, showPatientForms,
   // Responses (#197)
@@ -1656,6 +1935,23 @@ if (typeof document !== "undefined") {
           return;
         }
         openVersion(el.value);
+      } else if (el.dataset.fbGridopt) { // #259: a shared grid answer
+        const [si, pi, start, end, oi, field] = JSON.parse(el.dataset.fbGridopt);
+        const v = field === "score" ? (el.value === "" ? undefined : Number(el.value)) : el.value;
+        gridSetOption(si, pi, start, end, oi, field, v);
+      } else if (el.dataset.fbGridshared) {
+        const [si, pi, start, end] = JSON.parse(el.dataset.fbGridshared);
+        gridShared(si, pi, start, end, el.dataset.fbField, el.type === "checkbox" ? el.checked : el.value);
+      } else if (el.dataset.fbGridlist && el.value) {
+        gridApplyList(...JSON.parse(el.dataset.fbGridlist), el.value);
+      } else if (el.dataset.fbGridcopy && el.value) {
+        gridCopyFrom(...JSON.parse(el.dataset.fbGridcopy), el.value);
+      } else if (el.dataset.fbGridcode) {
+        gridRowCode(...JSON.parse(el.dataset.fbGridcode), el.value.trim());
+      } else if (el.dataset.fbItemlist && el.value) {
+        applyAnswerList(JSON.parse(el.dataset.fbItemlist), el.value);
+      } else if (el.dataset.fbItemcopy && el.value) {
+        copyOptionsFrom(JSON.parse(el.dataset.fbItemcopy), el.value);
       } else if (el.dataset.fbp) {
         previewAnswer(el);
       }

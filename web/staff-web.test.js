@@ -41,6 +41,7 @@ function page() {
     history: { replaceState() {} },
     fetch: () => Promise.reject(new Error('offline in tests')),
     FormData: class FormData {},
+    CSS: { escape: (s) => String(s).replace(/["\\]/g, '\\$&') },
     setTimeout,
     console,
     scrollY: 0,
@@ -373,5 +374,86 @@ test('the starter templates validate and evaluate in JavaScript (#258)', () => {
     const res = JSON.parse(p.run('JSON.stringify(WeHelpForms.evaluate(WeHelpForms.compile(__def), {}))'));
     assert.equal(res.error, null, key);
     assert.ok(res.path.length >= 1, key);
+  }
+});
+
+test('answer lists: add with scores, reverse scores, copy options from another question (#259)', () => {
+  const { p, def } = openEditor('valid/minimal.json');
+  p.elements['__sel'] = null;
+  p.ctx.document.querySelector = () => ({ value: 'choice:freq4' });
+  p.run('addFormItem(0, 0)');
+  const added = def().sections[0].pages[0].items[1];
+  assert.deepEqual(added.options.map((o) => [o.value, o.text, o.score]), [['never', 'Never', 0], ['sometimes', 'Sometimes', 1], ['often', 'Often', 2], ['always', 'Always', 3]]);
+  p.run('reverseScores(["sections", 0, "pages", 0, "items", 1])');
+  assert.deepEqual(def().sections[0].pages[0].items[1].options.map((o) => o.score), [3, 2, 1, 0]);
+  p.run('copyOptionsFrom(["sections", 0, "pages", 0, "items", 0], "' + added.id + '")');
+  assert.deepEqual(def().sections[0].pages[0].items[0].options, def().sections[0].pages[0].items[1].options);
+  p.run('applyAnswerList(["sections", 0, "pages", 0, "items", 0], "yesno")');
+  assert.deepEqual(def().sections[0].pages[0].items[0].options, [{ value: 'yes', text: 'Yes' }, { value: 'no', text: 'No' }, { value: 'not_sure', text: 'Not sure' }]);
+  // q1's score sums its option scores: an unscored list is flagged, a scored one fixes it.
+  assert.equal(p.run('localError().path'), 'scores[0].expr.scoreOf');
+  p.run('applyAnswerList(["sections", 0, "pages", 0, "items", 0], "zero10")');
+  assert.equal(def().sections[0].pages[0].items[0].options.length, 11);
+  assert.equal(p.run('localError()'), null);
+});
+
+test('the grid: shared answers, rows, paste, sum score, and it reopens as a grid (#259)', () => {
+  const { p, def } = openEditor('valid/minimal.json');
+  p.run('addGrid(0, 0, "freq4")'); // rows 1..3 after q1
+  let items = def().sections[0].pages[0].items;
+  assert.equal(items.length, 4);
+  let html = p.run('renderItems(fb.def.sections[0].pages[0], 0, 0, 0, false)');
+  assert.match(html, /Grid: 3 rows share these answers/);
+  // A shared answer changes every row.
+  p.run('gridSetOption(0, 0, 1, 4, 0, "text", "Not at all")');
+  items = def().sections[0].pages[0].items;
+  assert.ok(items.slice(1).every((it) => it.options[0].text === 'Not at all'));
+  p.run('gridAddOption(0, 0, 1, 4)');
+  assert.ok(def().sections[0].pages[0].items.slice(1).every((it) => it.options.length === 5));
+  p.run('gridRemoveOption(0, 0, 1, 4, 4)');
+  // Paste rows, one per line.
+  p.elements['fb-gridpaste-0-0-1'] = { value: 'Headaches\n\n  Tiredness  \nSleep' };
+  p.run('gridPaste(0, 0, 1, 4)');
+  items = def().sections[0].pages[0].items;
+  assert.deepEqual(items.slice(4).map((it) => it.text), ['Headaches', 'Tiredness', 'Sleep']);
+  assert.equal(new Set(items.map((it) => it.id)).size, items.length, 'fresh ids');
+  assert.ok(items.slice(4).every((it) => JSON.stringify(it.options) === JSON.stringify(items[1].options)));
+  // Score = sum of these rows.
+  p.run('gridSum(0, 0, 1, 7)');
+  const score = def().scores.find((sc) => sc.id.startsWith('grid_total'));
+  assert.deepEqual(score.expr, { sum: items.slice(1, 7).map((it) => ({ scoreOf: it.id })) });
+  assert.equal(p.run('localError()'), null);
+  p.ctx.__answers = Object.fromEntries(items.slice(1, 7).map((it) => [it.id, 'often']));
+  const res = JSON.parse(p.run('JSON.stringify(WeHelpForms.evaluate(WeHelpForms.compile(fb.def), Object.assign({ q1: "1" }, __answers)))'));
+  assert.equal(res.scores[score.id].value, '12', 'six rows at 2');
+  // Saved as plain choice questions; reopens as a grid, until a row's answers differ.
+  html = p.run('renderItems(fb.def.sections[0].pages[0], 0, 0, 0, false)');
+  assert.match(html, /Grid: 6 rows share these answers/);
+  p.run('fb.def.sections[0].pages[0].items[3].options[0].text = "Different"; changed();');
+  html = p.run('renderItems(fb.def.sections[0].pages[0], 0, 0, 0, false)');
+  assert.doesNotMatch(html, /Grid: 6 rows/);
+  assert.match(html, /Grid: 3 rows share these answers/, 'the rows after it still group');
+  p.run('undoEdit()');
+  assert.match(p.run('renderItems(fb.def.sections[0].pages[0], 0, 0, 0, false)'), /Grid: 6 rows/);
+});
+
+test('a built-in opens as a read-only grid (#259)', () => {
+  const { p } = openEditor('valid/instrument-phq9.json');
+  p.run('fb.version.kind = "instrument"');
+  const html = p.run('renderItems(fb.def.sections[0].pages[0], 0, 0, 0, fbReadOnly())');
+  assert.match(html, /Grid: 9 rows share these answers/);
+  assert.doesNotMatch(html, /data-fb="gridAddRow"/);
+});
+
+test('the staff web scripts never define the same global twice (#259)', () => {
+  // forms.js once had an addItem that app.js (loaded later) replaced.
+  const seen = {};
+  for (const f of ['staff.js', 'forms-eval.js', 'forms.js', 'app.js']) {
+    const src = fs.readFileSync(path.join(__dirname, f), 'utf8');
+    for (const m of src.matchAll(/^(?:async\s+)?function\s+([A-Za-z0-9_$]+)|^(?:const|let|var)\s+([A-Za-z0-9_$]+)/gm)) {
+      const name = m[1] || m[2];
+      assert.ok(!seen[name], `${name} is defined in both ${seen[name]} and ${f}`);
+      seen[name] = f;
+    }
   }
 });

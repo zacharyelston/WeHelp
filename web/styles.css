@@ -210,3 +210,6 @@ tr:last-child td { border-bottom: none; }
 .fb-flagged td { background: #fdecee; }
 .fb-flagged-card { border-color: var(--danger); border-width: 2px; }
 .fb-save-status { font-size: 0.85rem; color: var(--muted); min-width: 8rem; }
+.fb-grid-block { border-left: 3px solid var(--primary); }
+.fb-grid-rows input { width: 100%; }
+.fb-grid-rows .fb-gridid { width: 9rem; }
