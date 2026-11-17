@@ -65,13 +65,13 @@ struct FormWalkerView: View {
                 Button("Submit") { Task { await session.submit() } }
                     .buttonStyle(.borderedProminent)
                     .frame(minWidth: 88, minHeight: 44)
-                    .disabled(session.saving)
+                    .disabled(session.saving || session.closed)
             } else {
                 // On a provisional last page Next still checks the page first.
                 Button("Next") { Task { _ = await session.next() } }
                     .buttonStyle(.borderedProminent)
                     .frame(minWidth: 88, minHeight: 44)
-                    .disabled(session.saving)
+                    .disabled(session.saving || session.closed)
             }
         }
         .padding()

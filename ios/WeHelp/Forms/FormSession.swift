@@ -146,8 +146,36 @@ final class FormSession: Identifiable {
             resultScores = try await sink.submit(answers: canonical)
             submitted = true
             saveError = nil
+        } catch let FormsAPIError.invalidAnswers(problems) {
+            // The Back Office found something the preview didn't: go to the
+            // first page it names and show its messages there.
+            if let p = problems.first(where: { $0.pageID != nil })?.pageID, definition.pageIndex[p] != nil { pageID = p }
+            show(problems)
         } catch {
-            saveError = "Couldn't send your answers. Check your connection and try again."
+            report(error, fallback: "Couldn't send your answers. Check your connection and try again.")
+        }
+    }
+
+    /// True once the Back Office says the form has closed: nothing more saves.
+    private(set) var closed = false
+
+    private func show(_ problems: [FormsAPIError.Problem]) {
+        var out: [String: String] = [:]
+        for p in problems where out[p.item] == nil {
+            out[p.item] = Self.message(FormAnswerError(item: p.item, code: p.code, message: p.message))
+        }
+        if problems.isEmpty { saveError = "Some answers need another look." } else { self.problems = out }
+    }
+
+    private func report(_ error: any Error, fallback: String) {
+        switch error {
+        case FormsAPIError.windowClosed:
+            closed = true
+            saveError = "This form has closed. Your practice can send it again if needed."
+        case let e as FormsAPIError:
+            saveError = e.errorDescription
+        default:
+            saveError = fallback
         }
     }
 
@@ -160,8 +188,11 @@ final class FormSession: Identifiable {
             try await sink.savePage(pageID, answers: pageAnswers)
             saveError = nil
             return true
+        } catch let FormsAPIError.invalidAnswers(problems) {
+            show(problems)
+            return false
         } catch {
-            saveError = "Couldn't save this page. Check your connection and try again."
+            report(error, fallback: "Couldn't save this page. Check your connection and try again.")
             return false
         }
     }

@@ -49,6 +49,7 @@ struct TodayView: View {
                 }
             }
             .navigationTitle("Today")
+            .refreshable { NotificationCenter.default.post(name: .weHelpRefreshToday, object: nil) }
         }
     }
 }

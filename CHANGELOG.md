@@ -6,6 +6,24 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- iOS Forms client, second part (#198), on the routes from #196 and #197:
+  - Today lists the patient's open and upcoming forms from `/me/forms` when
+    the practice's `forms` switch is on. The list refreshes on push, on
+    return to the app and on pull to refresh; upcoming forms are greyed out
+    with their opening time.
+  - Opening a form fetches its published version, starts or resumes the
+    response (`POST /responses`) and continues at the first page still
+    missing a required answer.
+  - Page saves send `If-Match` and an `Idempotency-Key`, reused on retry.
+    A stale revision refetches and saves once more.
+  - The Back Office's refusals show on the right question; on submit the
+    walker jumps to the page the server names. A closed form says so and
+    stops.
+  - Answers go out and come back as exact JSON number text.
+  - Tapping a `form_due` push opens Today. Locking the app or switching
+    practice account closes the walker and drops its answers.
+  - `APIClient` reads `error` and `code` from any error body, and has
+    `authorizedRaw` for callers that read the body themselves.
 - iOS Forms client, first part (#198):
   - `ios/WeHelp/Forms/`, a Swift `wehelp.form.v1` evaluator, ported from
     `web/forms-eval.js` with Go's exact number handling. It covers:
