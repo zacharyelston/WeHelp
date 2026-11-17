@@ -6,6 +6,28 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Answer lists and a grid editor in the form builder (#259), builder only.
+  A grid saves as ordinary choice questions with identical answers, so the
+  format, scoring, the server and the app are unchanged.
+  - **Answer lists:**
+    - built-in lists when adding or editing a choice question: Never /
+      Sometimes / Often / Always, None / Mild / Moderate / Severe and 0–10
+      (all with scores), and Yes / No / Not sure;
+    - "Reverse scores";
+    - "Copy options from" another question.
+  - **The grid:** consecutive single-choice questions with identical answers,
+    the same required setting and control, and no rule open as one grid
+    block.
+    - Editing the shared answers changes every row.
+    - Rows have their own text, id and optional LOINC code, and can be added,
+      reordered, removed, or pasted one per line.
+    - "Score = sum of these rows" adds the score in one step.
+    - "Add item" offers a grid, and built-ins such as PHQ-9 show their
+      items as a read-only grid.
+  - **Fixed:** `web/forms.js` and `web/app.js` both defined a global
+    `addItem`, so app.js's replaced the builder's. The builder's is now
+    `addFormItem`, and a test fails if the staff web scripts ever define
+    the same global twice.
 - Starting points in the form builder (#258).
   - **Duplicate a form:** `POST /forms/{id}/copy` makes a new custom form,
     named "(copy)", with a draft from any version and its images.
