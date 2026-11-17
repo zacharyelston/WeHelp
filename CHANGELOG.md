@@ -20,6 +20,13 @@ All notable changes to WeHelp are documented here. Format follows
   constant in `web/app.js`, so a rename to Keepdom is a one-line change.
 - **Denser tables and cards,** so more fits on screen.
 
+### Added
+- Pictures in forms on the iPhone (#198). A display item's image loads
+  through the pinned connection from the form version's assets. It's checked
+  as PNG or JPEG, scaled down if large and kept in memory only. VoiceOver
+  reads its description, and if the picture can't load the description is
+  shown. Videos show their description; they aren't played in the app yet.
+
 ### Fixed
 - The form builder no longer says "Not saved: missing bearer token" when the
   staff session has ended (30 minutes idle). It says the user was signed out

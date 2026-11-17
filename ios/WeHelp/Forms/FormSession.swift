@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// Where a walker's answers go. The Back Office implementation (page saves
 /// and submit, #197) comes with the response routes; until then the sample
@@ -47,11 +48,33 @@ final class FormSession: Identifiable {
     private(set) var submitted = false
     private(set) var resultScores: [String: FormResult.ScoreOut]?
 
-    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:], savedPages: [String] = []) {
+    /// Pictures on display items; nil when the form has none to fetch.
+    let assets: (any FormAssetSource)?
+    /// Decoded pictures, by asset name, while the walker is open (memory only).
+    private(set) var images: [String: UIImage] = [:]
+    private(set) var failedImages: Set<String> = []
+
+    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:], savedPages: [String] = [],
+         assets: (any FormAssetSource)? = nil) {
         self.definition = definition
         self.sink = sink
+        self.assets = assets
         self.answers = answers
         pageID = Self.resumePage(definition, answers, savedPages)
+    }
+
+    /// Loads a display item's picture once; a failure shows its description.
+    func loadImage(_ name: String) async {
+        guard images[name] == nil, !failedImages.contains(name), let assets else {
+            if assets == nil { failedImages.insert(name) }
+            return
+        }
+        do {
+            let data = try await assets.imageData(named: name)
+            if let image = FormImages.decode(data) { images[name] = image } else { failedImages.insert(name) }
+        } catch {
+            failedImages.insert(name)
+        }
     }
 
     /// Resume (docs/MOBILE_CLIENT.md §16): the first visible page with no
