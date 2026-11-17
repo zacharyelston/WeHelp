@@ -11,6 +11,13 @@ protocol FormSink: Sendable {
     /// Submits the canonical answers. Returns the server's scores when the
     /// form shows them; the walker never shows its own preview as the result.
     func submit(answers: [String: FormJSON]) async throws -> [String: FormResult.ScoreOut]?
+    /// The server's current answers after a stale revision; nil if the sink
+    /// has no server (the sample).
+    func reload() async throws -> FormResponseState?
+}
+
+extension FormSink {
+    func reload() async throws -> FormResponseState? { nil }
 }
 
 /// The sample form's sink: nothing leaves memory, and the "server" scores are
@@ -26,7 +33,9 @@ struct InMemoryFormSink: FormSink {
 /// One patient filling one form, page by page. Everything stays in memory:
 /// leaving the walker or switching accounts drops it.
 @MainActor @Observable
-final class FormSession {
+final class FormSession: Identifiable {
+    nonisolated var id: ObjectIdentifier { ObjectIdentifier(self) }
+
     let definition: FormDefinition
     let sink: any FormSink
     private(set) var answers: [String: FormJSON]
@@ -38,20 +47,20 @@ final class FormSession {
     private(set) var submitted = false
     private(set) var resultScores: [String: FormResult.ScoreOut]?
 
-    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:]) {
+    init(definition: FormDefinition, sink: any FormSink, answers: [String: FormJSON] = [:], savedPages: [String] = []) {
         self.definition = definition
         self.sink = sink
         self.answers = answers
-        let walk = Self.walk(definition, answers)
-        // Resume at the first page with an unanswered required item, else the first.
-        let firstOpen = walk.first { pid in
-            let page = definition.pages[definition.pageIndex[pid]!]
-            return page.items.contains { ii in
-                let it = definition.items[ii]
-                return it.required && answers[it.id] == nil
-            }
-        }
-        pageID = firstOpen ?? walk.first ?? definition.pages[0].id
+        pageID = Self.resumePage(definition, answers, savedPages)
+    }
+
+    /// Resume (docs/MOBILE_CLIENT.md §16): the first visible page with no
+    /// save, else the last saved one; a new response starts at the first.
+    static func resumePage(_ def: FormDefinition, _ answers: [String: FormJSON], _ saved: [String]) -> String {
+        let walk = walk(def, answers)
+        let savedSet = Set(saved)
+        if let firstUnsaved = walk.first(where: { !savedSet.contains($0) }) { return firstUnsaved }
+        return walk.last(where: { savedSet.contains($0) }) ?? walk.first ?? def.pages[0].id
     }
 
     var result: FormResult { definition.evaluate(answers) }
@@ -144,8 +153,36 @@ final class FormSession {
             resultScores = try await sink.submit(answers: canonical)
             submitted = true
             saveError = nil
+        } catch let FormsAPIError.invalidAnswers(problems) {
+            // The Back Office found something the preview didn't: go to the
+            // first page it names and show its messages there.
+            if let p = problems.first(where: { $0.pageID != nil })?.pageID, definition.pageIndex[p] != nil { pageID = p }
+            show(problems)
         } catch {
-            saveError = "Couldn't send your answers. Check your connection and try again."
+            report(error, fallback: "Couldn't send your answers. Check your connection and try again.")
+        }
+    }
+
+    /// True once the Back Office says the form has closed: nothing more saves.
+    private(set) var closed = false
+
+    private func show(_ problems: [FormsAPIError.Problem]) {
+        var out: [String: String] = [:]
+        for p in problems where out[p.item] == nil {
+            out[p.item] = Self.message(FormAnswerError(item: p.item, code: p.code, message: p.message))
+        }
+        if problems.isEmpty { saveError = "Some answers need another look." } else { self.problems = out }
+    }
+
+    private func report(_ error: any Error, fallback: String) {
+        switch error {
+        case FormsAPIError.windowClosed:
+            closed = true
+            saveError = "This form has closed. Your practice can send it again if needed."
+        case let e as FormsAPIError:
+            saveError = e.errorDescription
+        default:
+            saveError = fallback
         }
     }
 
@@ -158,8 +195,23 @@ final class FormSession {
             try await sink.savePage(pageID, answers: pageAnswers)
             saveError = nil
             return true
+        } catch let FormsAPIError.invalidAnswers(problems) {
+            show(problems)
+            return false
+        } catch FormsAPIError.staleRevision {
+            // Saved from another device since: show what the Back Office
+            // holds, merge nothing, and let the patient check this page.
+            if let fresh = try? await sink.reload() {
+                answers = fresh.answers
+                problems = [:]
+                if !pages.contains(pageID) { pageID = Self.resumePage(definition, answers, fresh.savedPages) }
+                saveError = "Your answers were changed on another device. Check this page, then continue."
+            } else {
+                saveError = "Couldn't save this page. Check your connection and try again."
+            }
+            return false
         } catch {
-            saveError = "Couldn't save this page. Check your connection and try again."
+            report(error, fallback: "Couldn't save this page. Check your connection and try again.")
             return false
         }
     }

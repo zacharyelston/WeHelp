@@ -311,6 +311,53 @@ struct APIClient: Sendable {
         }
     }
 
+    /// Like `authorized`, but for callers that read the body themselves:
+    /// sends `rawBody` as JSON with extra headers, and returns the status and
+    /// body of any answer except a 401 (refreshed and retried as usual). Forms
+    /// (#198) use it to keep numbers exact and to read 409 and 422 details.
+    func authorizedRaw(_ method: String, _ path: String, rawBody: Data? = nil, headers: [String: String] = [:]) async throws -> (status: Int, data: Data) {
+        if await session.accessToken == nil { try await refresh() }
+        do {
+            return try await rawExchange(method, path, rawBody: rawBody, headers: headers, bearer: await session.accessToken)
+        } catch APIError.unauthorized {
+            do {
+                try await refresh()
+            } catch APIError.unauthorized {
+                NotificationCenter.default.post(name: .weHelpSessionEnded, object: session.accountID)
+                throw APIError.unauthorized("This device was signed out.")
+            }
+            return try await rawExchange(method, path, rawBody: rawBody, headers: headers, bearer: await session.accessToken)
+        }
+    }
+
+    /// One request; throws only for transport failures, 401 and clock skew.
+    private func rawExchange(_ method: String, _ path: String, rawBody: Data?, headers: [String: String], bearer: String?) async throws -> (status: Int, data: Data) {
+        guard let office else { throw APIError.noOffice }
+        var req = URLRequest(url: office.baseURL.appending(path: path))
+        req.httpMethod = method
+        if let rawBody {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = rawBody
+        }
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
+        if let bearer { req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization") }
+        let (data, response) = try await OfficeTransport.shared(for: office).data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401 {
+            let (msg, code) = Self.errorFields(data, status)
+            if code == "proof_timestamp" { throw APIError.clockSkew }
+            throw APIError.unauthorized(msg)
+        }
+        return (status, data)
+    }
+
+    /// The `error` text and `code` of an error body, whatever else it holds
+    /// (a 409 may carry `revision`, a 422 an `errors` list).
+    static func errorFields(_ data: Data, _ status: Int) -> (String, String?) {
+        let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        return ((obj?["error"] as? String) ?? "HTTP \(status)", obj?["code"] as? String)
+    }
+
     func send<T: Decodable>(_ method: String, _ path: String, query: [URLQueryItem] = [], body: (any Encodable & Sendable)? = nil, bearer: String? = nil) async throws -> T {
         let (data, _) = try await rawSend(method, path, query: query, body: body, bearer: bearer)
         if T.self == Empty.self || data.isEmpty, let empty = Empty() as? T { return empty }
@@ -333,8 +380,8 @@ struct APIClient: Sendable {
         let (data, response) = try await OfficeTransport.shared(for: office).data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            let body = try? JSONDecoder().decode([String: String].self, from: data)
-            let msg = body?["error"] ?? "HTTP \(status)"
+            let (msg, code) = Self.errorFields(data, status)
+            let body: [String: String]? = code.map { ["code": $0] }
             // A skewed clock is not a signed-out session (#136): keep the
             // account instead of treating it as a 401.
             if status == 401, body?["code"] == "proof_timestamp" { throw APIError.clockSkew }
