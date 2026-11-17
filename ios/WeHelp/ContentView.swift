@@ -2,27 +2,37 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
+    @State private var tab = Tab.today
+
+    enum Tab: Hashable { case today, messages, schedule, store, settings }
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             Group {
                 // One app, two views (#69): provider and admin devices open on
                 // the day's schedule; patients on their own Today.
                 if appState.isStaff { ProviderTodayView() } else { TodayView() }
             }
                 .tabItem { Label("Today", systemImage: appState.isStaff ? "calendar.day.timeline.left" : "heart.text.square") }
+                .tag(Tab.today)
             MessagesView()
                 .tabItem { Label("Messages", systemImage: "bubble.left.and.bubble.right") }
+                .tag(Tab.messages)
             AppointmentsView()
                 .tabItem { Label("Schedule", systemImage: "calendar") }
+                .tag(Tab.schedule)
             if !appState.isStaff {
                 // Supply store and library (#97); patients order here.
                 StoreView()
                     .tabItem { Label("Store", systemImage: "bag") }
+                    .tag(Tab.store)
             }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gear") }
+                .tag(Tab.settings)
         }
+        // Tapping a form_due push opens Today, where Forms are listed (#198).
+        .onReceive(NotificationCenter.default.publisher(for: .weHelpOpenForms)) { _ in tab = .today }
     }
 }
 

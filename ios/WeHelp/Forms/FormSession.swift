@@ -26,7 +26,9 @@ struct InMemoryFormSink: FormSink {
 /// One patient filling one form, page by page. Everything stays in memory:
 /// leaving the walker or switching accounts drops it.
 @MainActor @Observable
-final class FormSession {
+final class FormSession: Identifiable {
+    nonisolated var id: ObjectIdentifier { ObjectIdentifier(self) }
+
     let definition: FormDefinition
     let sink: any FormSink
     private(set) var answers: [String: FormJSON]
