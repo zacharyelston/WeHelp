@@ -11,6 +11,10 @@
 // the same rules as the preview (forms.Parse) and is authoritative.
 
 const fb = {
+  undo: [], // undo and redo snapshots of def (#260), page memory only
+  redo: [],
+  snapshot: null,
+  save: { state: "saved", message: "", timer: null, inFlight: false, again: false, savedSnapshot: null },
   view: "list", // list or edit
   container: null,
   list: [],
@@ -383,6 +387,7 @@ async function openVersion(id) {
     fb.def = JSON.parse(JSON.stringify(v.definition));
     fb.dirty = false;
     fb.error = null;
+    resetHistory();
     fb.preview = { answers: {}, page: 0, problems: [] };
     fb.view = "edit";
     fbRender();
@@ -397,7 +402,7 @@ function fbReadOnly() {
 }
 
 function backToList() {
-  if (fb.dirty && !confirm("Leave without saving your changes?")) return;
+  if (!fbCanLeave()) return;
   fb.view = "list";
   fb.version = null;
   loadForms(fb.container);
@@ -431,7 +436,10 @@ function renderEditor() {
     head += `<select data-fb-version>${fb.form.versions.map((x) => `<option value="${attr(x.id)}" ${x.id === v.id ? "selected" : ""}>v${x.version} ${esc(x.status)}</option>`).join("")}</select>`;
   }
   if (!ro) {
-    head += `<button class="btn" ${fbAct("saveDraft")}>${fb.dirty ? "Save" : "Saved"}</button>
+    head += `<button class="btn btn-outline" ${fbAct("undoEdit")} ${fb.undo.length ? "" : "disabled"} title="Undo (Cmd/Ctrl+Z)">Undo</button>
+      <button class="btn btn-outline" ${fbAct("redoEdit")} ${fb.redo.length ? "" : "disabled"} title="Redo (Shift+Cmd/Ctrl+Z)">Redo</button>
+      <span id="fb-save-status" class="fb-save-status">${esc(saveStatusText())}</span>
+      <button class="btn" ${fbAct("saveDraft")}>Save</button>
       <button class="btn" ${fbAct("publishDraft")}>Publish</button>`;
   }
   if (v.status === "published" && v.kind !== "instrument" && !hasDraft && !(fb.form && fb.form.form.archived_at)) {
@@ -439,8 +447,7 @@ function renderEditor() {
   }
   head += `<a class="btn btn-outline" href="/api/v1/form-versions/${attr(v.id)}/export" download>Export JSON</a></div></div>`;
 
-  let err = "";
-  if (fb.error) err = `<div class="alert alert-error fb-errmsg">${esc(fb.error.message)}</div>`;
+  const err = `<div id="fb-errbox">${errorBox()}</div>`;
 
   let html = head + err + '<div class="fb-grid"><div class="fb-edit">';
   html += `<div class="card" data-fb-anchor=""><h3>Form</h3>
@@ -746,10 +753,148 @@ function markError() {
 // Editing actions
 // ---------------------------------------------------------------------------
 
+// changed records an edit to fb.def: an undo step, a fresh check, an
+// autosave, and a redraw.
 function changed() {
-  fb.dirty = true;
+  const now = JSON.stringify(fb.def);
+  if (now !== fb.snapshot) {
+    if (fb.snapshot !== null) fb.undo.push(fb.snapshot);
+    if (fb.undo.length > FB_HISTORY) fb.undo.shift();
+    fb.redo = [];
+    fb.snapshot = now;
+  }
+  afterEdit();
+}
+
+// ---------------------------------------------------------------------------
+// Undo, redo and autosave (#260). History and drafts live in page memory
+// only: never localStorage or IndexedDB, since a definition can hold
+// practice content.
+// ---------------------------------------------------------------------------
+
+const FB_HISTORY = 100; // undo steps kept
+const FB_AUTOSAVE_MS = 2000; // after the last edit
+
+function resetHistory() {
+  if (fb.save && fb.save.timer) clearTimeout(fb.save.timer);
+  fb.undo = [];
+  fb.redo = [];
+  fb.snapshot = fb.def ? JSON.stringify(fb.def) : null;
+  fb.save = { state: "saved", message: "", timer: null, inFlight: false, again: false, savedSnapshot: fb.snapshot };
+}
+
+function afterEdit() {
+  fb.dirty = fb.snapshot !== fb.save.savedSnapshot;
   fb.error = localError();
+  scheduleAutosave();
   fbRender();
+}
+
+function undoEdit() {
+  if (!fb.undo.length || fbReadOnly()) return;
+  fb.redo.push(fb.snapshot);
+  fb.snapshot = fb.undo.pop();
+  fb.def = JSON.parse(fb.snapshot);
+  afterEdit();
+}
+
+function redoEdit() {
+  if (!fb.redo.length || fbReadOnly()) return;
+  fb.undo.push(fb.snapshot);
+  fb.snapshot = fb.redo.pop();
+  fb.def = JSON.parse(fb.snapshot);
+  afterEdit();
+}
+
+function scheduleAutosave() {
+  if (fb.save.timer) clearTimeout(fb.save.timer);
+  fb.save.timer = null;
+  if (fbReadOnly() || !fb.dirty) {
+    if (!fb.save.inFlight && fb.save.state !== "failed") fb.save.state = "saved";
+    return;
+  }
+  fb.save.state = "pending";
+  fb.save.timer = setTimeout(autosave, FB_AUTOSAVE_MS);
+}
+
+async function autosave() {
+  fb.save.timer = null;
+  if (fb.save.inFlight) {
+    fb.save.again = true; // save again when this one finishes
+    return;
+  }
+  await persist();
+  if (fb.save.again) {
+    fb.save.again = false;
+    if (fb.dirty) scheduleAutosave();
+  }
+}
+
+// persist saves the current snapshot. It updates only the status line and
+// the error box, never the whole editor, so typing elsewhere isn't lost.
+async function persist() {
+  const snap = fb.snapshot;
+  const vid = fb.version && fb.version.id;
+  if (!vid) return false;
+  fb.save.inFlight = true;
+  fb.save.state = "saving";
+  showSaveStatus();
+  try {
+    await fbFetch("PUT", `/form-versions/${vid}`, JSON.parse(snap));
+    if (!fb.version || fb.version.id !== vid) return true;
+    fb.save.savedSnapshot = snap;
+    fb.dirty = fb.snapshot !== snap;
+    fb.save.state = fb.dirty ? "pending" : "saved";
+    fb.save.message = "";
+    if (!fb.dirty) fb.error = localError();
+    return true;
+  } catch (err) {
+    fb.save.state = "failed";
+    fb.save.message = err.message || String(err);
+    if (err.path !== undefined) fb.error = { path: err.path, message: err.message };
+    return false;
+  } finally {
+    fb.save.inFlight = false;
+    showSaveStatus();
+  }
+}
+
+function saveStatusText() {
+  const s = fb.save || {};
+  switch (s.state) {
+    case "saving": return "Saving…";
+    case "pending": return "Unsaved changes";
+    case "failed": return "Not saved: " + s.message;
+    default: return "Saved";
+  }
+}
+
+function errorBox() {
+  return fb.error ? `<div class="alert alert-error fb-errmsg">${esc(fb.error.message)}</div>` : "";
+}
+
+function showSaveStatus() {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById("fb-save-status");
+  if (el) {
+    el.textContent = saveStatusText();
+    el.className = "fb-save-status" + (fb.save.state === "failed" ? " fb-flag" : "");
+  }
+  const box = document.getElementById("fb-errbox");
+  if (box) box.innerHTML = errorBox();
+  if (fb.container && fb.container.querySelectorAll) {
+    fb.container.querySelectorAll(".fb-error").forEach((x) => x.classList.remove("fb-error"));
+    markError();
+  }
+}
+
+// fbCanLeave asks before leaving an editor with unsaved changes.
+function fbCanLeave() {
+  if (fb.view !== "edit" || !fb.version || (!fb.dirty && !fb.save.inFlight)) return true;
+  if (!confirm("Your latest changes aren't saved yet. Leave anyway?")) return false;
+  if (fb.save.timer) clearTimeout(fb.save.timer);
+  fb.save.timer = null;
+  return true;
 }
 
 // localError checks the draft the way the server will, before saving.
@@ -945,17 +1090,11 @@ function setMissing(i, policy) {
 // ---------------------------------------------------------------------------
 
 async function saveDraft() {
-  try {
-    await fbFetch("PUT", `/form-versions/${fb.version.id}`, fb.def);
-    fb.dirty = false;
-    fb.error = null;
-    fbRender();
-    showAlert("Draft saved", "success");
-    return true;
-  } catch (err) {
-    fbFail(err);
-    return false;
-  }
+  if (fb.save.timer) clearTimeout(fb.save.timer);
+  fb.save.timer = null;
+  const ok = await persist();
+  if (ok && !fb.dirty) showAlert("Draft saved", "success");
+  return ok;
 }
 
 async function publishDraft() {
@@ -1340,6 +1479,8 @@ const FB_ACTIONS = {
   addBand, addBranch, addCond, addItem, addOption, addPage, addScore, addSection, archiveForm, backToList,
   clearRule, createForm, deleteAsset, moveNode, newVersion, openVersion, previewMove, previewRestart,
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
+  // Undo and redo (#260)
+  redoEdit, undoEdit,
   // Assignments (#196)
   assignForm, closePatientForms, endAssignment, showPatientForms,
   // Responses (#197)
@@ -1360,6 +1501,25 @@ function fieldValue(el) {
 }
 
 if (typeof document !== "undefined") {
+  // Undo and redo keys, outside text fields (those keep their own undo).
+  document.addEventListener("keydown", (e) => {
+    if (fb.view !== "edit" || !(e.metaKey || e.ctrlKey)) return;
+    const k = (e.key || "").toLowerCase();
+    if (k !== "z" && k !== "y") return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    e.preventDefault();
+    if (k === "y" || e.shiftKey) redoEdit();
+    else undoEdit();
+  });
+  // Closing or reloading the tab with unsaved changes asks first.
+  window.addEventListener("beforeunload", (e) => {
+    if (fb.view === "edit" && fb.version && (fb.dirty || (fb.save && fb.save.inFlight))) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-fb]");
     if (!el || !Object.prototype.hasOwnProperty.call(FB_ACTIONS, el.dataset.fb)) return;
@@ -1402,7 +1562,7 @@ if (typeof document !== "undefined") {
       } else if (el.dataset.fbImport !== undefined && el.files && el.files[0]) {
         importForm(el.files[0]);
       } else if (el.dataset.fbVersion !== undefined) {
-        if (fb.dirty && !confirm("Leave without saving your changes?")) {
+        if (!fbCanLeave()) {
           el.value = fb.version.id;
           return;
         }

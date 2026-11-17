@@ -6,6 +6,21 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The form builder keeps your work (#260):
+  - **Autosave:** a draft saves itself 2 seconds after the last change,
+    through the existing save route. A status line shows "Unsaved
+    changes", "Saving…", "Saved" or "Not saved: <reason>".
+  - A refused save (422) keeps the local copy and outlines the problem at
+    its path, as Save does.
+  - Saving updates only the status and the error box, so typing elsewhere
+    isn't interrupted.
+  - **Undo and redo:** buttons, plus Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z (or
+    Ctrl+Y) outside text fields, which keep their own undo. Up to 100
+    steps.
+  - **Leaving:** closing the tab, Back to forms, switching versions or
+    switching app tabs with unsaved changes asks first.
+  - Everything stays in page memory: nothing goes to localStorage or
+    IndexedDB.
 - The iOS form evaluator understands staff flags (#199), so it passes the
   PHQ-9, PHQ-2, GAD-7 and GAD-2 vectors. The app still never shows flags to
   the patient.

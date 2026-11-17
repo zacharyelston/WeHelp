@@ -209,3 +209,4 @@ tr:last-child td { border-bottom: none; }
 .fb-flag { color: var(--danger); font-weight: 600; }
 .fb-flagged td { background: #fdecee; }
 .fb-flagged-card { border-color: var(--danger); border-width: 2px; }
+.fb-save-status { font-size: 0.85rem; color: var(--muted); min-width: 8rem; }
