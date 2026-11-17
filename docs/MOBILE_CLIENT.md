@@ -300,7 +300,7 @@ Questionnaires and intake forms the practice assigns to the patient (#196), fill
 
 - `state` is `open` (can be filled now) or `upcoming` (opens at `opens_at`; show it, but don't let the patient start). Completed, missed and cancelled forms aren't listed.
 - Sorted by `due_at`. Upcoming ones are listed up to 14 days ahead.
-- `response` is `null`, or `{"id", "status": "in_progress", "revision"}` when the patient has started; resume it (#197).
+- `response` is `null`, or `{"id", "status": "in_progress", "revision"}` when the patient has started; resume it (below).
 - A window opens at `opens_at` (inclusive) and closes at `closes_at` (exclusive). Due, opening and closing times are 09:00 practice time. After closing, the form can't be filled or submitted.
 - Refresh the list when the Forms screen appears and after a `form_due` push. No polling.
 
@@ -316,3 +316,45 @@ Questionnaires and intake forms the practice assigns to the patient (#196), fill
 - Hold the definition and images in memory only, like all patient data (§9).
 
 **Push:** category `form_due`, fixed text "You have a form to fill in from your practice." It never names the form. It comes when a form opens, and once more 24 hours before it closes (only when that is after it opened). On tap, open Forms and fetch `GET /me/forms`.
+
+**Filling a form** (#197). The answers are PHI: keep them in memory only (§9), never on disk, and drop them when the walker closes.
+
+1. **Start or resume:** `POST /api/v1/responses` with `{"occurrence_id": "…"}`. **201** starts a response; **200** returns the one already in progress (when `/me/forms` showed a `response`). Both carry the header `ETag: "<revision>"`.
+
+   ```json
+   {"id": "…", "occurrence_id": "…", "version_id": "…", "status": "in_progress", "revision": 3,
+    "started_at": "…", "closes_at": "…",
+    "pages": [{"page_id": "p_today", "answers": {"reason": "pain", "feeling": 6}, "saved_at": "…"}],
+    "answers": {"reason": "pain", "feeling": 6}}
+   ```
+
+   `pages` holds the latest save of each page, in document order; `answers` merges them. To resume, load `answers` into the walker, work out the visible pages with the evaluator, and open the first page that has no save, or the last saved one.
+
+2. **Save a page when the patient leaves it** (Next or Back): `PUT /api/v1/responses/{id}/pages/{page_id}`.
+   - **Headers:** `If-Match: "<revision>"`, the last revision you got from start, resume or the previous save (required); `Idempotency-Key: <uuid>`, new for each save and reused when you retry the same save (required).
+   - **Body**, at most 64 KB: `{"answers": {"item_id": value, …}}`, only items on that page. Values: a string (choice, date `YYYY-MM-DD`, text); an array of strings (multiple choice); `true`/`false`; or a number (integer or decimal, at most 12 integer and 6 fractional digits). Leave an item out, or send `null`, when it's unanswered. Each save replaces that page's previous save as a whole.
+   - **200** `{"id", "page_id", "revision": 4, "saved_at"}`, with `ETag: "4"`. Keep the new revision.
+   - Required answers aren't checked here, only type, options and ranges. Check required answers on the page yourself before Next, with the evaluator.
+
+3. **Submit** after the last page: `POST /api/v1/responses/{id}/submit` with `Idempotency-Key` (required) and optionally `If-Match`. The server rebuilds the answers from the saved pages, drops answers to hidden items, checks required answers on visible pages, and scores the form.
+   - **200** `{"id", "status": "submitted", "submitted_at", "scores": {"wellbeing": {"value": "6", "band": null}}}`.
+   - `scores` holds only scores the form marks `showScore`; show them if you like, never more. A second submit returns the same 200, so retrying after a lost answer is safe.
+   - Then go back to the Forms list.
+
+**Errors** (`{"error", "code", …}`; show `error` on the walker screen, not as a connection state):
+
+| Status | `code` | When | What the app does |
+| --- | --- | --- | --- |
+| 400 | `if_match_required`, `idempotency_key_required` | A header is missing | A bug: fix the client |
+| 403 | `feature_off` | Forms were turned off | Close the walker; hide Forms |
+| 404 | (none) or `unknown_page` | Not this patient's form or response, or no such page | Close the walker; refresh the list |
+| 409 | `not_open` | Before `opens_at` | Show when it opens |
+| 409 | `window_closed` | At or after `closes_at`, or missed | "This form is closed"; close the walker; refresh the list |
+| 409 | `already_submitted` | Already sent | Close the walker; refresh the list |
+| 409 | `stale_revision` | Another device saved since; the body has `revision` | Resume (step 1), merge nothing, and show the saved answers |
+| 409 | `idempotency_mismatch` | A key was reused for a different save | A bug: use a new key per save |
+| 413 | `body_too_large` | Page over 64 KB | Shorten text answers |
+| 422 | `invalid_answers` | `errors: [{"item", "code", "message"}]` (submit adds `page_id`); codes `required`, `wrong_type`, `out_of_range`, `unknown_option`, `duplicate_option`, `too_long`, `unknown_item`, `not_answerable` | Mark the items; on submit, go to the first error's page |
+| 422 | `score_overflow` | A score can't be computed exactly (very rare) | Ask the patient to contact the practice |
+
+After a network failure, retry the same request with the same `Idempotency-Key`. Don't retry automatically in a loop (§8).

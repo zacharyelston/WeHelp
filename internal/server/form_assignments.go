@@ -767,13 +767,16 @@ func (s *Server) runForms(ctx context.Context, now time.Time) (formsRunStats, er
 	if err != nil {
 		return st, err
 	}
+	if _, err := s.expireResponses(ctx, now); err != nil { // #197
+		return st, err
+	}
 	sent, err := s.sendFormDue(ctx, now)
 	st.Reminded = sent
 	return st, err
 }
 
-// markMissed marks open occurrences whose window has closed. #197 also
-// expires their in-progress responses here.
+// markMissed marks open occurrences whose window has closed; runForms then
+// expires their in-progress responses (#197).
 func (s *Server) markMissed(ctx context.Context, now time.Time) (int, error) {
 	tag, err := s.pool.Exec(ctx, `update form_occurrences set status = 'missed' where status = 'open' and closes_at <= $1`, now)
 	if err != nil {
@@ -873,6 +876,39 @@ func (s *Server) formVersionReader(w http.ResponseWriter, r *http.Request, vid u
 	return id, true
 }
 
-// attachResponses adds each occurrence's in-progress response, for resume.
-// Responses come with #197; until then there are none.
-func (s *Server) attachResponses(ctx context.Context, list []myForm) error { return nil }
+// attachResponses adds each occurrence's in-progress response, for resume (#197).
+func (s *Server) attachResponses(ctx context.Context, list []myForm) error {
+	if len(list) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(list))
+	for i, f := range list {
+		ids[i] = f.OccurrenceID
+	}
+	rows, err := s.pool.Query(ctx, `select occurrence_id, id, revision from form_responses
+		where occurrence_id = any($1) and status = 'in_progress'`, ids)
+	if err != nil {
+		return err
+	}
+	type found struct {
+		Occurrence uuid.UUID
+		Response   myFormResponse
+	}
+	got, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (found, error) {
+		var f found
+		f.Response.Status = "in_progress"
+		err := row.Scan(&f.Occurrence, &f.Response.ID, &f.Response.Revision)
+		return f, err
+	})
+	if err != nil {
+		return err
+	}
+	by := map[uuid.UUID]*myFormResponse{}
+	for i := range got {
+		by[got[i].Occurrence] = &got[i].Response
+	}
+	for i := range list {
+		list[i].Response = by[list[i].OccurrenceID]
+	}
+	return nil
+}

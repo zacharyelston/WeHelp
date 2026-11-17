@@ -122,6 +122,83 @@ func CheckAnswersOn(def *Definition, answers Answers, today string) *Checked {
 	return &Checked{Answers: res.Answers, Errors: errs, Result: res}
 }
 
+// CheckPage checks the answers saved for one page (#197): each must belong
+// to an answerable item on that page and be well formed and in range.
+// Required items and visibility aren't checked here; submit checks them
+// over the whole form. It returns the answers to keep (nulls, "" and empty
+// lists dropped) and the problems in document order. ok is false when the
+// page doesn't exist.
+func CheckPage(def *Definition, pageID string, answers Answers, today string) (kept Answers, errs []AnswerError, ok bool) {
+	pg, ok := def.pages[pageID]
+	if !ok {
+		return nil, nil, false
+	}
+	kept = Answers{}
+	ids := make([]string, 0, len(answers))
+	for id := range answers {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		raw := answers[id]
+		it, known := def.items[id]
+		if !known || it.page != pg {
+			errs = append(errs, AnswerError{id, CodeUnknownItem, "not an item on page " + pageID})
+			continue
+		}
+		v, present, code := answerValue(it, raw)
+		if code != "" {
+			errs = append(errs, AnswerError{id, code, problem(code, it)})
+			continue
+		}
+		if !present {
+			continue
+		}
+		if code, msg := rangeProblem(it, v, today); code != "" {
+			errs = append(errs, AnswerError{id, code, msg})
+			continue
+		}
+		kept[id] = raw
+	}
+	sort.SliceStable(errs, func(i, j int) bool {
+		a, aok := def.items[errs[i].Item]
+		b, bok := def.items[errs[j].Item]
+		switch {
+		case aok && bok:
+			return a.seq < b.seq
+		case aok != bok:
+			return aok
+		}
+		return errs[i].Item < errs[j].Item
+	})
+	return kept, errs, true
+}
+
+// PageOf returns the id of the page an item is on, or "".
+func (d *Definition) PageOf(itemID string) string {
+	if it, ok := d.items[itemID]; ok {
+		return it.page.ID
+	}
+	return ""
+}
+
+// PageIDs lists every page id in document order.
+func (d *Definition) PageIDs() []string {
+	var out []string
+	for _, s := range d.Sections {
+		for _, p := range s.Pages {
+			out = append(out, p.ID)
+		}
+	}
+	return out
+}
+
+// Item returns the item with this id, or nil.
+func (d *Definition) Item(id string) *Item { return d.items[id] }
+
+// Items lists every item in document order.
+func (d *Definition) Items() []*Item { return d.allItems }
+
 func problem(code string, it *Item) string {
 	switch code {
 	case CodeNotAnswerable:

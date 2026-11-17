@@ -300,6 +300,51 @@ components:
             properties:
               id: { type: string, format: uuid }
               name: { type: string }
+    FormScore:
+      type: object
+      description: A computed score (#193). value is a canonical decimal string, or null with a reason.
+      properties:
+        value: { type: string, nullable: true }
+        band: { type: string, nullable: true }
+        reason: { type: string, enum: [missing, divideByZero, belowMinAnswered, overflow] }
+    FormSavedPage:
+      type: object
+      properties:
+        page_id: { type: string }
+        answers: { type: object, additionalProperties: true }
+        saved_at: { type: string, format: date-time }
+    FormResponse:
+      type: object
+      description: A response in progress (#197), with the latest save of each page for resume.
+      required: [id, version_id, status, revision, started_at, pages, answers]
+      properties:
+        id: { type: string, format: uuid }
+        occurrence_id: { type: string, format: uuid }
+        version_id: { type: string, format: uuid }
+        status: { type: string, enum: [in_progress, submitted, expired] }
+        revision: { type: integer, description: "Send it back as If-Match on the next page save." }
+        started_at: { type: string, format: date-time }
+        closes_at: { type: string, format: date-time }
+        pages:
+          type: array
+          description: The latest save of each page, in document order.
+          items: { $ref: "#/components/schemas/FormSavedPage" }
+        answers: { type: object, additionalProperties: true, description: "All saved pages merged." }
+    FormAnswerErrors:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code: { type: string, enum: [invalid_answers, score_overflow] }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              item: { type: string }
+              page_id: { type: string }
+              code: { type: string, enum: [unknown_item, not_answerable, wrong_type, unknown_option, duplicate_option, out_of_range, too_long, required] }
+              message: { type: string }
     TokenResponse:
       type: object
       required: [access_token, refresh_token, token_type, expires_in]
@@ -5032,3 +5077,308 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  # Form responses (#197). The patient's routes come through the Relay with
+  # the device session; staff reads are office-LAN only. Answers are PHI.
+  /api/v1/responses:
+    post:
+      tags: [forms]
+      summary: Start or resume a response to one of the patient's open forms (patient, #197)
+      description: >
+        Returns the in-progress response if there is one (200), otherwise
+        starts one (201). The ETag header is the response's revision. Audited
+        as form_response.start. See docs/MOBILE_CLIENT.md §16.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [occurrence_id]
+              properties:
+                occurrence_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The response in progress, with its saved pages (resume).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormResponse" }
+        "201":
+          description: Started.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormResponse" }
+        "403":
+          description: Not a patient, or forms are turned off (code feature_off).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Not one of the patient's forms.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: "code not_open, window_closed or already_submitted."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    get:
+      tags: [forms]
+      summary: A patient's submitted responses (staff, office LAN only, #197)
+      description: Newest first, with scores and whether any staff member has opened each yet. Read-audited as form_responses.list.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: patient_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [responses]
+                properties:
+                  responses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        form_name: { type: string }
+                        version_id: { type: string, format: uuid }
+                        version: { type: integer }
+                        status: { type: string, enum: [submitted] }
+                        submitted_at: { type: string, format: date-time }
+                        new: { type: boolean, description: "No staff member has opened it yet." }
+                        scores:
+                          type: object
+                          additionalProperties: { $ref: "#/components/schemas/FormScore" }
+        "403":
+          description: Not staff, not linked to the patient, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such patient, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/responses/{responseID}:
+    get:
+      tags: [forms]
+      summary: A submitted response with answers, scores and flags (staff, office LAN only, #197)
+      description: >
+        Each answer comes with its item's text and a readable form. The
+        first staff open is recorded (it clears the new badge); it isn't a
+        clinical review. Read-audited as form_response.read.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: responseID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  patient_id: { type: string, format: uuid }
+                  occurrence_id: { type: string, format: uuid }
+                  form_name: { type: string }
+                  title: { type: string }
+                  version_id: { type: string, format: uuid }
+                  version: { type: integer }
+                  status: { type: string, enum: [submitted] }
+                  channel: { type: string, enum: [app, kiosk] }
+                  started_at: { type: string, format: date-time }
+                  submitted_at: { type: string, format: date-time }
+                  first_read_at: { type: string, format: date-time, nullable: true }
+                  new: { type: boolean }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        item_id: { type: string }
+                        page_id: { type: string }
+                        type: { type: string }
+                        text: { type: string }
+                        answer: { description: "The answer as stored." }
+                        display: { type: string, description: "Option texts, Yes or No, the number with its unit." }
+                  scores:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        text: { type: string }
+                        value: { type: string, nullable: true }
+                        band: { type: string, nullable: true }
+                        band_text: { type: string }
+                        reason: { type: string }
+                  flags: { type: array, items: {} }
+        "403":
+          description: Not staff, not linked to the patient, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such submitted response, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/responses/{responseID}/pages/{pageID}:
+    put:
+      tags: [forms]
+      summary: Save one page's answers (patient, #197)
+      description: >
+        Replaces the page's previous save (append-only underneath). Needs the
+        revision the app last saw (If-Match) and an Idempotency-Key; a retry
+        with the same key and body returns the first result. Answers are
+        checked for type, options and range; required answers are checked on
+        submit. At most 64 KB. Audited as form_response.save_page (page id
+        only).
+      parameters:
+        - name: responseID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: pageID
+          in: path
+          required: true
+          schema: { type: string }
+        - name: If-Match
+          in: header
+          required: true
+          schema: { type: string, example: '"3"' }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: object
+                  additionalProperties: true
+                  description: "Item id to answer: a string, an array of strings, a boolean or a number. Null or absent is unanswered."
+      responses:
+        "200":
+          description: Saved. ETag is the new revision.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  page_id: { type: string }
+                  revision: { type: integer }
+                  saved_at: { type: string, format: date-time }
+        "400":
+          description: "code if_match_required or idempotency_key_required, or a malformed body."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not a patient, or forms are turned off (code feature_off).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: "Not the patient's response, or code unknown_page."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: "code stale_revision (with revision), idempotency_mismatch, window_closed or already_submitted."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413":
+          description: "code body_too_large: over 64 KB."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: "code invalid_answers, with errors [{item, code, message}]."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormAnswerErrors" }
+
+  /api/v1/responses/{responseID}/submit:
+    post:
+      tags: [forms]
+      summary: Submit a response (patient, #197)
+      description: >
+        Rebuilds the answers from the latest save of each page, drops hidden
+        items, checks required answers on visible pages, scores it on the
+        server and completes the form. Submitting again returns the same
+        result. Only scores the form shows to the patient are returned.
+        Audited as form_response.submit (score ids and counts, never values).
+      parameters:
+        - name: responseID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+        - name: If-Match
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Submitted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  status: { type: string, enum: [submitted] }
+                  submitted_at: { type: string, format: date-time }
+                  scores:
+                    type: object
+                    additionalProperties: { $ref: "#/components/schemas/FormScore" }
+        "400":
+          description: "code idempotency_key_required."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not a patient, or forms are turned off (code feature_off).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Not the patient's response.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: "code window_closed or stale_revision."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: "code invalid_answers, with errors [{item, page_id, code, message}]; or code score_overflow."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormAnswerErrors" }
