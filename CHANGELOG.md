@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- The iOS form evaluator understands staff flags (#199), so it passes the
+  PHQ-9, PHQ-2, GAD-7 and GAD-2 vectors. The app still never shows flags to
+  the patient.
 - Built-in instruments (#199): PHQ-9, PHQ-2, GAD-7 and GAD-2, with the
   PHQ-9 self-harm flag. `docs/INSTRUMENTS.md` has the details.
   - **The format:** `wehelp.form.v1` gains a definition-level `flags` list

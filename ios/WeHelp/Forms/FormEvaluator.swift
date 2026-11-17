@@ -84,6 +84,10 @@ final class FormDefinition: @unchecked Sendable {
         var title: String? { raw["title"]?.string }
     }
 
+    /// A staff-side flag (#199), raised when its rule holds over the whole
+    /// submitted form. Never shown to the patient (docs/MOBILE_CLIENT.md §16).
+    struct Flag: Sendable { let id: String; let text: String?; let raw: FormJSON?; var when: FormExpr? }
+
     struct Missing: Sendable { let policy: String; let minAnswered: Int; let places: Int }
     struct Band: Sendable { let min: FormRational; let id: String; let text: String? }
 
@@ -104,6 +108,7 @@ final class FormDefinition: @unchecked Sendable {
     private(set) var pages: [Page] = []
     private(set) var items: [Item] = []
     private(set) var scores: [Score] = []
+    private(set) var flags: [Flag] = []
     private(set) var sectionIndex: [String: Int] = [:]
     private(set) var pageIndex: [String: Int] = [:]
     private(set) var itemIndex: [String: Int] = [:]
@@ -253,6 +258,15 @@ final class FormDefinition: @unchecked Sendable {
                                 bands: bands, raw: scd))
         }
 
+        // Flags (#199): staff-side, declared after the scores (as in Go).
+        for (i, fd) in (raw["flags"]?.array ?? []).enumerated() {
+            let fp = Self.idx("flags", i)
+            guard fd.isObject else { throw Self.fail(fp, "schema", "must be an object") }
+            let fid = try declare(Self.join(fp, "id"), fd["id"])
+            guard fd["when"] != nil else { throw Self.fail(Self.join(fp, "when"), "schema", "required") }
+            flags.append(Flag(id: fid, text: fd["text"]?.string, raw: fd["when"], when: nil))
+        }
+
         // Expressions: scores first, then rules in document order (as in Go).
         for i in scores.indices {
             let path = Self.join(Self.idx("scores", i), "expr")
@@ -286,6 +300,10 @@ final class FormDefinition: @unchecked Sendable {
                 }
                 if target <= si { throw Self.fail(Self.join(bp, "section"), "order", "next may only go forward") }
             }
+        }
+        // Flags use the whole submitted form: any item or score.
+        for i in flags.indices {
+            flags[i].when = try rule(Self.join(Self.idx("flags", i), "when"), flags[i].raw, openEnd)
         }
     }
 
@@ -532,6 +550,9 @@ struct FormResult: Sendable {
     var scores: [String: ScoreOut] = [:]
     /// The canonical answers to store: well-formed answers to visible items.
     var answers: [String: FormJSON] = [:]
+    /// Raised staff flags, in definition order (#199). The app never shows
+    /// them; they're here so the evaluator matches the shared vectors.
+    var flags: [String] = []
     /// An "overflow" error when a score exceeded the format's bounds.
     var error: FormError?
 }
@@ -586,6 +607,7 @@ extension FormDefinition {
             let s = e.score(sc)
             res.scores[sc.id] = FormResult.ScoreOut(value: s.value, band: s.band, reason: s.reason)
         }
+        res.flags = flags.filter { e.test($0.when) }.map(\.id)
         res.error = e.error
         return res
     }
