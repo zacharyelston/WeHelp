@@ -1,0 +1,89 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Demo visit check-in (synthetic)",
+  "locale": "en-US",
+  "description": "A synthetic three-page form for demos and device checks. Not a clinical instrument.",
+  "sections": [
+    {
+      "id": "s_today",
+      "title": "Today",
+      "pages": [
+        {
+          "id": "p_today",
+          "title": "About today",
+          "items": [
+            {
+              "id": "reason", "type": "choice", "required": true, "text": "What is the main reason for your visit?", "control": "buttons",
+              "options": [
+                { "value": "checkup", "text": "A check-up" },
+                { "value": "pain", "text": "Pain or discomfort" },
+                { "value": "other", "text": "Something else" }
+              ]
+            },
+            {
+              "id": "feeling", "type": "integer", "required": true, "text": "How are you feeling overall?", "control": "slider",
+              "min": 0, "max": 10, "step": 1, "minLabel": "Very poorly", "maxLabel": "Very well"
+            }
+          ]
+        }
+      ],
+      "next": [
+        { "when": { "eq": [{ "answer": "reason" }, { "str": "pain" }] }, "section": "s_pain" },
+        { "section": "s_notes" }
+      ]
+    },
+    {
+      "id": "s_pain",
+      "title": "Pain",
+      "pages": [
+        {
+          "id": "p_pain",
+          "title": "Your pain",
+          "items": [
+            {
+              "id": "pain_where", "type": "choice", "multiple": true, "text": "Where is the pain?",
+              "options": [
+                { "value": "head", "text": "Head" },
+                { "value": "back", "text": "Back" },
+                { "value": "joints", "text": "Joints" },
+                { "value": "other", "text": "Somewhere else" }
+              ]
+            },
+            {
+              "id": "pain_level", "type": "choice", "required": true, "text": "How much does it get in the way of your day?",
+              "options": [
+                { "value": "0", "text": "Not at all", "score": 0 },
+                { "value": "1", "text": "A little", "score": 1 },
+                { "value": "2", "text": "Quite a lot", "score": 2 },
+                { "value": "3", "text": "Very much", "score": 3 }
+              ]
+            },
+            { "id": "pain_days", "type": "integer", "text": "For how many days have you had it?", "min": 0, "max": 365, "unit": "days", "control": "keypad" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_notes",
+      "title": "Anything else",
+      "pages": [
+        {
+          "id": "p_notes",
+          "title": "Anything else",
+          "items": [
+            { "id": "notes", "type": "text", "control": "long", "maxLength": 2000, "text": "Is there anything else you'd like us to know before your visit?" },
+            { "id": "thanks", "type": "display", "text": "Thank you. Your answers go to your practice only." }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "pain_impact", "text": "Pain impact",
+      "expr": { "scoreOf": "pain_level" },
+      "bands": [{ "min": 0, "id": "none", "text": "None" }, { "min": 1, "id": "some", "text": "Some" }, { "min": 3, "id": "high", "text": "High" }]
+    },
+    { "id": "wellbeing", "text": "How you're feeling (0-10)", "showScore": true, "expr": { "answer": "feeling" } }
+  ]
+}

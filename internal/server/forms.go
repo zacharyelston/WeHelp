@@ -75,7 +75,7 @@ func (s *Server) formsOn(w http.ResponseWriter, r *http.Request, admin bool) (Id
 		return id, false
 	}
 	if !on["forms"] {
-		writeErr(w, http.StatusForbidden, "Forms are turned off for this practice")
+		writeErrCode(w, http.StatusForbidden, "feature_off", "Forms are turned off for this practice")
 		return id, false
 	}
 	return id, true
@@ -264,15 +264,15 @@ func loadVersion(ctx context.Context, q rowQuerier, tenant, vid uuid.UUID, lock 
 	return v, err
 }
 
-// GetFormVersion returns one version with its definition. Staff, LAN.
-// (Patients get the versions assigned to them with the assignments issue.)
+// GetFormVersion returns one version with its definition. Staff on the
+// LAN; a patient for a version on one of their open occurrences (#196).
 // Route: GET /api/v1/form-versions/{versionID}
 func (s *Server) GetFormVersion(w http.ResponseWriter, r *http.Request) {
-	id, ok := s.formsOn(w, r, false)
+	vid, ok := uuidParam(w, r, "versionID", "version")
 	if !ok {
 		return
 	}
-	vid, ok := uuidParam(w, r, "versionID", "version")
+	id, ok := s.formVersionReader(w, r, vid)
 	if !ok {
 		return
 	}

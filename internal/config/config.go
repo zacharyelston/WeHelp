@@ -43,6 +43,10 @@ type Config struct {
 	ReminderOffsets  string        `mapstructure:"reminder_offsets"`  // before each appointment, e.g. "24h,1h"
 	Timezone         string        `mapstructure:"timezone"`          // IANA name for reminder text; empty = host time
 
+	// Form occurrences (#196): how often the runner creates occurrences, marks
+	// missed ones and sends form_due. 0 = off.
+	FormsInterval time.Duration `mapstructure:"forms_interval"`
+
 	// Provider roster (#62): how often the Back Office pulls it from the Registry.
 	RosterInterval time.Duration `mapstructure:"roster_interval"` // 0 = only when an admin presses Sync now
 
@@ -137,6 +141,7 @@ func Load(cfgFile string) error {
 	viper.SetDefault("reminder_offsets", "24h,1h")
 	viper.SetDefault("roster_interval", "15m")
 	viper.SetDefault("timezone", "")
+	viper.SetDefault("forms_interval", "5m")
 
 	viper.SetDefault("relay_dir", defaultRelayDir())
 	viper.SetDefault("relay_id", "")

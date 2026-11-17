@@ -32,9 +32,10 @@ var Categories = map[string]struct{ Title, Body string }{
 	"new_message":          {"WeHelp", "You have a new message from your practice."},
 	"appointment_reminder": {"WeHelp", "You have an upcoming appointment."},
 	"visit_starting":       {"WeHelp", "Your video visit is starting."},
-	"appointment_update":   {"WeHelp", "Your appointment request has an update."}, // #68, to the patient
-	"appointment_request":  {"WeHelp", "A patient has requested an appointment."}, // #68, to the provider
-	"order_update":         {"WeHelp", "Your supply order has an update."},        // #97, to the patient
+	"appointment_update":   {"WeHelp", "Your appointment request has an update."},        // #68, to the patient
+	"appointment_request":  {"WeHelp", "A patient has requested an appointment."},        // #68, to the provider
+	"order_update":         {"WeHelp", "Your supply order has an update."},               // #97, to the patient
+	"form_due":             {"WeHelp", "You have a form to fill in from your practice."}, // #196, to the patient; never names the form
 }
 
 // APNs hosts.

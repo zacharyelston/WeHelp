@@ -6,6 +6,47 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Form assignments (#196), in `wehelpd` with ordinary tables (V26) per the
+  owner's decision.
+  - **Assigning:** staff give a published form to a patient, once or every
+    N days or weeks. A repeating schedule needs a count or an end date.
+    - A provider assigns to their linked patients; the front desk and admins
+      to anyone in the practice.
+    - The version can be pinned, or each occurrence takes the latest
+      published version.
+    - The channel is the app or the kiosk (kiosk ones are stored, but
+      nothing delivers them yet).
+  - **Occurrences:** each due instance has a window that opens and closes
+    at 09:00 practice time, in the zone pinned on the assignment.
+    - Dates follow the local calendar across daylight-saving changes.
+    - There's one occurrence per assignment and due date, and at most 366
+      per assignment.
+  - **Routes:**
+    - staff, LAN: `POST /assignments`, `GET /assignments?patient_id=`,
+      `POST /assignments/{id}/end` (cancels what hasn't opened) and
+      `GET /form-occurrences/due` (due today, overdue, missed this week,
+      with providers);
+    - patient: `GET /me/forms`, the open and upcoming forms;
+    - patients may now read `GET /form-versions/{id}` and its images for a
+      version on one of their open occurrences.
+  - **Runner:** `wehelpd serve` runs it every `forms_interval` (default 5m).
+    Repeated runs never duplicate anything. Each run:
+    - creates occurrences two weeks ahead;
+    - marks closed, unfinished ones missed;
+    - sends the `form_due` push when one opens and 24 hours before it
+      closes, each at most once.
+  - **Relay:** the new `form_due` category has fixed text and never names
+    the form.
+  - **Audit:** `form_assignment.create` and `form_assignment.end`;
+    `form_occurrence.create` with no actor (the system); read audits for
+    the staff lists. Forms routes now answer 403 with code `feature_off`
+    while the switch is off.
+  - **Staff web:** a Forms button on each patient (their assignments and
+    occurrences, Assign form, End) and a Due forms tab for staff.
+  - **Demo seed:** `wehelpd seed` now also turns forms on and gives the
+    first demo patient a synthetic three-page branching form with a score,
+    open for a week (`seed.RunDemoForms`).
+  - `docs/MOBILE_CLIENT.md` §16 has the app contract.
 - A form builder in the staff web (#195): a Forms tab for admins, shown
   while the `forms` switch is on. The code is in `web/forms.js`.
   - **Forms list:** shows custom and built-in forms with their latest and

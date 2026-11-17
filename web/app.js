@@ -212,6 +212,7 @@ function renderDashboard() {
       <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
       ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
       ${role === "admin" && feature("forms") ? `<div class="tab ${activeTab === "forms" ? "active" : ""}" data-tab="forms">Forms</div>` : ""}
+      ${feature("forms") ? `<div class="tab ${activeTab === "dueforms" ? "active" : ""}" data-tab="dueforms">Due forms</div>` : ""}
     </div>
     <div id="tab-content"></div>`;
 }
@@ -262,6 +263,7 @@ async function loadTab() {
     else if (activeTab === "store") await loadStore(content);
     else if (activeTab === "website") await loadWebsite(content);
     else if (activeTab === "forms") await loadForms(content); // forms.js (#195)
+    else if (activeTab === "dueforms") await loadDueForms(content); // forms.js (#196)
   } catch (err) {
     content.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }
@@ -726,7 +728,8 @@ async function loadPatients(container) {
     for (const p of data.patients) {
       html += `<tr><td>${esc(p.display_name || "—")}</td><td>${esc(p.email)}</td>
         <td><button class="btn btn-sm btn-outline" ${act("showDevices", p.id, p.display_name || p.email)}>${p.devices} active</button></td>
-        <td><button class="btn btn-sm" ${act("startPairing", p.id)}>Pair phone</button></td></tr>`;
+        <td><button class="btn btn-sm" ${act("startPairing", p.id)}>Pair phone</button>
+          ${feature("forms") ? `<button class="btn btn-sm btn-outline" ${fbAct("showPatientForms", p.id, p.display_name || p.email)}>Forms</button>` : ""}</td></tr>`;
     }
     html += "</tbody></table>";
   }

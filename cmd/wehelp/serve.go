@@ -61,10 +61,11 @@ var serveCmd = &cobra.Command{
 				return err
 			}
 		}
-		go srv.RunReminders(ctx, cfg.ReminderInterval) // stops with ctx (#19)
-		go srv.RunRosterSync(ctx, cfg.RosterInterval)  // no-op before install (#62)
-		go srv.RunVisitCloser(ctx)                     // ends visits past their window (#6)
-		go srv.RunAuditVerify(ctx)                     // checks every audit chain daily (#24)
+		go srv.RunReminders(ctx, cfg.ReminderInterval)    // stops with ctx (#19)
+		go srv.RunRosterSync(ctx, cfg.RosterInterval)     // no-op before install (#62)
+		go srv.RunVisitCloser(ctx)                        // ends visits past their window (#6)
+		go srv.RunFormOccurrences(ctx, cfg.FormsInterval) // form occurrences and form_due (#196)
+		go srv.RunAuditVerify(ctx)                        // checks every audit chain daily (#24)
 		return srv.ListenAndServe(ctx)
 	},
 }

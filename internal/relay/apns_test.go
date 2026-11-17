@@ -147,3 +147,18 @@ func TestPushRateLimit(t *testing.T) {
 		t.Error("limit didn't reset after a minute")
 	}
 }
+
+// TestFormDuePush is #196: form_due is a category with fixed text that names
+// no form, and an unknown category is still refused.
+func TestFormDuePush(t *testing.T) {
+	f, a, _ := newFakeAPNs(t)
+	if res, err := a.Send(context.Background(), PushRequest{Token: testToken, Environment: "sandbox", Category: "form_due"}); err != nil || res != PushSent {
+		t.Fatalf("form_due: %s %v", res, err)
+	}
+	if !strings.Contains(f.bodies[0], "You have a form to fill in from your practice.") || !strings.Contains(f.bodies[0], `"category":"form_due"`) {
+		t.Errorf("payload %s", f.bodies[0])
+	}
+	if res, _ := a.Send(context.Background(), PushRequest{Token: testToken, Environment: "sandbox", Category: "form_due_phq9"}); res != PushRejected {
+		t.Errorf("unknown category: %s, want rejected", res)
+	}
+}
