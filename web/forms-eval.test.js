@@ -58,6 +58,7 @@ for (const file of fs.readdirSync(path.join(root, 'vectors'))) {
         assert.equal(F.nextSection(form, answers, id), want, `next[${id}]`);
       }
       if (c.path) assert.deepEqual(res.path, c.path);
+      if (c.flags) assert.deepEqual(plain(res.flags), c.flags, "flags");
       if (c.scores) {
         if (Object.keys(c.scores).length === 0) assert.deepEqual(Object.keys(res.scores), []);
         for (const [id, want] of Object.entries(c.scores)) {

@@ -6,6 +6,33 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Built-in instruments (#199): PHQ-9, PHQ-2, GAD-7 and GAD-2, with the
+  PHQ-9 self-harm flag. `docs/INSTRUMENTS.md` has the details.
+  - **The format:** `wehelp.form.v1` gains a definition-level `flags` list
+    (`{id, text, when}`) and a `copyright` field. They're added to
+    `internal/forms`, the JSON Schema and `web/forms-eval.js`.
+    `Evaluate` returns the raised flags.
+    - Shared vectors cover each instrument: all zeros, all maximum, each
+      band boundary, a missing item, and PHQ-9 item 9 at 0 (no flag) and
+      1–3 (flag). There are also three new negative cases for flags.
+  - **Definitions:** `internal/forms/instruments`, embedded. They carry
+    LOINC codes checked against HL7 examples, the published bands, the
+    unscored difficulty question and the Pfizer attribution. `TestWording`
+    pins every item to the published wording.
+  - **Sync:** `internal/instrumentsync` puts the built-ins into each
+    practice as read-only `kind = instrument` forms. It's idempotent and
+    audited; a changed definition publishes a new version.
+  - **Field gate:** the instruments exist only in demo builds, or on a
+    field install whose new `forms_instruments` config key is on. That key
+    waits for the owner's decisions on monitoring, patient wording and
+    escalation. They're also only for clinical practice types with forms
+    on.
+  - **Flags:** stored on the response at submit and shown in red to staff,
+    in the response, the Answers list and a new "Flagged this week" list
+    in the Due forms view (`flagged_this_week`). The patient never sees a
+    flag, and no patient-facing crisis text was added.
+  - **Demo seed:** it also gives Jordan a PHQ-9. Re-running it on an older
+    demo host adds just that.
 - iOS Forms client, second part (#198), on the routes from #196 and #197:
   - Today lists the patient's open and upcoming forms from `/me/forms` when
     the practice's `forms` switch is on. The list refreshes on push, on

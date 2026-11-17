@@ -146,6 +146,15 @@ func (p *parser) expressions() error {
 			}
 		}
 	}
+	// Flags are checked on the whole submitted form, so they may use any
+	// item or score.
+	for i, fl := range def.Flags {
+		e, err := p.rule(join(index("flags", i), "when"), p.rawFlagWhen[fl], openEnd)
+		if err != nil {
+			return err
+		}
+		fl.When = e
+	}
 	return nil
 }
 

@@ -1,0 +1,94 @@
+{
+  "description": "PHQ2 golden vectors (#199): published scoring (sum of 0-3 items), bands.",
+  "definition": "valid/instrument-phq2.json",
+  "cases": [
+    {
+      "name": "all zeros",
+      "answers": {
+        "phq2_1": "0",
+        "phq2_2": "0"
+      },
+      "scores": {
+        "phq2_total": {
+          "value": "0",
+          "band": "negative"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "phq2_1": "0",
+          "phq2_2": "0"
+        },
+        "errors": []
+      }
+    },
+    {
+      "name": "all at the maximum",
+      "answers": {
+        "phq2_1": "3",
+        "phq2_2": "3"
+      },
+      "scores": {
+        "phq2_total": {
+          "value": "6",
+          "band": "positive"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 2",
+      "answers": {
+        "phq2_1": "2",
+        "phq2_2": "0"
+      },
+      "scores": {
+        "phq2_total": {
+          "value": "2",
+          "band": "negative"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "total 3",
+      "answers": {
+        "phq2_1": "3",
+        "phq2_2": "0"
+      },
+      "scores": {
+        "phq2_total": {
+          "value": "3",
+          "band": "positive"
+        }
+      },
+      "flags": []
+    },
+    {
+      "name": "a missing item: no total, and the item is required",
+      "answers": {
+        "phq2_2": "0"
+      },
+      "scores": {
+        "phq2_total": {
+          "value": null,
+          "band": null,
+          "reason": "missing"
+        }
+      },
+      "flags": [],
+      "check": {
+        "answers": {
+          "phq2_2": "0"
+        },
+        "errors": [
+          {
+            "item": "phq2_1",
+            "code": "required"
+          }
+        ]
+      }
+    }
+  ]
+}

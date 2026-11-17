@@ -120,6 +120,9 @@ add('round-places', (d) => { d.scores[0].expr = { round: [{ answer: 'n1' }, { nu
 add('round-places-expression', (d) => { d.scores[0].expr = { round: [{ answer: 'n1' }, { answer: 'n1' }] }; }, 'scores[0].expr.round[1]', 'range', true);
 add('literal-too-many-digits', (d) => { d.scores[0].expr = { add: [{ answer: 'n1' }, { num: 1234567890123 }] }; }, 'scores[0].expr.add[1].num', 'range', true);
 add('literal-too-many-decimals', (d) => { d.scores[0].expr = { add: [{ answer: 'n1' }, { num: 0.1234567 }] }; }, 'scores[0].expr.add[1].num', 'range', true);
+add('flag-dangling', (d) => { d.flags = [{ id: 'f1', text: 'Flag', when: { answered: 'nope' } }]; }, 'flags[0].when.answered', 'reference', true);
+add('flag-not-boolean', (d) => { d.flags = [{ id: 'f1', text: 'Flag', when: { scoreOf: 'q1' } }]; }, 'flags[0].when', 'type', true);
+add('flag-duplicate-id', (d) => { d.flags = [{ id: 'q1', text: 'Flag', when: { answered: 'q1' } }]; }, 'flags[0].id', 'duplicate', true);
 add('count-display', (d) => { d.scores[0].expr = { count: ['q1', 'info'] }; }, 'scores[0].expr.count[1]', 'type', true);
 
 // Caps.

@@ -1,0 +1,641 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "PHQ-9",
+  "locale": "en-US",
+  "description": "Patient Health Questionnaire-9 (depression). Built-in, read-only.",
+  "copyright": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute.",
+  "code": {
+    "system": "http://loinc.org",
+    "code": "44249-1"
+  },
+  "sections": [
+    {
+      "id": "phq9_s1",
+      "pages": [
+        {
+          "id": "phq9_p1",
+          "items": [
+            {
+              "id": "phq9_stem",
+              "type": "display",
+              "text": "Over the last 2 weeks, how often have you been bothered by any of the following problems?"
+            },
+            {
+              "id": "phq9_1",
+              "type": "choice",
+              "required": true,
+              "text": "Little interest or pleasure in doing things",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44250-9"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_2",
+              "type": "choice",
+              "required": true,
+              "text": "Feeling down, depressed, or hopeless",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44255-8"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_3",
+              "type": "choice",
+              "required": true,
+              "text": "Trouble falling or staying asleep, or sleeping too much",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44259-0"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_4",
+              "type": "choice",
+              "required": true,
+              "text": "Feeling tired or having little energy",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44254-1"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_5",
+              "type": "choice",
+              "required": true,
+              "text": "Poor appetite or overeating",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44251-7"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_6",
+              "type": "choice",
+              "required": true,
+              "text": "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44258-2"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_7",
+              "type": "choice",
+              "required": true,
+              "text": "Trouble concentrating on things, such as reading the newspaper or watching television",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44252-5"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_8",
+              "type": "choice",
+              "required": true,
+              "text": "Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44253-3"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_9",
+              "type": "choice",
+              "required": true,
+              "text": "Thoughts that you would be better off dead or of hurting yourself in some way",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44260-8"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_difficulty",
+              "type": "choice",
+              "text": "If you checked off any problems, how difficult have these problems made it for you to do your work, take care of things at home, or get along with other people?",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "69722-7"
+              },
+              "options": [
+                {
+                  "value": "not",
+                  "text": "Not difficult at all",
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6572-7",
+                    "display": "Not difficult at all"
+                  }
+                },
+                {
+                  "value": "somewhat",
+                  "text": "Somewhat difficult",
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6573-5",
+                    "display": "Somewhat difficult"
+                  }
+                },
+                {
+                  "value": "very",
+                  "text": "Very difficult",
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6575-0",
+                    "display": "Very difficult"
+                  }
+                },
+                {
+                  "value": "extremely",
+                  "text": "Extremely difficult",
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6574-3",
+                    "display": "Extremely difficult"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq9_attribution",
+              "type": "display",
+              "text": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "phq9_total",
+      "text": "PHQ-9 total score",
+      "code": {
+        "system": "http://loinc.org",
+        "code": "44261-6"
+      },
+      "expr": {
+        "sum": [
+          {
+            "scoreOf": "phq9_1"
+          },
+          {
+            "scoreOf": "phq9_2"
+          },
+          {
+            "scoreOf": "phq9_3"
+          },
+          {
+            "scoreOf": "phq9_4"
+          },
+          {
+            "scoreOf": "phq9_5"
+          },
+          {
+            "scoreOf": "phq9_6"
+          },
+          {
+            "scoreOf": "phq9_7"
+          },
+          {
+            "scoreOf": "phq9_8"
+          },
+          {
+            "scoreOf": "phq9_9"
+          }
+        ]
+      },
+      "bands": [
+        {
+          "min": 0,
+          "id": "minimal",
+          "text": "Minimal"
+        },
+        {
+          "min": 5,
+          "id": "mild",
+          "text": "Mild"
+        },
+        {
+          "min": 10,
+          "id": "moderate",
+          "text": "Moderate"
+        },
+        {
+          "min": 15,
+          "id": "moderately_severe",
+          "text": "Moderately severe"
+        },
+        {
+          "min": 20,
+          "id": "severe",
+          "text": "Severe"
+        }
+      ]
+    }
+  ],
+  "flags": [
+    {
+      "id": "self_harm",
+      "text": "PHQ-9 item 9 (thoughts that they would be better off dead or of hurting themselves) was answered above “Not at all”.",
+      "when": {
+        "gt": [
+          {
+            "scoreOf": "phq9_9"
+          },
+          {
+            "num": 0
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -86,6 +86,9 @@ type Result struct {
 	Scores map[string]*Score
 	// Answers are the effective answers: well-typed answers to visible items.
 	Answers Answers
+	// Flags are the ids of the definition's flags whose rule holds, in
+	// definition order (#199). Staff-side only.
+	Flags []string
 }
 
 // Evaluate walks the definition in document order. Rules only look back,
@@ -134,6 +137,12 @@ func Evaluate(def *Definition, answers Answers) (*Result, error) {
 	}
 	for _, sd := range def.Scores {
 		res.Scores[sd.ID] = e.score(sd)
+	}
+	res.Flags = []string{}
+	for _, fl := range def.Flags {
+		if e.test(fl.When) {
+			res.Flags = append(res.Flags, fl.ID)
+		}
 	}
 	return res, e.err
 }

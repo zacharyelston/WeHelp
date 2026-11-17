@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -178,7 +179,20 @@ func (s *Server) ListForms(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rows, err := s.pool.Query(r.Context(), formSummarySQL+` where f.tenant_id = $1 order by f.archived_at nulls first, f.kind, lower(f.name)`, id.TenantID)
+	// Built-ins (#199) appear where this practice may have them; the first
+	// list after forms are turned on puts them in place.
+	builtins, err := s.instrumentsAvailable(r.Context(), id.TenantID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "settings lookup failed")
+		return
+	}
+	if builtins {
+		if _, err := s.syncInstruments(r.Context(), id.TenantID); err != nil {
+			slog.Warn("instruments: sync failed", "err", err)
+		}
+	}
+	rows, err := s.pool.Query(r.Context(), formSummarySQL+` where f.tenant_id = $1 and ($2 or f.kind = 'custom')
+		order by f.archived_at nulls first, f.kind, lower(f.name)`, id.TenantID, builtins)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "load failed")
 		return

@@ -235,6 +235,16 @@
       f.scores.push(sc);
     });
 
+    // Flags (#199): staff-side, declared after the scores (as in Go).
+    f.flags = [];
+    (def.flags || []).forEach(function (fd, i) {
+      var fp = idx('flags', i);
+      if (fd === null || typeof fd !== 'object') fail(fp, 'schema', 'must be an object');
+      declare(join(fp, 'id'), fd.id);
+      if (!own(fd, 'when')) fail(join(fp, 'when'), 'schema', 'required');
+      f.flags.push({ id: fd.id, text: fd.text, raw: fd.when, when: null });
+    });
+
     // Expressions: scores first, then rules in document order (as in Go).
     f.scores.forEach(function (sc, i) {
       var path = join(idx('scores', i), 'expr');
@@ -262,6 +272,10 @@
         if (!target) fail(join(bp, 'section'), 'reference', 'no section "' + b.section + '"');
         if (target.index <= s.index) fail(join(bp, 'section'), 'order', 'next may only go forward');
       });
+    });
+    // Flags use the whole submitted form: any item or score.
+    f.flags.forEach(function (fl, i) {
+      fl.when = rule(f, join(idx('flags', i), 'when'), fl.raw, OPEN_END);
     });
     compiledForms.add(f);
     return f;
@@ -700,6 +714,8 @@
       if (s.reason) out.reason = s.reason;
       res.scores[sc.id] = out;
     });
+    // Flags (#199): staff-side only; never shown to the patient.
+    res.flags = f.flags.filter(function (fl) { return e.test(fl.when); }).map(function (fl) { return fl.id; });
     res.error = e.error;
     return res;
   }

@@ -485,7 +485,7 @@ func (s *Server) SubmitResponse(w http.ResponseWriter, r *http.Request) {
 		scores, _ := json.Marshal(checked.Result.Scores)
 		var at time.Time
 		if err := tx.QueryRow(ctx, `update form_responses set status = 'submitted', submitted_at = now(), updated_at = now(),
-			answers = $2, scores = $3, flags = '[]' where id = $1 returning submitted_at`, rid, answers, scores).Scan(&at); err != nil {
+			answers = $2, scores = $3, flags = $4 where id = $1 returning submitted_at`, rid, answers, scores, flagsJSON(def, checked.Result.Flags)).Scan(&at); err != nil {
 			return 0, nil, err
 		}
 		if _, err := tx.Exec(ctx, `update form_occurrences set status = 'completed', completed_at = $2 where id = $1 and status = 'open'`,
@@ -516,6 +516,7 @@ type responseSummary struct {
 	SubmittedAt *time.Time                 `json:"submitted_at"`
 	New         bool                       `json:"new"`
 	Scores      map[string]json.RawMessage `json:"scores"`
+	Flags       json.RawMessage            `json:"flags"` // [{id, text}], staff-side (#199)
 }
 
 // ListResponses lists a patient's submitted responses, newest first, with
@@ -537,7 +538,7 @@ func (s *Server) ListResponses(w http.ResponseWriter, r *http.Request) {
 			return 0, nil, errHandled
 		}
 		rows, err := tx.Query(ctx, `select r.id, f.name, r.version_id, v.version, r.status, r.submitted_at,
-			       not exists (select 1 from form_response_reads rr where rr.response_id = r.id), coalesce(r.scores, '{}')
+			       not exists (select 1 from form_response_reads rr where rr.response_id = r.id), coalesce(r.scores, '{}'), r.flags
 			from form_responses r join form_versions v on v.id = r.version_id join forms f on f.id = v.form_id
 			where r.tenant_id = $1 and r.patient_id = $2 and r.status = 'submitted'
 			order by r.submitted_at desc`, id.TenantID, patient)
@@ -547,7 +548,7 @@ func (s *Server) ListResponses(w http.ResponseWriter, r *http.Request) {
 		list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (responseSummary, error) {
 			var x responseSummary
 			var scores []byte
-			err := row.Scan(&x.ID, &x.FormName, &x.VersionID, &x.Version, &x.Status, &x.SubmittedAt, &x.New, &scores)
+			err := row.Scan(&x.ID, &x.FormName, &x.VersionID, &x.Version, &x.Status, &x.SubmittedAt, &x.New, &scores, &x.Flags)
 			if err == nil {
 				err = json.Unmarshal(scores, &x.Scores)
 			}
@@ -721,4 +722,25 @@ func (s *Server) expireResponses(ctx context.Context, now time.Time) (int, error
 		return 0, err
 	}
 	return int(tag.RowsAffected()), nil
+}
+
+// flagID is a raised flag as stored on the response and shown to staff.
+type flagID struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// flagsJSON writes the raised flags with their staff text (#199). Never
+// sent to the patient.
+func flagsJSON(def *forms.Definition, raised []string) []byte {
+	out := []flagID{}
+	for _, id := range raised {
+		for _, fl := range def.Flags {
+			if fl.ID == id {
+				out = append(out, flagID{fl.ID, fl.Text})
+			}
+		}
+	}
+	b, _ := json.Marshal(out)
+	return b
 }

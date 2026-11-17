@@ -338,7 +338,7 @@ Questionnaires and intake forms the practice assigns to the patient (#196), fill
 
 3. **Submit** after the last page: `POST /api/v1/responses/{id}/submit` with `Idempotency-Key` (required) and optionally `If-Match`. The server rebuilds the answers from the saved pages, drops answers to hidden items, checks required answers on visible pages, and scores the form.
    - **200** `{"id", "status": "submitted", "submitted_at", "scores": {"wellbeing": {"value": "6", "band": null}}}`.
-   - `scores` holds only scores the form marks `showScore`; show them if you like, never more. A second submit returns the same 200, so retrying after a lost answer is safe.
+   - `scores` holds only scores the form marks `showScore`; show them if you like, never more. Staff-side flags (such as PHQ-9's `self_harm`, #199) are never sent to the app, and the app must not compute or show them. A second submit returns the same 200, so retrying after a lost answer is safe.
    - Then go back to the Forms list.
 
 **Errors** (`{"error", "code", …}`; show `error` on the walker screen, not as a connection state):

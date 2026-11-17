@@ -350,7 +350,7 @@ func TestDemoFormSeed(t *testing.T) {
 	phone := &client{t: t, h: h, token: sess["access_token"].(string), relay: true}
 	code, out := phone.do("GET", "/me/forms", nil)
 	list, _ := out["forms"].([]any)
-	if code != http.StatusOK || len(list) != 1 || list[0].(map[string]any)["state"] != "open" {
+	if code != http.StatusOK || len(list) != 2 || list[0].(map[string]any)["state"] != "open" { // the check-in and the PHQ-9 (#199)
 		t.Fatalf("/me/forms: %d %v", code, out)
 	}
 	code, out = phone.do("GET", "/form-versions/"+res.VersionID.String(), nil)

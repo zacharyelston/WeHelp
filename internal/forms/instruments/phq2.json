@@ -1,0 +1,171 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "PHQ-2",
+  "locale": "en-US",
+  "description": "Patient Health Questionnaire-2 (depression screen). Built-in, read-only. A total of 3 or more is a positive screen.",
+  "copyright": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute.",
+  "code": {
+    "system": "http://loinc.org",
+    "code": "55757-9"
+  },
+  "sections": [
+    {
+      "id": "phq2_s1",
+      "pages": [
+        {
+          "id": "phq2_p1",
+          "items": [
+            {
+              "id": "phq2_stem",
+              "type": "display",
+              "text": "Over the last 2 weeks, how often have you been bothered by any of the following problems?"
+            },
+            {
+              "id": "phq2_1",
+              "type": "choice",
+              "required": true,
+              "text": "Little interest or pleasure in doing things",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44250-9"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq2_2",
+              "type": "choice",
+              "required": true,
+              "text": "Feeling down, depressed, or hopeless",
+              "code": {
+                "system": "http://loinc.org",
+                "code": "44255-8"
+              },
+              "control": "radio",
+              "options": [
+                {
+                  "value": "0",
+                  "text": "Not at all",
+                  "score": 0,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6568-5",
+                    "display": "Not at all"
+                  }
+                },
+                {
+                  "value": "1",
+                  "text": "Several days",
+                  "score": 1,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6569-3",
+                    "display": "Several days"
+                  }
+                },
+                {
+                  "value": "2",
+                  "text": "More than half the days",
+                  "score": 2,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6570-1",
+                    "display": "More than half the days"
+                  }
+                },
+                {
+                  "value": "3",
+                  "text": "Nearly every day",
+                  "score": 3,
+                  "code": {
+                    "system": "http://loinc.org",
+                    "code": "LA6571-9",
+                    "display": "Nearly every day"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "phq2_attribution",
+              "type": "display",
+              "text": "Developed by Drs. Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc. No permission required to reproduce, translate, display or distribute."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "phq2_total",
+      "text": "PHQ-2 total score",
+      "code": {
+        "system": "http://loinc.org",
+        "code": "55758-7"
+      },
+      "expr": {
+        "sum": [
+          {
+            "scoreOf": "phq2_1"
+          },
+          {
+            "scoreOf": "phq2_2"
+          }
+        ]
+      },
+      "bands": [
+        {
+          "min": 0,
+          "id": "negative",
+          "text": "Negative screen"
+        },
+        {
+          "min": 3,
+          "id": "positive",
+          "text": "Positive screen"
+        }
+      ]
+    }
+  ]
+}

@@ -74,6 +74,7 @@ checked:
   - `reason` is present only when `value` is null: `missing`,
     `divideByZero`, `belowMinAnswered` or `overflow`.
   - `{}` means the form has no scores.
+- **`flags`:** the ids of the raised staff flags, in definition order (`[]` for none).
 - **`error`:** the evaluation error kind. Only `overflow` exists, and its
   score must not be stored. When `error` is absent, there must be no error.
 - **`check`:** the result of `CheckAnswersOn(definition, answers, today)`.
