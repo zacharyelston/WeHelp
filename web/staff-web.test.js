@@ -159,6 +159,9 @@ test('the patient Forms panel and the Due forms view render from the API (#196)'
     if (path.startsWith('/assignments')) return { assignments: [{ id: 'a1', form_name: 'Intake <b>', schedule: { kind: 'weeks', every: 2, start_date: '2026-11-20', count: 4 },
       channel: 'app', assigned_by_name: 'Dr. Ada', created_at: '2026-11-16T10:00:00Z', occurrences: [
         { id: 'o1', state: 'open', due_at: '2026-11-20T14:00:00Z', opens_at: '2026-11-20T14:00:00Z', closes_at: '2026-11-23T14:00:00Z' }] }] };
+    if (path.startsWith('/responses?')) return { responses: [{ id: 'r1', form_name: 'Intake', version: 1, submitted_at: '2026-11-16T15:00:00Z', new: true, scores: { total: { value: '12', band: 'mild' } } }] };
+    if (path === '/responses/r1') return { id: 'r1', title: 'Intake', version: 1, channel: 'app', submitted_at: '2026-11-16T15:00:00Z', flags: [],
+      scores: [{ id: 'total', text: 'Total', value: '12', band: 'mild', band_text: 'Mild' }], items: [{ item_id: 'age', text: 'Your age', display: '40 <years>' }] };
     if (path === '/forms') return { forms: [{ id: 'f1', name: 'Intake', published: 1 }, { id: 'f2', name: 'Old', published: 1, archived_at: 'x' }] };
     if (path === '/form-occurrences/due') return { due_today: [{ patient_name: 'Jordan', form_name: 'Intake', due_at: '2026-11-16T14:00:00Z', closes_at: '2026-11-19T14:00:00Z', providers: [{ name: 'Dr. Ada' }] }], overdue: [], missed_this_week: [] };
     throw new Error('unexpected ' + path);
@@ -170,6 +173,13 @@ test('the patient Forms panel and the Due forms view render from the API (#196)'
   assert.match(panel, /<option value="f1">Intake<\/option>/);
   assert.doesNotMatch(panel, /value="f2"/); // archived forms can't be assigned
   assert.match(panel, /data-fb="endAssignment"/);
+  assert.match(panel, /Intake v1 <span class="badge badge-pending">new<\/span>/);
+  assert.match(panel, /total: 12 \(mild\)/);
+  p.elements['fb-response'] = { innerHTML: '', scrollIntoView() {} };
+  await p.run('showFormResponse("r1", "p1", "Jordan")');
+  const detail = p.elements['fb-response'].innerHTML;
+  assert.match(detail, /Your age<\/td><td>40 &lt;years&gt;/);
+  assert.match(detail, /Mild/);
   const el = { innerHTML: '' };
   p.ctx.__el = el;
   await p.run('loadDueForms(__el)');

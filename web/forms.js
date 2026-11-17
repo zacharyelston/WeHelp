@@ -1168,9 +1168,10 @@ async function showPatientForms(patientId, name) {
   const el = document.getElementById("pairing");
   if (!el) return;
   el.innerHTML = '<div class="card"><div class="loading">Loading…</div></div>';
-  let data, library;
+  let data, library, responses;
   try {
-    [data, library] = await Promise.all([api("GET", `/assignments?patient_id=${encodeURIComponent(patientId)}`), api("GET", "/forms")]);
+    [data, library, responses] = await Promise.all([api("GET", `/assignments?patient_id=${encodeURIComponent(patientId)}`), api("GET", "/forms"),
+      api("GET", `/responses?patient_id=${encodeURIComponent(patientId)}`)]);
   } catch (err) {
     el.innerHTML = `<div class="card"><div class="alert alert-error">${esc(err.message)}</div></div>`;
     return;
@@ -1194,6 +1195,21 @@ async function showPatientForms(patientId, name) {
       <button class="btn" ${fbAct("assignForm", patientId, name)}>Assign</button></div>
       <p class="hint">Due, opening and closing times are 09:00 practice time. The ${esc(word("patient"))} gets a notification when it opens and a day before it closes.</p>`;
   }
+  const sent = responses.responses || [];
+  html += `<h3>Answers</h3>`;
+  if (!sent.length) {
+    html += '<p class="empty">No forms sent back yet.</p>';
+  } else {
+    html += "<table><thead><tr><th>Form</th><th>Sent</th><th>Scores</th><th></th></tr></thead><tbody>";
+    for (const r of sent) {
+      const scores = Object.entries(r.scores || {}).map(([id, v]) => `${esc(id)}: ${v.value === null ? "—" : esc(v.value)}${v.band ? " (" + esc(v.band) + ")" : ""}`).join(", ");
+      html += `<tr><td>${esc(r.form_name)} v${r.version}${r.new ? ' <span class="badge badge-pending">new</span>' : ""}</td>
+        <td>${esc(fmtWhen(r.submitted_at))}</td><td>${scores}</td>
+        <td><button class="btn btn-sm" ${fbAct("showFormResponse", r.id, patientId, name)}>Open</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += '<div id="fb-response"></div><h3>Assigned</h3>';
   const list = data.assignments || [];
   if (!list.length) {
     html += `<p class="empty">No forms assigned yet.</p>`;
@@ -1253,6 +1269,37 @@ async function endAssignment(id, patientId, name) {
   }
 }
 
+// showFormResponse shows a submitted response: each answer by its
+// question, the scores with their bands, and any flags (#197). Opening it
+// clears the new badge.
+async function showFormResponse(id, patientId, name) {
+  const el = document.getElementById("fb-response");
+  if (!el) return;
+  let r;
+  try {
+    r = await api("GET", `/responses/${encodeURIComponent(id)}`);
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  let html = `<div class="fb-item"><div class="fb-titlebar"><strong>${esc(r.title || r.form_name)} · v${r.version}</strong>
+    <span class="hint">Sent ${esc(fmtWhen(r.submitted_at))} · ${r.channel === "kiosk" ? "kiosk" : "app"}</span></div>`;
+  if ((r.flags || []).length) html += `<div class="alert alert-error">Flagged: ${esc(r.flags.map((x) => x.text || x.id || x).join(", "))}</div>`;
+  if ((r.scores || []).length) {
+    html += '<table class="fb-scores"><tbody>';
+    for (const sc of r.scores) {
+      html += `<tr><td>${esc(sc.text || sc.id)}</td><td>${sc.value === null ? `<span class="hint">blank (${esc(sc.reason || "")})</span>` : esc(sc.value)}</td>
+        <td>${esc(sc.band_text || sc.band || "")}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += "<table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>";
+  for (const it of r.items || []) html += `<tr><td>${esc(it.text || it.item_id)}</td><td>${esc(it.display)}</td></tr>`;
+  html += "</tbody></table></div>";
+  el.innerHTML = html;
+  el.scrollIntoView({ block: "nearest" });
+}
+
 // loadDueForms is the Due forms tab: due today, overdue and missed this week.
 async function loadDueForms(container) {
   const data = await api("GET", "/form-occurrences/due");
@@ -1281,6 +1328,8 @@ const FB_ACTIONS = {
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
   // Assignments (#196)
   assignForm, closePatientForms, endAssignment, showPatientForms,
+  // Responses (#197)
+  showFormResponse,
 };
 
 function fieldValue(el) {

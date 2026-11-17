@@ -452,3 +452,29 @@ func TestCanonical(t *testing.T) {
 		t.Error("digest")
 	}
 }
+
+func TestCheckPage(t *testing.T) {
+	def := mustParseFile(t, "valid/branching.json")
+	answers := Answers{"consent": true, "age": json.Number("140"), "smoker": nil, "symptoms": []any{"cough"}, "bogus": "x"}
+	kept, errs, ok := CheckPage(def, "p_intro", answers, "2026-11-16")
+	if !ok {
+		t.Fatal("page not found")
+	}
+	var got []string
+	for _, e := range errs {
+		got = append(got, e.Item+":"+e.Code)
+	}
+	// age out of range; symptoms is on another page; bogus is unknown; smoker null is unanswered.
+	if strings.Join(got, ",") != "age:out_of_range,symptoms:unknown_item,bogus:unknown_item" {
+		t.Errorf("errors %v", got)
+	}
+	if len(kept) != 1 || kept["consent"] != true {
+		t.Errorf("kept %v", kept)
+	}
+	if _, _, ok := CheckPage(def, "nope", answers, ""); ok {
+		t.Error("unknown page found")
+	}
+	if def.PageOf("temp") != "p_fever" || len(def.PageIDs()) != 5 || def.Item("notes") == nil || len(def.Items()) != 10 {
+		t.Errorf("lookups: %s %v %d", def.PageOf("temp"), def.PageIDs(), len(def.Items()))
+	}
+}

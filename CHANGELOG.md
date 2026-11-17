@@ -6,6 +6,36 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Added
+- Form responses (#197), in `wehelpd` with ordinary tables (V27) per the
+  owner's decision. The answers are PHI and stay in the Back Office.
+  - **Patient routes:**
+    - `POST /responses` starts a response to one of the patient's open
+      forms, or returns the one in progress with its saved pages (resume).
+    - `PUT /responses/{id}/pages/{pageId}` saves one page. It needs the
+      response revision (`If-Match`) and an `Idempotency-Key`, and is
+      limited to 64 KB. Answers are checked by the new `forms.CheckPage`.
+      A stale revision or a reused key with another body is 409.
+    - `POST /responses/{id}/submit` rebuilds the answers from each page's
+      latest save, drops hidden items, checks required answers on visible
+      pages (422 with each item and its page), scores the form on the
+      server and completes the occurrence. Submitting again returns the
+      same result. After the window closes, every patient route is 409
+      `window_closed`.
+  - **Storage:** `form_answer_events` and `form_response_reads` are
+    append-only, by trigger and by `wehelp_app` privileges. A response is
+    frozen once it's submitted or expired. The runner expires in-progress
+    responses when their window closes.
+  - **Staff routes (LAN):** `GET /responses?patient_id=` and
+    `GET /responses/{id}`, both read-audited, return answers next to their
+    question text, scores with bands, flags, and a "new" badge until the
+    first staff open.
+  - **Audit:** `form_response.start`, `form_response.save_page` (page id
+    only) and `form_response.submit` (score ids and counts, never values).
+    A test checks that answers never reach the logs.
+  - **Staff web:** the patient's Forms panel lists sent forms with scores
+    and the new badge, and opens each one.
+  - `docs/MOBILE_CLIENT.md` §16 has the exact requests, responses and error
+    codes for the app.
 - Form assignments (#196), in `wehelpd` with ordinary tables (V26) per the
   owner's decision.
   - **Assigning:** staff give a published form to a patient, once or every

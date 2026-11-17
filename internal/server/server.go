@@ -233,6 +233,9 @@ func (s *Server) Router() chi.Router {
 			r.With(s.auditRead("form_assignments.list", "practice", "")).Get("/assignments", s.ListAssignments)
 			r.Post("/assignments/{assignmentID}/end", s.EndAssignment)
 			r.With(s.auditRead("form_occurrences.due", "practice", "")).Get("/form-occurrences/due", s.DueForms)
+			// Responses (#197): staff read submitted answers.
+			r.With(s.auditRead("form_responses.list", "practice", "")).Get("/responses", s.ListResponses)
+			r.With(s.auditRead("form_response.read", "form_response", "responseID")).Get("/responses/{responseID}", s.GetResponse)
 		})
 		// Forms the patient reads through the Relay (#196): their open and
 		// upcoming occurrences, and the versions and images on their open
@@ -240,6 +243,10 @@ func (s *Server) Router() chi.Router {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authenticate)
 			r.Get("/me/forms", s.MyForms)
+			// Responses (#197): the patient fills a form page by page and submits.
+			r.Post("/responses", s.StartResponse)
+			r.Put("/responses/{responseID}/pages/{pageID}", s.SaveResponsePage)
+			r.Post("/responses/{responseID}/submit", s.SubmitResponse)
 			r.Get("/form-versions/{versionID}", s.GetFormVersion)
 			r.Get("/form-versions/{versionID}/assets/{name}", s.GetFormAsset)
 		})
