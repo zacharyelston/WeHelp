@@ -40,7 +40,7 @@ func TestStaffWebNoInlineHandlers(t *testing.T) {
 func TestStaffWebHeaders(t *testing.T) {
 	s := &Server{visits: newVisitHub()}
 	h := s.Router()
-	for _, path := range []string{"/", "/app.js", "/staff.js", "/styles.css", "/some/deep/link"} {
+	for _, path := range []string{"/", "/app.js", "/staff.js", "/forms.js", "/forms-eval.js", "/styles.css", "/some/deep/link"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		if rec.Code != http.StatusOK {

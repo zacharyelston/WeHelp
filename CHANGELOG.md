@@ -28,6 +28,37 @@ All notable changes to WeHelp are documented here. Format follows
     submit; the Back Office implementation follows #196 and #197.
   - Until then, Today shows a bundled sample form in demo builds only. Debug
     builds open it directly with the `-sampleForm` launch argument.
+- A form builder in the staff web (#195): a Forms tab for admins, shown
+  while the `forms` switch is on. The code is in `web/forms.js`.
+  - **Forms list:** shows custom and built-in forms with their latest and
+    published versions. Admins create, import JSON and archive from there.
+  - **The builder,** on a draft:
+    - add, reorder and remove sections, pages, items and options;
+    - edit every item type's fields;
+    - build rules for `enableWhen` and section branching from pick lists
+      (item, operator, value). A rule the builder can't show appears as
+      read-only JSON.
+    - build scores as a sum of chosen items' scores, with a missing-answer
+      policy and bands.
+  - **Validation:** the builder checks the draft with `web/forms-eval.js` as
+    you edit. Server errors (422) come back with their path, and the part
+    of the form it names is outlined.
+  - **Live preview:** walks the draft page by page as a patient would, with
+    visibility, branching, required checks and live scores.
+  - **Publishing:** asks for confirmation first. "New version" starts a
+    draft from a published version, and "Export JSON" downloads it.
+    Built-in instruments open read-only, with the preview.
+  - **Images on display items:** PNG or JPEG, uploaded to the draft and
+    checked by content and decoded size. Each image is at most 10 MB and
+    20 megapixels, and a version holds at most 20 images and 64 MB.
+    - They're stored in the new V25 `form_assets` table.
+    - A published version's images are immutable, enforced by a trigger.
+    - A new draft gets copies.
+    - Publishing needs every named image uploaded.
+    - Upload and delete are audited.
+  - CI now runs the staff web JavaScript tests (`node --test web/*.test.js`)
+    in the go job: the shared evaluator vectors, plus Forms tab and builder
+    tests that load the real scripts with a fake DOM.
 - The practice's form library in `wehelpd` (#194). Following the owner's
   2026-11-16 decision, forms live in the Back Office for now. They have their
   own V24 migration, their own route group and one file

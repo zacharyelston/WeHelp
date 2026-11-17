@@ -184,6 +184,16 @@ components:
         kind:
           type: string
           enum: [json, size, schema, duplicate, reference, order, type, operator, depth, nodes, items, range]
+    FormAsset:
+      type: object
+      description: An image on a form version (#195).
+      required: [name, content_type, size, sha256, created_at]
+      properties:
+        name: { type: string }
+        content_type: { type: string, enum: [image/png, image/jpeg] }
+        size: { type: integer }
+        sha256: { type: string }
+        created_at: { type: string, format: date-time }
     FormVersion:
       allOf:
         - $ref: "#/components/schemas/FormVersionSummary"
@@ -194,6 +204,9 @@ components:
             form_name: { type: string }
             kind: { type: string, enum: [custom, instrument] }
             definition: { $ref: "#/components/schemas/FormDefinition" }
+            assets:
+              type: array
+              items: { $ref: "#/components/schemas/FormAsset" }
 
     TokenResponse:
       type: object
@@ -4588,7 +4601,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "422":
-          description: The stored draft no longer validates.
+          description: The stored draft no longer validates, or names an image (#195) that isn't uploaded to the version.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FormDefinitionError" }
@@ -4619,6 +4632,129 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "404":
           description: No such version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/form-versions/{versionID}/assets:
+    post:
+      tags: [forms]
+      summary: Upload an image to a draft (admins, office LAN only, #195)
+      description: >
+        For display items ("media": {"type": "image", "asset": name}). PNG or
+        JPEG only, checked by content and decoded header: at most 10 MB and 20
+        megapixels each, 20 images and 64 MB per version. The name comes from
+        the file name. Publishing needs every named image uploaded. A new
+        draft gets copies. Audited as form_asset.upload.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Uploaded.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FormAsset" }
+        "400":
+          description: Not a PNG or JPEG, contents don't match, too large or too many pixels.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Published, archived or built-in; the name is taken; or the version's budget is used up.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /api/v1/form-versions/{versionID}/assets/{name}:
+    get:
+      tags: [forms]
+      summary: An image of a form version (staff, office LAN only, #195)
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The image, served with nosniff and a sandboxing CSP.
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "403":
+          description: Not staff, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such image, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [forms]
+      summary: Remove an image from a draft (admins, office LAN only, #195)
+      description: Audited as form_asset.delete.
+      security: [{ staffCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: versionID
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Removed.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+        "403":
+          description: Not an admin, or forms are turned off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: No such image or version, or through the Relay.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Published, archived or built-in.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }

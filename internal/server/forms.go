@@ -290,10 +290,15 @@ func (s *Server) GetFormVersion(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "stored definition unreadable")
 		return
 	}
+	assets, err := loadFormAssets(r.Context(), s.pool, vid)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "load failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": v.ID, "form_id": v.FormID, "form_name": v.FormName, "kind": v.Kind, "version": v.Version,
 		"status": v.Status, "digest": v.Digest, "created_at": v.CreatedAt, "updated_at": v.UpdatedAt,
-		"published_at": v.Published, "definition": json.RawMessage(canon),
+		"published_at": v.Published, "definition": json.RawMessage(canon), "assets": assets,
 	})
 }
 
@@ -515,7 +520,22 @@ func (s *Server) PublishFormVersion(w http.ResponseWriter, r *http.Request) {
 		}
 		// The stored draft was valid when saved; check it again against the
 		// validator that is running now, before freezing it.
-		if _, _, ok := validDefinition(w, v.Definition); !ok {
+		def, _, ok := validDefinition(w, v.Definition)
+		if !ok {
+			return nil, errHandled
+		}
+		// Every image the definition names must be uploaded to this version (#195).
+		assets, err := loadFormAssets(ctx, tx, vid)
+		if err != nil {
+			return nil, err
+		}
+		have := map[string]bool{}
+		for _, a := range assets {
+			have[a.Name] = true
+		}
+		if p, name := missingFormAsset(def, have); p != "" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": p + ": no image " + name + " on this version",
+				"code": "invalid_definition", "path": p, "kind": forms.KindReference})
 			return nil, errHandled
 		}
 		var at time.Time
@@ -582,6 +602,9 @@ func (s *Server) NewFormDraft(w http.ResponseWriter, r *http.Request) {
 			returning id`, fid, latest, id.UserID).Scan(&vid); err != nil {
 			return nil, err
 		}
+		if err := copyLatestAssets(ctx, tx, fid, latest, vid); err != nil {
+			return nil, err
+		}
 		if err := formAudit(ctx, tx, id, "form_version.draft", "form_version", vid, map[string]any{"form_id": fid, "version": latest + 1}); err != nil {
 			return nil, err
 		}
@@ -636,6 +659,9 @@ func (s *Server) ImportForm(w http.ResponseWriter, r *http.Request) {
 			version = latest + 1
 			if err := tx.QueryRow(ctx, `insert into form_versions (form_id, version, definition, digest, created_by)
 				values ($1, $2, $3, $4, $5) returning id`, fid, version, canon, forms.Digest(canon), id.UserID).Scan(&vid); err != nil {
+				return nil, err
+			}
+			if err := copyLatestAssets(ctx, tx, fid, latest, vid); err != nil {
 				return nil, err
 			}
 		}

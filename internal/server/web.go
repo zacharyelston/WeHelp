@@ -28,6 +28,13 @@ func (s *Server) webRoutes(r chi.Router) {
 	r.Get("/staff.js", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "staff.js")
 	})
+	// The form builder (#195) and its evaluator (#193).
+	r.Get("/forms.js", func(w http.ResponseWriter, r *http.Request) {
+		serveStatic(w, r, static, "forms.js")
+	})
+	r.Get("/forms-eval.js", func(w http.ResponseWriter, r *http.Request) {
+		serveStatic(w, r, static, "forms-eval.js")
+	})
 	r.Get("/styles.css", func(w http.ResponseWriter, r *http.Request) {
 		serveStatic(w, r, static, "styles.css")
 	})
@@ -79,7 +86,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request, fsys fs.FS, name string
 	switch name {
 	case "index.html":
 		h.Set("content-type", "text/html; charset=utf-8")
-	case "app.js", "staff.js":
+	case "app.js", "staff.js", "forms.js", "forms-eval.js":
 		h.Set("content-type", "text/javascript; charset=utf-8")
 	case "styles.css":
 		h.Set("content-type", "text/css; charset=utf-8")
