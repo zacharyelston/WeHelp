@@ -1,0 +1,63 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "New patient intake",
+  "locale": "en-US",
+  "description": "A starting point for a new patient intake form. Synthetic and practice-neutral: adapt the questions to your practice before you publish.",
+  "sections": [
+    {
+      "id": "s_intake",
+      "pages": [
+        {
+          "id": "p_about",
+          "title": "About you",
+          "items": [
+            { "id": "welcome", "type": "display", "text": "Welcome. These questions help us prepare for your first visit." },
+            { "id": "preferred_name", "type": "text", "text": "What name would you like us to use?", "maxLength": 100 },
+            { "id": "birth_date", "type": "date", "text": "Date of birth", "required": true, "min": "1900-01-01", "max": "today" },
+            {
+              "id": "contact_pref", "type": "choice", "text": "How would you like us to contact you?", "control": "buttons",
+              "options": [
+                { "value": "app", "text": "In the app" },
+                { "value": "phone", "text": "Phone call" },
+                { "value": "email", "text": "Email" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "p_history",
+          "title": "Your health",
+          "items": [
+            {
+              "id": "conditions", "type": "choice", "multiple": true, "text": "Do you have any of these?",
+              "options": [
+                { "value": "heart", "text": "Heart condition" },
+                { "value": "lungs", "text": "Breathing or lung condition" },
+                { "value": "diabetes", "text": "Diabetes" },
+                { "value": "blood_pressure", "text": "High blood pressure" },
+                { "value": "none", "text": "None of these" }
+              ]
+            },
+            { "id": "medications", "type": "text", "control": "long", "maxLength": 2000, "text": "Which medicines or supplements do you take? Include the dose if you know it." },
+            { "id": "allergies", "type": "boolean", "required": true, "text": "Do you have any allergies?", "control": "buttons" },
+            {
+              "id": "allergy_details", "type": "text", "control": "long", "maxLength": 1000, "text": "What are you allergic to, and what happens?",
+              "enableWhen": { "eq": [{ "answer": "allergies" }, { "bool": true }] }
+            }
+          ]
+        },
+        {
+          "id": "p_today",
+          "title": "Your visit",
+          "items": [
+            { "id": "reason", "type": "text", "control": "long", "maxLength": 2000, "required": true, "text": "What would you like help with?" },
+            {
+              "id": "discomfort", "type": "integer", "text": "How much discomfort are you in today?", "control": "slider",
+              "min": 0, "max": 10, "step": 1, "minLabel": "None", "maxLabel": "Worst imaginable"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
