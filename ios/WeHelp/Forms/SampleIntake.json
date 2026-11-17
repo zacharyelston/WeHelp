@@ -1,0 +1,99 @@
+{
+  "format": "wehelp.form.v1",
+  "title": "Sample intake",
+  "locale": "en-US",
+  "description": "A synthetic three-page form for trying the walker in a demo build.",
+  "sections": [
+    {
+      "id": "s_about",
+      "title": "About you",
+      "pages": [
+        {
+          "id": "p_about",
+          "items": [
+            { "id": "intro", "type": "display", "text": "This is a sample form. Nothing you enter is sent anywhere." },
+            { "id": "consent", "type": "boolean", "text": "Shall we start?", "required": true },
+            { "id": "age", "type": "integer", "text": "Your age", "required": true, "min": 0, "max": 120, "unit": "a" },
+            { "id": "visit", "type": "choice", "text": "What brings you in?", "required": true,
+              "options": [
+                { "value": "sleep", "text": "Sleep" },
+                { "value": "digestion", "text": "Digestion" },
+                { "value": "other", "text": "Something else" }
+              ] }
+          ]
+        }
+      ],
+      "next": [
+        { "when": { "not": { "eq": [{ "answer": "consent" }, { "bool": true }] } }, "section": "end" },
+        { "when": { "eq": [{ "answer": "visit" }, { "str": "sleep" }] }, "section": "s_sleep" },
+        { "section": "s_general" }
+      ]
+    },
+    {
+      "id": "s_sleep",
+      "title": "Sleep",
+      "pages": [
+        {
+          "id": "p_sleep",
+          "items": [
+            { "id": "sleep_hours", "type": "decimal", "text": "Hours of sleep on a typical night", "required": true, "min": 0, "max": 24, "step": 0.5, "control": "slider", "minLabel": "0", "maxLabel": "24" },
+            { "id": "wake", "type": "choice", "text": "How often do you wake at night?", "control": "buttons", "required": true,
+              "options": [
+                { "value": "never", "text": "Never", "score": 0 },
+                { "value": "some", "text": "Some nights", "score": 1 },
+                { "value": "most", "text": "Most nights", "score": 2 }
+              ] },
+            { "id": "rested", "type": "choice", "text": "How rested do you feel in the morning?", "control": "dropdown", "required": true,
+              "options": [
+                { "value": "well", "text": "Well rested", "score": 0 },
+                { "value": "somewhat", "text": "Somewhat", "score": 1 },
+                { "value": "not", "text": "Not at all", "score": 2 }
+              ] }
+          ]
+        }
+      ],
+      "next": [{ "section": "s_notes" }]
+    },
+    {
+      "id": "s_general",
+      "title": "Your symptoms",
+      "pages": [
+        {
+          "id": "p_general",
+          "items": [
+            { "id": "symptoms", "type": "choice", "multiple": true, "text": "Any of these?",
+              "options": [
+                { "value": "bloating", "text": "Bloating" },
+                { "value": "fatigue", "text": "Fatigue" },
+                { "value": "headache", "text": "Headaches" }
+              ] },
+            { "id": "since", "type": "date", "text": "When did it start?", "min": "2000-01-01", "max": "today" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s_notes",
+      "title": "Anything else",
+      "pages": [
+        {
+          "id": "p_notes",
+          "items": [
+            { "id": "notes", "type": "text", "text": "Anything else your practitioner should know?", "control": "long", "maxLength": 500 }
+          ]
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "id": "sleep_score", "text": "Sleep disturbance", "showScore": true,
+      "expr": { "sum": [{ "scoreOf": "wake" }, { "scoreOf": "rested" }] },
+      "bands": [
+        { "min": 0, "id": "low", "text": "Low" },
+        { "min": 2, "id": "moderate", "text": "Moderate" },
+        { "min": 4, "id": "high", "text": "High" }
+      ]
+    }
+  ]
+}
