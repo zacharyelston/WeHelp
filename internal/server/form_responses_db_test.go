@@ -311,3 +311,30 @@ func TestFormResponseWindow(t *testing.T) {
 		t.Errorf("start with forms off: %d %v", code, out)
 	}
 }
+
+// TestFormResponseNumbersExact: numeric answers keep the exact JSON text the
+// app sent (no float64 round trip) on resume and in the staff view, and the
+// revision is in the body of start, resume and page saves (the app reads the
+// body, not the ETag).
+func TestFormResponseNumbersExact(t *testing.T) {
+	f := newResponseFixture(t)
+	code, out, _ := f.phone.send("POST", "/responses", nil, []byte(`{"occurrence_id":"`+f.occurrence+`"}`))
+	if code != http.StatusCreated || out["revision"] != float64(0) {
+		t.Fatalf("start: %d %v", code, out)
+	}
+	rid := out["id"].(string)
+	body := []byte(`{"answers":{"temp":38.50}}`)
+	code, out, _ = f.phone.send("PUT", "/responses/"+rid+"/pages/p_fever", map[string]string{"If-Match": `"0"`, "Idempotency-Key": uuid.NewString()}, body)
+	if code != http.StatusOK || out["revision"] != float64(1) {
+		t.Fatalf("save: %d %v", code, out)
+	}
+	req := httptest.NewRequest("POST", "/api/v1/responses", strings.NewReader(`{"occurrence_id":"`+f.occurrence+`"}`))
+	req.Header.Set("Authorization", "Bearer "+f.phone.token)
+	req = req.WithContext(tunnel.WithViaRelay(req.Context()))
+	rec := httptest.NewRecorder()
+	f.h.ServeHTTP(rec, req)
+	raw := rec.Body.String()
+	if rec.Code != http.StatusOK || !strings.Contains(raw, `"temp":38.50`) || !strings.Contains(raw, `"revision":1`) {
+		t.Errorf("resume body: %d %s", rec.Code, raw)
+	}
+}
