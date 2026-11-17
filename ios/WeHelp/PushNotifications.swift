@@ -28,6 +28,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         await MainActor.run { NotificationCenter.default.post(name: .weHelpPushArrived, object: nil) }
         return [.banner, .sound, .list]
     }
+
+    // A tapped push opens the screen its category belongs to. The push says
+    // only its category (the Relay's fixed text); the screen fetches the rest.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let category = response.notification.request.content.categoryIdentifier
+        await MainActor.run {
+            if category == PushCategory.formDue {
+                NotificationCenter.default.post(name: .weHelpOpenForms, object: nil)
+            }
+            NotificationCenter.default.post(name: .weHelpPushArrived, object: nil)
+        }
+    }
+}
+
+/// Push categories the app routes on (internal/relay Categories).
+enum PushCategory {
+    /// A form is due (#196): opens Today, where Forms are listed.
+    static let formDue = "form_due"
 }
 
 extension Notification.Name {
@@ -35,6 +53,8 @@ extension Notification.Name {
     static let weHelpPushArrived = Notification.Name("WeHelpPushArrived")
     /// The hex APNs token, from the app delegate to AppState.
     static let weHelpPushToken = Notification.Name("WeHelpPushToken")
+    /// A `form_due` push was tapped: show Today, where Forms are listed.
+    static let weHelpOpenForms = Notification.Name("WeHelpOpenForms")
 }
 
 /// Runs `action` when a push arrives while the app is open, and when the
