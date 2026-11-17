@@ -222,14 +222,26 @@ func (s *Server) Router() chi.Router {
 			r.Get("/forms/{formID}", s.GetForm)
 			r.Post("/forms/{formID}/draft", s.NewFormDraft)
 			r.Post("/forms/{formID}/archive", s.ArchiveForm)
-			r.Get("/form-versions/{versionID}", s.GetFormVersion)
 			r.Put("/form-versions/{versionID}", s.SaveFormVersion)
 			r.Post("/form-versions/{versionID}/publish", s.PublishFormVersion)
 			r.Get("/form-versions/{versionID}/export", s.ExportFormVersion)
 			// Images on display items (#195).
 			r.Post("/form-versions/{versionID}/assets", s.UploadFormAsset)
-			r.Get("/form-versions/{versionID}/assets/{name}", s.GetFormAsset)
 			r.Delete("/form-versions/{versionID}/assets/{name}", s.DeleteFormAsset)
+			// Assignments and occurrences (#196): staff assign, end and follow up.
+			r.Post("/assignments", s.CreateAssignment)
+			r.With(s.auditRead("form_assignments.list", "practice", "")).Get("/assignments", s.ListAssignments)
+			r.Post("/assignments/{assignmentID}/end", s.EndAssignment)
+			r.With(s.auditRead("form_occurrences.due", "practice", "")).Get("/form-occurrences/due", s.DueForms)
+		})
+		// Forms the patient reads through the Relay (#196): their open and
+		// upcoming occurrences, and the versions and images on their open
+		// ones. Staff use the same version routes on the LAN.
+		r.Group(func(r chi.Router) {
+			r.Use(s.authenticate)
+			r.Get("/me/forms", s.MyForms)
+			r.Get("/form-versions/{versionID}", s.GetFormVersion)
+			r.Get("/form-versions/{versionID}/assets/{name}", s.GetFormAsset)
 		})
 	})
 

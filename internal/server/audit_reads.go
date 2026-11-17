@@ -22,7 +22,7 @@ import (
 
 // auditQueryKeys are the filters worth recording; all are IDs, dates or
 // flags, never free text.
-var auditQueryKeys = []string{"with", "provider_id", "from", "to", "status", "unread"}
+var auditQueryKeys = []string{"with", "provider_id", "patient_id", "from", "to", "status", "unread"}
 
 type bufferedResponse struct {
 	header http.Header

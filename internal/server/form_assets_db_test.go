@@ -122,8 +122,10 @@ func TestFormImages(t *testing.T) {
 		t.Errorf("read image: %d %v", rec.Code, rec.Header())
 	}
 	relay := &client{t: t, h: h, relay: true, cookies: adm.cookies, csrf: adm.csrf}
-	if code, _ := relay.do("GET", base+"/Office-Map.png", nil); code != http.StatusNotFound {
-		t.Errorf("image through the Relay: %d, want 404", code)
+	// Patients read images through the Relay (#196); a staff web session there
+	// is refused before any lookup (cookies only work on the LAN).
+	if code, _ := relay.do("GET", base+"/Office-Map.png", nil); code != http.StatusUnauthorized {
+		t.Errorf("image through the Relay with a staff cookie: %d, want 401", code)
 	}
 	if code, _ := upload(t, relay, base, "x.png", img); code != http.StatusNotFound {
 		t.Errorf("upload through the Relay: %d, want 404", code)

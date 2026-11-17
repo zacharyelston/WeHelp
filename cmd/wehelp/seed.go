@@ -64,7 +64,17 @@ Back Office. Requires an already-migrated database.`,
 			_, err = seed.RunTraining(ctx, pool, os.Stdout, time.Now(), loc)
 			return err
 		}
-		_, err = seed.Run(ctx, pool, os.Stdout)
+		if _, err = seed.Run(ctx, pool, os.Stdout); err != nil {
+			return err
+		}
+		// A demo form assigned to the first patient, for device checks (#196).
+		loc := time.Local
+		if cfg.Timezone != "" {
+			if l, err := time.LoadLocation(cfg.Timezone); err == nil {
+				loc = l
+			}
+		}
+		_, err = seed.RunDemoForms(ctx, pool, os.Stdout, time.Now(), loc)
 		return err
 	},
 }

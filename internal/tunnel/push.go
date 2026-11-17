@@ -18,7 +18,7 @@ const pushRequestType = "wehelp-push"
 
 // PushRequest is one push. Category is one of relay.Categories: new_message,
 // appointment_reminder, visit_starting, appointment_update,
-// appointment_request or order_update.
+// appointment_request, order_update or form_due.
 type PushRequest struct {
 	Token       string `json:"token"`
 	Environment string `json:"environment"`
