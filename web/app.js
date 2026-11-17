@@ -185,36 +185,102 @@ async function renderTOTPSetup(app) {
   };
 }
 
+// The product name and mark in the staff web, in one place so a rename (the
+// owner has chosen Keepdom; WeHelp is the code name) is a one-line change.
+const BRAND = {
+  name: "WeHelp",
+  // A simple house-and-keyhole mark, drawn inline (no external images).
+  mark: `<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <path d="M16 3 3 13v16h26V13Z" fill="currentColor"/>
+    <circle cx="16" cy="17" r="3.2" fill="#fff"/><path d="M14.6 19h2.8l1 6h-4.8Z" fill="#fff"/></svg>`,
+};
+
+// The sidebar: groups of tabs, each shown only when it has something in it.
+function navGroups(role) {
+  const tab = (id, label) => `<button type="button" class="tab nav-item ${activeTab === id ? "active" : ""}" data-tab="${id}"
+    ${activeTab === id ? 'aria-current="page"' : ""}>${label}</button>`;
+  const groups = [
+    ["Care", [
+      tab("patients", Word("patients")),
+      tab("appointments", "Appointments"),
+      feature("messages") && role !== "office" ? tab("messages", "Messages") : "",
+      practiceWideRole() && feature("messages") ? tab("inbox", "Inbox") : "",
+      role === "provider" && feature("messages") && feature("careteam") ? tab("careteams", "Care teams") : "",
+      tab("links", "Links"),
+    ]],
+    ["Forms", [
+      role === "admin" && feature("forms") ? tab("forms", "Forms") : "",
+      feature("forms") ? tab("dueforms", "Due forms") : "",
+    ]],
+    ["Practice", [
+      feature("store") ? tab("orders", "Orders") + tab("store", "Store") : "",
+      feature("website") ? tab("website", "Website") : "",
+    ]],
+    ["Admin", role === "admin" ? [
+      `<button type="button" class="nav-item" data-act="showSettings">Settings</button>`,
+      `<button type="button" class="nav-item" data-act="showProviders">Staff</button>`,
+    ] : []],
+  ];
+  return groups
+    .map(([title, items]) => [title, items.filter(Boolean)])
+    .filter(([, items]) => items.length)
+    .map(([title, items]) => `<div class="nav-group"><div class="nav-title">${title}</div>${items.join("")}</div>`)
+    .join("");
+}
+
 function renderDashboard() {
   const role = session.role || "";
   const who = session.display_name || (session.user_id || "").slice(0, 8);
   return `
-    <div class="header">
-      <h1>WeHelp</h1>
-      <div>
-        <span class="user">${esc(who)} · ${esc(role === "office" ? "front desk" : role)}</span>
-        ${role === "admin" ? '<button class="btn btn-sm btn-outline" data-act="showSettings" style="margin-left:0.5rem">Settings</button><button class="btn btn-sm btn-outline" data-act="showProviders" style="margin-left:0.5rem">Staff</button>' : ""}
-        <button class="btn btn-sm btn-outline" data-act="showMyProfile" style="margin-left:0.5rem">My profile</button>
-        ${role === "office" ? "" : '<button class="btn btn-sm btn-outline" data-act="showMyDevices" style="margin-left:0.5rem">My devices</button>'}
-        <button class="btn btn-sm btn-outline" data-act="logout" style="margin-left:0.5rem">Log out</button>
+    <div class="shell">
+      <nav class="sidebar" id="sidebar" aria-label="Main">
+        <div class="brand">${BRAND.mark}<span>${esc(BRAND.name)}</span></div>
+        <div class="tabs">${navGroups(role)}</div>
+      </nav>
+      <div class="main">
+        <div class="topbar">
+          <button type="button" class="menu-toggle" data-act="toggleNav" aria-controls="sidebar" aria-expanded="false" aria-label="Menu">☰</button>
+          <div class="topbar-brand">${BRAND.mark}<span>${esc(BRAND.name)}</span></div>
+          <div class="usermenu">
+            <button type="button" class="usermenu-button" data-act="toggleUserMenu" aria-haspopup="menu" aria-expanded="false">
+              <span class="user">${esc(who)} · ${esc(role === "office" ? "front desk" : role)}</span> ▾</button>
+            <div class="usermenu-list" id="usermenu" role="menu" hidden>
+              <button type="button" role="menuitem" data-act="showMyProfile">My profile</button>
+              ${role === "office" ? "" : '<button type="button" role="menuitem" data-act="showMyDevices">My devices</button>'}
+              <button type="button" role="menuitem" data-act="logout">Log out</button>
+            </div>
+          </div>
+        </div>
+        <div id="backup-banner"></div>
+        <div id="alert-area"></div>
+        <div id="tab-content"></div>
       </div>
-    </div>
-    <div id="backup-banner"></div>
-    <div id="alert-area"></div>
-    <div class="tabs">
-      <div class="tab ${activeTab === "patients" ? "active" : ""}" data-tab="patients">${Word("patients")}</div>
-      ${feature("messages") && role !== "office" ? `<div class="tab ${activeTab === "messages" ? "active" : ""}" data-tab="messages">Messages</div>` : ""}
-      <div class="tab ${activeTab === "appointments" ? "active" : ""}" data-tab="appointments">Appointments</div>
-      <div class="tab ${activeTab === "links" ? "active" : ""}" data-tab="links">Links</div>
-      ${practiceWideRole() && feature("messages") ? `<div class="tab ${activeTab === "inbox" ? "active" : ""}" data-tab="inbox">Inbox</div>` : ""}
-      ${session.role === "provider" && feature("messages") && feature("careteam") ? `<div class="tab ${activeTab === "careteams" ? "active" : ""}" data-tab="careteams">Care teams</div>` : ""}
-      ${feature("store") ? `<div class="tab ${activeTab === "orders" ? "active" : ""}" data-tab="orders">Orders</div>
-      <div class="tab ${activeTab === "store" ? "active" : ""}" data-tab="store">Store</div>` : ""}
-      ${feature("website") ? `<div class="tab ${activeTab === "website" ? "active" : ""}" data-tab="website">Website</div>` : ""}
-      ${role === "admin" && feature("forms") ? `<div class="tab ${activeTab === "forms" ? "active" : ""}" data-tab="forms">Forms</div>` : ""}
-      ${feature("forms") ? `<div class="tab ${activeTab === "dueforms" ? "active" : ""}" data-tab="dueforms">Due forms</div>` : ""}
-    </div>
-    <div id="tab-content"></div>`;
+    </div>`;
+}
+
+// toggleNav opens and closes the sidebar on narrow screens.
+function toggleNav() {
+  const nav = document.getElementById("sidebar");
+  const open = !nav.classList.contains("open");
+  nav.classList.toggle("open", open);
+  document.querySelectorAll(".menu-toggle").forEach((b) => b.setAttribute("aria-expanded", String(open)));
+}
+
+// toggleUserMenu shows the profile, devices and log-out menu.
+function toggleUserMenu() {
+  const list = document.getElementById("usermenu");
+  list.hidden = !list.hidden;
+  document.querySelectorAll(".usermenu-button").forEach((b) => b.setAttribute("aria-expanded", String(!list.hidden)));
+}
+
+// closeMenus closes the user menu and the narrow-screen sidebar.
+function closeMenus() {
+  const list = document.getElementById("usermenu");
+  if (list) list.hidden = true;
+  document.querySelectorAll(".usermenu-button").forEach((b) => b.setAttribute("aria-expanded", "false"));
+  const nav = document.getElementById("sidebar");
+  if (nav) nav.classList.remove("open");
+  document.querySelectorAll(".menu-toggle").forEach((b) => b.setAttribute("aria-expanded", "false"));
 }
 
 function bindDashboard() {
@@ -224,8 +290,10 @@ function bindDashboard() {
       // Leaving the form builder with unsaved changes asks first (#260).
       if (activeTab === "forms" && t.dataset.tab !== "forms" && typeof fbCanLeave === "function" && !fbCanLeave()) return;
       activeTab = t.dataset.tab;
-      document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+      document.querySelectorAll(".tab").forEach((x) => { x.classList.remove("active"); x.removeAttribute("aria-current"); });
       t.classList.add("active");
+      t.setAttribute("aria-current", "page");
+      closeMenus();
       loadTab();
     };
   });
@@ -924,6 +992,8 @@ const ACTIONS = new Set([
   "revokeLink", "revokeMyDevice", "rosterInvite", "saveSite", "setCheckin", "setOrderFilter", "setOrderStatus",
   "showDevices", "showMyDevices", "showMyProfile", "showProviders", "showSettings", "startPairing", "stopPairing",
   "syncRoster", "toggleProduct",
+  // The sidebar and user menu.
+  "toggleNav", "toggleUserMenu",
 ]);
 
 // act returns the attributes for a click action with arguments.
@@ -952,7 +1022,14 @@ const ELEMENT_ACTIONS = new Set(["pickTheme"]);
 
 document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-act]");
+  // A click anywhere else, or on a menu entry, closes the open menus.
+  const toggle = el && (el.dataset.act === "toggleUserMenu" || el.dataset.act === "toggleNav");
+  if (!toggle && typeof closeMenus === "function") closeMenus();
   if (el) runAction(el.dataset.act, el, ELEMENT_ACTIONS.has(el.dataset.act) ? [el] : []);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && typeof closeMenus === "function") closeMenus();
 });
 
 document.addEventListener("change", (e) => {

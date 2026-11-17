@@ -74,6 +74,30 @@ test('the Forms tab shows for an admin with forms on, and not for the front desk
   assert.doesNotMatch(dashboard('admin', { ...on, forms: false }), /data-tab="forms"/);
 });
 
+test('the sidebar groups the tabs and shows only groups with something in them', () => {
+  const on = { forms: true, messages: true, store: true, website: true };
+  const groups = (html) => [...html.matchAll(/class="nav-title">([^<]+)</g)].map((m) => m[1]);
+  assert.deepEqual(groups(dashboard('admin', on)), ['Care', 'Forms', 'Practice', 'Admin']);
+  // Front desk: no Forms tab (admins only) but Due forms; no Admin group.
+  assert.deepEqual(groups(dashboard('office', on)), ['Care', 'Forms', 'Practice']);
+  // Forms, store and website off: just Care.
+  assert.deepEqual(groups(dashboard('provider', { messages: true, forms: false, store: false, website: false })), ['Care']);
+  // Settings and Staff moved from the header into the Admin group.
+  assert.match(dashboard('admin', on), /class="nav-item" data-act="showSettings">Settings</);
+  assert.doesNotMatch(dashboard('provider', on), /data-act="showSettings"/);
+});
+
+test('the user menu holds profile, devices and log out, and the actions are allowed', () => {
+  const html = dashboard('provider', { messages: true });
+  const menu = html.slice(html.indexOf('id="usermenu"'));
+  for (const a of ['showMyProfile', 'showMyDevices', 'logout']) assert.match(menu, new RegExp(`data-act="${a}"`));
+  assert.doesNotMatch(dashboard('office', {}).slice(html.indexOf('id="usermenu"')), /showMyDevices/, 'the front desk has no devices');
+  const p = page();
+  for (const a of ['toggleNav', 'toggleUserMenu']) assert.equal(p.run(`ACTIONS.has("${a}")`), true, a);
+  // The active tab is marked for screen readers.
+  assert.match(html, /data-tab="patients"\s+aria-current="page"/);
+});
+
 test('rules the pick-list editor shows round-trip to the same JSON tree', () => {
   const p = page();
   p.ctx.__def = fixture('valid/operators.json');

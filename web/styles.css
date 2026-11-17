@@ -4,8 +4,11 @@
   --border: #dee2e6;
   --text: #212529;
   --muted: #6c757d;
-  --primary: #0d6efd;
-  --primary-hover: #0b5ed7;
+  /* Brand: a deep teal, with a light tint for the active menu item. */
+  --primary: #0f766e;
+  --primary-hover: #115e59;
+  --primary-tint: #e6f4f2;
+  --sidebar: #f1f5f4;
   --danger: #dc3545;
   --success: #198754;
   --warning: #ffc107;
@@ -91,11 +94,12 @@ body {
 .btn-danger { background: var(--danger); }
 .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
 
-/* Tables */
-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-th { text-align: left; padding: 0.5rem; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 0.75rem; text-transform: uppercase; }
-td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+/* Tables: compact rows so more fits on screen. */
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.02em; }
+td { padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--primary-tint); }
 
 /* Badges */
 .badge {
@@ -217,3 +221,37 @@ tr:last-child td { border-bottom: none; }
 /* Signing in again from the form builder without losing the draft. */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); display: flex; align-items: flex-start; justify-content: center; z-index: 50; overflow-y: auto; }
 .fb-signin { background: var(--card, #fff); }
+
+/* App shell: a grouped sidebar menu, a slim top bar with the user menu, and
+   denser cards. On narrow screens the sidebar becomes a slide-in menu. */
+#app:has(.shell) { max-width: 1280px; padding: 0; }
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: var(--sidebar); border-right: 1px solid var(--border); padding: 1rem 0.75rem; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.brand, .topbar-brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.15rem; color: var(--primary); }
+.brand { padding: 0.25rem 0.5rem 1rem; }
+.brand-mark { width: 26px; height: 26px; color: var(--primary); flex: none; }
+.sidebar .tabs { display: block; margin: 0; }
+.nav-group { margin-bottom: 1rem; }
+.nav-title { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 0 0.5rem 0.25rem; }
+.nav-item { display: block; width: 100%; text-align: left; padding: 0.4rem 0.6rem; margin: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer; }
+.nav-item:hover { background: var(--primary-tint); }
+.nav-item.active { background: var(--primary-tint); color: var(--primary); font-weight: 600; box-shadow: inset 3px 0 0 var(--primary); }
+.nav-item:focus-visible, .usermenu-button:focus-visible, .menu-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.main { min-width: 0; padding: 0 1.25rem 1.5rem; }
+.topbar { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.topbar-brand { display: none; }
+.menu-toggle { display: none; border: 1px solid var(--border); background: var(--card); border-radius: 6px; font-size: 1.1rem; padding: 0.2rem 0.6rem; cursor: pointer; }
+.usermenu { margin-left: auto; position: relative; }
+.usermenu-button { border: 1px solid var(--border); background: var(--card); border-radius: 6px; padding: 0.3rem 0.7rem; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.usermenu-list { position: absolute; right: 0; top: calc(100% + 4px); min-width: 11rem; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); padding: 0.3rem; z-index: 40; }
+.usermenu-list button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 0.45rem 0.6rem; border-radius: 6px; font: inherit; font-size: 0.9rem; cursor: pointer; }
+.usermenu-list button:hover { background: var(--primary-tint); }
+.main .card { padding: 1rem; margin-bottom: 0.75rem; }
+.main .card h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+@media (max-width: 800px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: fixed; z-index: 45; left: 0; top: 0; width: 240px; transform: translateX(-100%); transition: transform 0.15s ease; box-shadow: 0 0 24px rgba(0, 0, 0, 0.18); }
+  .sidebar.open { transform: none; }
+  .menu-toggle, .topbar-brand { display: flex; }
+  .main { padding: 0 0.75rem 1rem; }
+}
