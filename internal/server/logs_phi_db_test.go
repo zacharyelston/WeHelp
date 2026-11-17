@@ -119,3 +119,30 @@ func TestNoPHIInLogs(t *testing.T) {
 		}
 	}
 }
+
+// TestNoFormAnswersInLogs is #197 with #42: saving, refusing and submitting
+// form answers, and staff reading them, logs ids only.
+func TestNoFormAnswersInLogs(t *testing.T) {
+	logs := &lockedBuffer{}
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	f := newResponseFixture(t)
+	const marker = "PHI-MARKER-FORM my chest feels tight at night"
+	_, out, _ := f.phone.send("POST", "/responses", nil, []byte(`{"occurrence_id":"`+f.occurrence+`"}`))
+	rid := out["id"].(string)
+	f.savePage(t, rid, "p_intro", 0, uuid.NewString(), map[string]any{"consent": true, "age": 30})
+	f.savePage(t, rid, "p_symptoms", 1, uuid.NewString(), map[string]any{"symptoms": []string{"none"}})
+	f.savePage(t, rid, "p_general", 2, uuid.NewString(), map[string]any{"general_note": marker})
+	f.savePage(t, rid, "p_general", 3, uuid.NewString(), map[string]any{"general_note": marker, "bogus": marker}) // refused
+	f.phone.send("POST", "/responses/"+rid+"/submit", map[string]string{"Idempotency-Key": uuid.NewString()}, nil)
+	f.ada.do("GET", "/responses?patient_id="+f.jordan, nil)
+	f.ada.do("GET", "/responses/"+rid, nil)
+	if strings.Contains(logs.String(), "PHI-MARKER") {
+		t.Fatal("a form answer reached the logs")
+	}
+	if !strings.Contains(logs.String(), "/api/v1/responses/"+rid) {
+		t.Fatal("no request logs captured")
+	}
+}

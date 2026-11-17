@@ -231,14 +231,15 @@ func (s *Server) UploadFormAsset(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetFormAsset serves an image of a version. Staff, LAN.
+// GetFormAsset serves an image of a version. Staff on the LAN; a patient
+// for a version on one of their open occurrences (#196).
 // Route: GET /api/v1/form-versions/{versionID}/assets/{name}
 func (s *Server) GetFormAsset(w http.ResponseWriter, r *http.Request) {
-	id, ok := s.formsOn(w, r, false)
+	vid, ok := uuidParam(w, r, "versionID", "version")
 	if !ok {
 		return
 	}
-	vid, ok := uuidParam(w, r, "versionID", "version")
+	id, ok := s.formVersionReader(w, r, vid)
 	if !ok {
 		return
 	}

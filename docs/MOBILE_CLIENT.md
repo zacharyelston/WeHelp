@@ -25,6 +25,7 @@ What every WeHelp app must do to pair with a practice, reach it, stay signed in 
 13. [Data formats](#13-data-formats)
 14. [Never](#14-never)
 15. [Video visits](#15-video-visits)
+16. [Forms](#16-forms)
 
 ## 1. How an app reaches a practice
 
@@ -203,7 +204,7 @@ Use a request timeout of about 20 seconds. Don't retry automatically in a tight 
 
 - After pairing, and whenever the platform gives a new token, the app sends it to **each** paired practice: `PUT /api/v1/devices/current/push` with the token and environment. Clear it with `DELETE` on the same route when push is turned off.
 - The Back Office keeps the token on this device's record; the Relay stores none. A revoked device's token is cleared.
-- A notification carries only a fixed category ("New message", "Appointment reminder", "Visit starting", ...) whose text the Relay supplies. No names, times or message text, ever. On tap, the app opens the matching screen and fetches the details through the pinned connection.
+- A notification carries only a fixed category ("New message", "Appointment reminder", "Visit starting", "form_due", ...) whose text the Relay supplies. No names, times or message text, ever. On tap, the app opens the matching screen and fetches the details through the pinned connection.
 - Ask for notification permission after the user is signed in, not on first launch.
 
 The route accepts APNs tokens only today (`environment`: `sandbox` or `production`); #139 makes it platform-neutral and #132 adds FCM.
@@ -226,7 +227,7 @@ Stop when the screen goes away, the app goes to the background, or the app locks
 - Call `GET /api/v1/practice` once when an account opens and keep the result in memory. It holds no patient data.
 - **Words:** use `type.words` (`patient`, `patients`, `provider`, `providers`) wherever the screen names the people. The API always says patient and provider; the screen says what the practice calls them (a salon says client and stylist).
 - **Clinical:** when `type.clinical` is false, hide check-ins and health monitors.
-- **Features:** `features` maps each switch to on or off. Hide what is off: `messages`, `requests`, `reminders`, `checkins`, `video`, `store`, `library`, `website`, `careteam`. A route for a switched-off feature answers **409** with the feature's name; an app built before a switch existed still gets a sensible error, but a current app shouldn't offer the action at all.
+- **Features:** `features` maps each switch to on or off. Hide what is off: `messages`, `requests`, `reminders`, `checkins`, `video`, `store`, `library`, `website`, `careteam`, `forms`. A route for a switched-off feature answers **409** with the feature's name (forms routes answer **403** with code `feature_off`, §16); an app built before a switch existed still gets a sensible error, but a current app shouldn't offer the action at all.
 - **A provider's message mode:** when it is off, a patient's message to that provider gets 409 with a sentence to show as is ("… isn't taking messages in the app. Please message the practice instead."). Outside a provider's office hours the message is accepted and the Back Office adds an automatic reply to the thread, so the next poll shows it.
 
 The iPhone app doesn't follow words or switches yet (#142).
@@ -280,3 +281,80 @@ A 1:1 video visit between a patient and their provider (#6). Media goes phone to
 **Leaving:** `POST /visits/{id}/leave` when the person leaves (the visit stays open to rejoin). The provider may `POST /visits/{id}/end` for both. Ending doesn't change the appointment; staff mark it.
 
 **On the phone:** keep the screen awake during a call. Store nothing about the call. Going to the background drops media; on return, rejoin. No CallKit or background audio in V1.
+
+## 16. Forms
+
+Questionnaires and intake forms the practice assigns to the patient (#196), filled in the app page by page (#197). Only when the practice's `forms` switch is on (§12). Every forms route answers **403** with code `feature_off` while it is off; hide Forms then. The form format is `wehelp.form.v1` ([`internal/forms`](../internal/forms/doc.go)); the app's evaluator must pass the shared vectors in [`testdata/forms/`](../testdata/forms/README.md).
+
+**The list:** `GET /api/v1/me/forms`.
+
+```json
+{"forms": [{
+  "occurrence_id": "…", "assignment_id": "…", "form_id": "…", "version_id": "…",
+  "title": "Demo visit check-in (synthetic)",
+  "state": "open",
+  "opens_at": "2026-11-15T14:00:00Z", "due_at": "2026-11-16T14:00:00Z", "closes_at": "2026-11-23T14:00:00Z",
+  "response": null
+}]}
+```
+
+- `state` is `open` (can be filled now) or `upcoming` (opens at `opens_at`; show it, but don't let the patient start). Completed, missed and cancelled forms aren't listed.
+- Sorted by `due_at`. Upcoming ones are listed up to 14 days ahead.
+- `response` is `null`, or `{"id", "status": "in_progress", "revision"}` when the patient has started; resume it (below).
+- A window opens at `opens_at` (inclusive) and closes at `closes_at` (exclusive). Due, opening and closing times are 09:00 practice time. After closing, the form can't be filled or submitted.
+- Refresh the list when the Forms screen appears and after a `form_due` push. No polling.
+
+**The form:** `GET /api/v1/form-versions/{version_id}` for a version on one of the patient's **open** occurrences. Any other version is a 404, including one whose window has closed.
+
+```json
+{"id": "…", "form_id": "…", "form_name": "…", "kind": "custom", "version": 1, "status": "published",
+ "digest": "…", "definition": { "format": "wehelp.form.v1", "…": "…" },
+ "assets": [{"name": "map.png", "content_type": "image/png", "size": 12345, "sha256": "…", "created_at": "…"}]}
+```
+
+- A display item's image (`"media": {"type": "image", "asset": "map.png"}`) is `GET /api/v1/form-versions/{version_id}/assets/{name}` (PNG or JPEG bytes), on the same rule.
+- Hold the definition and images in memory only, like all patient data (§9).
+
+**Push:** category `form_due`, fixed text "You have a form to fill in from your practice." It never names the form. It comes when a form opens, and once more 24 hours before it closes (only when that is after it opened). On tap, open Forms and fetch `GET /me/forms`.
+
+**Filling a form** (#197). The answers are PHI: keep them in memory only (§9), never on disk, and drop them when the walker closes.
+
+1. **Start or resume:** `POST /api/v1/responses` with `{"occurrence_id": "…"}`. **201** starts a response; **200** returns the one already in progress (when `/me/forms` showed a `response`). Both carry the header `ETag: "<revision>"`.
+
+   ```json
+   {"id": "…", "occurrence_id": "…", "version_id": "…", "status": "in_progress", "revision": 3,
+    "started_at": "…", "closes_at": "…",
+    "pages": [{"page_id": "p_today", "answers": {"reason": "pain", "feeling": 6}, "saved_at": "…"}],
+    "answers": {"reason": "pain", "feeling": 6}}
+   ```
+
+   `pages` holds the latest save of each page, in document order; `answers` merges them. To resume, load `answers` into the walker, work out the visible pages with the evaluator, and open the first page that has no save, or the last saved one.
+
+2. **Save a page when the patient leaves it** (Next or Back): `PUT /api/v1/responses/{id}/pages/{page_id}`.
+   - **Headers:** `If-Match: "<revision>"`, the last revision you got from start, resume or the previous save (required); `Idempotency-Key: <uuid>`, new for each save and reused when you retry the same save (required).
+   - **Body**, at most 64 KB: `{"answers": {"item_id": value, …}}`, only items on that page. Values: a string (choice, date `YYYY-MM-DD`, text); an array of strings (multiple choice); `true`/`false`; or a number (integer or decimal, at most 12 integer and 6 fractional digits). Leave an item out, or send `null`, when it's unanswered. Each save replaces that page's previous save as a whole.
+   - **200** `{"id", "page_id", "revision": 4, "saved_at"}`, with `ETag: "4"`. Keep the new revision.
+   - Required answers aren't checked here, only type, options and ranges. Check required answers on the page yourself before Next, with the evaluator.
+
+3. **Submit** after the last page: `POST /api/v1/responses/{id}/submit` with `Idempotency-Key` (required) and optionally `If-Match`. The server rebuilds the answers from the saved pages, drops answers to hidden items, checks required answers on visible pages, and scores the form.
+   - **200** `{"id", "status": "submitted", "submitted_at", "scores": {"wellbeing": {"value": "6", "band": null}}}`.
+   - `scores` holds only scores the form marks `showScore`; show them if you like, never more. A second submit returns the same 200, so retrying after a lost answer is safe.
+   - Then go back to the Forms list.
+
+**Errors** (`{"error", "code", …}`; show `error` on the walker screen, not as a connection state):
+
+| Status | `code` | When | What the app does |
+| --- | --- | --- | --- |
+| 400 | `if_match_required`, `idempotency_key_required` | A header is missing | A bug: fix the client |
+| 403 | `feature_off` | Forms were turned off | Close the walker; hide Forms |
+| 404 | (none) or `unknown_page` | Not this patient's form or response, or no such page | Close the walker; refresh the list |
+| 409 | `not_open` | Before `opens_at` | Show when it opens |
+| 409 | `window_closed` | At or after `closes_at`, or missed | "This form is closed"; close the walker; refresh the list |
+| 409 | `already_submitted` | Already sent | Close the walker; refresh the list |
+| 409 | `stale_revision` | Another device saved since; the body has `revision` | Resume (step 1), merge nothing, and show the saved answers |
+| 409 | `idempotency_mismatch` | A key was reused for a different save | A bug: use a new key per save |
+| 413 | `body_too_large` | Page over 64 KB | Shorten text answers |
+| 422 | `invalid_answers` | `errors: [{"item", "code", "message"}]` (submit adds `page_id`); codes `required`, `wrong_type`, `out_of_range`, `unknown_option`, `duplicate_option`, `too_long`, `unknown_item`, `not_answerable` | Mark the items; on submit, go to the first error's page |
+| 422 | `score_overflow` | A score can't be computed exactly (very rare) | Ask the patient to contact the practice |
+
+After a network failure, retry the same request with the same `Idempotency-Key`. Don't retry automatically in a loop (§8).

@@ -1144,6 +1144,181 @@ function previewAnswer(el) {
 }
 
 // ---------------------------------------------------------------------------
+// Assignments (#196): on a patient, their forms and "Assign form"; the Due
+// forms tab for the practice. Staff on the office LAN.
+// ---------------------------------------------------------------------------
+
+const OCC_BADGE = { upcoming: "scheduled", open: "pending", completed: "active", missed: "revoked", cancelled: "revoked" };
+
+function fmtWhen(ts) {
+  return ts ? new Date(ts).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+}
+
+function scheduleText(s) {
+  if (s.kind === "once") return `Once, due ${s.start_date}`;
+  const unit = s.kind === "days" ? "day" : "week";
+  let t = s.every === 1 ? `Every ${unit}` : `Every ${s.every} ${unit}s`;
+  t += ` from ${s.start_date}`;
+  if (s.count) t += `, ${s.count} times`;
+  if (s.until) t += `, until ${s.until}`;
+  return t;
+}
+
+async function showPatientForms(patientId, name) {
+  const el = document.getElementById("pairing");
+  if (!el) return;
+  el.innerHTML = '<div class="card"><div class="loading">Loading…</div></div>';
+  let data, library, responses;
+  try {
+    [data, library, responses] = await Promise.all([api("GET", `/assignments?patient_id=${encodeURIComponent(patientId)}`), api("GET", "/forms"),
+      api("GET", `/responses?patient_id=${encodeURIComponent(patientId)}`)]);
+  } catch (err) {
+    el.innerHTML = `<div class="card"><div class="alert alert-error">${esc(err.message)}</div></div>`;
+    return;
+  }
+  const assignable = (library.forms || []).filter((f) => f.published && !f.archived_at);
+  const today = todayISO();
+  let html = `<div class="card"><div class="fb-titlebar"><h2>Forms for ${esc(name)}</h2>
+    <button class="btn btn-sm btn-outline" ${fbAct("closePatientForms")}>Close</button></div>`;
+  if (!assignable.length) {
+    html += '<p class="hint">No published forms yet. An admin builds and publishes them in the Forms tab.</p>';
+  } else {
+    html += `<h3>Assign a form</h3><div class="fb-row" id="assign-form">
+      <label class="fb-field"><span>Form</span><select id="as-form">${assignable.map((f) => `<option value="${attr(f.id)}">${esc(f.name)}</option>`).join("")}</select></label>
+      <label class="fb-field"><span>How often</span><select id="as-kind"><option value="once">Once</option><option value="days">Every N days</option><option value="weeks">Every N weeks</option></select></label>
+      <label class="fb-field"><span>Every</span><input id="as-every" type="number" min="1" max="365" value="1" class="fb-num"></label>
+      <label class="fb-field"><span>First due</span><input id="as-start" type="date" value="${attr(today)}"></label>
+      <label class="fb-field"><span>Times (repeating)</span><input id="as-count" type="number" min="1" max="366" value="4" class="fb-num"></label>
+      <label class="fb-field"><span>Opens, days before due</span><input id="as-open" type="number" min="0" max="365" value="0" class="fb-num"></label>
+      <label class="fb-field"><span>Closes, days after due</span><input id="as-close" type="number" min="0" max="365" value="3" class="fb-num"></label>
+      <label class="fb-field"><span>Where</span><select id="as-channel"><option value="app">In the app</option><option value="kiosk">On the office kiosk</option></select></label>
+      <button class="btn" ${fbAct("assignForm", patientId, name)}>Assign</button></div>
+      <p class="hint">Due, opening and closing times are 09:00 practice time. The ${esc(word("patient"))} gets a notification when it opens and a day before it closes.</p>`;
+  }
+  const sent = responses.responses || [];
+  html += `<h3>Answers</h3>`;
+  if (!sent.length) {
+    html += '<p class="empty">No forms sent back yet.</p>';
+  } else {
+    html += "<table><thead><tr><th>Form</th><th>Sent</th><th>Scores</th><th></th></tr></thead><tbody>";
+    for (const r of sent) {
+      const scores = Object.entries(r.scores || {}).map(([id, v]) => `${esc(id)}: ${v.value === null ? "—" : esc(v.value)}${v.band ? " (" + esc(v.band) + ")" : ""}`).join(", ");
+      html += `<tr><td>${esc(r.form_name)} v${r.version}${r.new ? ' <span class="badge badge-pending">new</span>' : ""}</td>
+        <td>${esc(fmtWhen(r.submitted_at))}</td><td>${scores}</td>
+        <td><button class="btn btn-sm" ${fbAct("showFormResponse", r.id, patientId, name)}>Open</button></td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += '<div id="fb-response"></div><h3>Assigned</h3>';
+  const list = data.assignments || [];
+  if (!list.length) {
+    html += `<p class="empty">No forms assigned yet.</p>`;
+  }
+  for (const a of list) {
+    html += `<div class="fb-item"><div class="fb-titlebar"><div><strong>${esc(a.form_name)}</strong> · ${esc(scheduleText(a.schedule))}
+      · ${a.channel === "kiosk" ? "kiosk" : "app"}${a.ended_at ? ' <span class="badge badge-revoked">ended</span>' : ""}
+      <div class="hint">Assigned by ${esc(a.assigned_by_name)} on ${esc(fmtWhen(a.created_at))}</div></div>
+      ${a.ended_at ? "" : `<button class="btn btn-sm btn-danger" ${fbAct("endAssignment", a.id, patientId, name)}>End</button>`}</div>`;
+    if (a.occurrences.length) {
+      html += "<table><thead><tr><th>Due</th><th>Window</th><th>Status</th></tr></thead><tbody>";
+      for (const o of a.occurrences) {
+        html += `<tr><td>${esc(fmtWhen(o.due_at))}</td><td>${esc(fmtWhen(o.opens_at))} – ${esc(fmtWhen(o.closes_at))}</td>
+          <td><span class="badge badge-${OCC_BADGE[o.state] || "pending"}">${esc(o.state)}</span></td></tr>`;
+      }
+      html += "</tbody></table>";
+    } else {
+      html += '<p class="hint">No occurrences yet: the first is created two weeks before it opens.</p>';
+    }
+    html += "</div>";
+  }
+  el.innerHTML = html + "</div>";
+}
+
+function closePatientForms() {
+  const el = document.getElementById("pairing");
+  if (el) el.innerHTML = "";
+}
+
+async function assignForm(patientId, name) {
+  const v = (id) => document.getElementById(id).value;
+  const kind = v("as-kind");
+  const schedule = { kind, start_date: v("as-start") };
+  if (kind !== "once") {
+    schedule.every = Number(v("as-every"));
+    schedule.count = Number(v("as-count"));
+  }
+  try {
+    await api("POST", "/assignments", {
+      patient_id: patientId, form_id: v("as-form"), schedule,
+      open_before_days: Number(v("as-open")), close_after_days: Number(v("as-close")), channel: v("as-channel"),
+    });
+    showAlert("Form assigned", "success");
+    showPatientForms(patientId, name);
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+async function endAssignment(id, patientId, name) {
+  if (!confirm("End this assignment? Forms not yet open are cancelled; an open one stays open.")) return;
+  try {
+    await api("POST", `/assignments/${id}/end`);
+    showPatientForms(patientId, name);
+  } catch (err) {
+    showAlert(err.message);
+  }
+}
+
+// showFormResponse shows a submitted response: each answer by its
+// question, the scores with their bands, and any flags (#197). Opening it
+// clears the new badge.
+async function showFormResponse(id, patientId, name) {
+  const el = document.getElementById("fb-response");
+  if (!el) return;
+  let r;
+  try {
+    r = await api("GET", `/responses/${encodeURIComponent(id)}`);
+  } catch (err) {
+    showAlert(err.message);
+    return;
+  }
+  let html = `<div class="fb-item"><div class="fb-titlebar"><strong>${esc(r.title || r.form_name)} · v${r.version}</strong>
+    <span class="hint">Sent ${esc(fmtWhen(r.submitted_at))} · ${r.channel === "kiosk" ? "kiosk" : "app"}</span></div>`;
+  if ((r.flags || []).length) html += `<div class="alert alert-error">Flagged: ${esc(r.flags.map((x) => x.text || x.id || x).join(", "))}</div>`;
+  if ((r.scores || []).length) {
+    html += '<table class="fb-scores"><tbody>';
+    for (const sc of r.scores) {
+      html += `<tr><td>${esc(sc.text || sc.id)}</td><td>${sc.value === null ? `<span class="hint">blank (${esc(sc.reason || "")})</span>` : esc(sc.value)}</td>
+        <td>${esc(sc.band_text || sc.band || "")}</td></tr>`;
+    }
+    html += "</tbody></table>";
+  }
+  html += "<table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody>";
+  for (const it of r.items || []) html += `<tr><td>${esc(it.text || it.item_id)}</td><td>${esc(it.display)}</td></tr>`;
+  html += "</tbody></table></div>";
+  el.innerHTML = html;
+  el.scrollIntoView({ block: "nearest" });
+}
+
+// loadDueForms is the Due forms tab: due today, overdue and missed this week.
+async function loadDueForms(container) {
+  const data = await api("GET", "/form-occurrences/due");
+  const section = (title, list, empty) => {
+    let html = `<div class="card"><h2>${esc(title)} <span class="badge badge-pending">${list.length}</span></h2>`;
+    if (!list.length) return html + `<p class="empty">${esc(empty)}</p></div>`;
+    html += `<table><thead><tr><th>${esc(Word("patient"))}</th><th>Form</th><th>Due</th><th>Closes</th><th>${esc(Word("providers"))}</th></tr></thead><tbody>`;
+    for (const d of list) {
+      html += `<tr><td>${esc(d.patient_name)}</td><td>${esc(d.form_name)}</td><td>${esc(fmtWhen(d.due_at))}</td>
+        <td>${esc(fmtWhen(d.closes_at))}</td><td>${esc((d.providers || []).map((p) => p.name).join(", ") || "—")}</td></tr>`;
+    }
+    return html + "</tbody></table></div>";
+  };
+  container.innerHTML = section("Due today", data.due_today || [], "Nothing due today.") +
+    section("Overdue", data.overdue || [], "Nothing overdue.") +
+    section("Missed this week", data.missed_this_week || [], "Nothing missed this week.");
+}
+
+// ---------------------------------------------------------------------------
 // Events: one allowlist, no window lookups
 // ---------------------------------------------------------------------------
 
@@ -1151,6 +1326,10 @@ const FB_ACTIONS = {
   addBand, addBranch, addCond, addItem, addOption, addPage, addScore, addSection, archiveForm, backToList,
   clearRule, createForm, deleteAsset, moveNode, newVersion, openVersion, previewMove, previewRestart,
   publishDraft, removeBranch, removeCond, removeMedia, removeNode, saveDraft, toggleNewForm,
+  // Assignments (#196)
+  assignForm, closePatientForms, endAssignment, showPatientForms,
+  // Responses (#197)
+  showFormResponse,
 };
 
 function fieldValue(el) {

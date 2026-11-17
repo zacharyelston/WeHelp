@@ -24,6 +24,77 @@ All notable changes to WeHelp are documented here. Format follows
     practice account closes the walker and drops its answers.
   - `APIClient` reads `error` and `code` from any error body, and has
     `authorizedRaw` for callers that read the body themselves.
+- Form responses (#197), in `wehelpd` with ordinary tables (V27) per the
+  owner's decision. The answers are PHI and stay in the Back Office.
+  - **Patient routes:**
+    - `POST /responses` starts a response to one of the patient's open
+      forms, or returns the one in progress with its saved pages (resume).
+    - `PUT /responses/{id}/pages/{pageId}` saves one page. It needs the
+      response revision (`If-Match`) and an `Idempotency-Key`, and is
+      limited to 64 KB. Answers are checked by the new `forms.CheckPage`.
+      A stale revision or a reused key with another body is 409.
+    - `POST /responses/{id}/submit` rebuilds the answers from each page's
+      latest save, drops hidden items, checks required answers on visible
+      pages (422 with each item and its page), scores the form on the
+      server and completes the occurrence. Submitting again returns the
+      same result. After the window closes, every patient route is 409
+      `window_closed`.
+  - **Storage:** `form_answer_events` and `form_response_reads` are
+    append-only, by trigger and by `wehelp_app` privileges. A response is
+    frozen once it's submitted or expired. The runner expires in-progress
+    responses when their window closes.
+  - **Staff routes (LAN):** `GET /responses?patient_id=` and
+    `GET /responses/{id}`, both read-audited, return answers next to their
+    question text, scores with bands, flags, and a "new" badge until the
+    first staff open.
+  - **Audit:** `form_response.start`, `form_response.save_page` (page id
+    only) and `form_response.submit` (score ids and counts, never values).
+    A test checks that answers never reach the logs.
+  - **Staff web:** the patient's Forms panel lists sent forms with scores
+    and the new badge, and opens each one.
+  - `docs/MOBILE_CLIENT.md` §16 has the exact requests, responses and error
+    codes for the app.
+- Form assignments (#196), in `wehelpd` with ordinary tables (V26) per the
+  owner's decision.
+  - **Assigning:** staff give a published form to a patient, once or every
+    N days or weeks. A repeating schedule needs a count or an end date.
+    - A provider assigns to their linked patients; the front desk and admins
+      to anyone in the practice.
+    - The version can be pinned, or each occurrence takes the latest
+      published version.
+    - The channel is the app or the kiosk (kiosk ones are stored, but
+      nothing delivers them yet).
+  - **Occurrences:** each due instance has a window that opens and closes
+    at 09:00 practice time, in the zone pinned on the assignment.
+    - Dates follow the local calendar across daylight-saving changes.
+    - There's one occurrence per assignment and due date, and at most 366
+      per assignment.
+  - **Routes:**
+    - staff, LAN: `POST /assignments`, `GET /assignments?patient_id=`,
+      `POST /assignments/{id}/end` (cancels what hasn't opened) and
+      `GET /form-occurrences/due` (due today, overdue, missed this week,
+      with providers);
+    - patient: `GET /me/forms`, the open and upcoming forms;
+    - patients may now read `GET /form-versions/{id}` and its images for a
+      version on one of their open occurrences.
+  - **Runner:** `wehelpd serve` runs it every `forms_interval` (default 5m).
+    Repeated runs never duplicate anything. Each run:
+    - creates occurrences two weeks ahead;
+    - marks closed, unfinished ones missed;
+    - sends the `form_due` push when one opens and 24 hours before it
+      closes, each at most once.
+  - **Relay:** the new `form_due` category has fixed text and never names
+    the form.
+  - **Audit:** `form_assignment.create` and `form_assignment.end`;
+    `form_occurrence.create` with no actor (the system); read audits for
+    the staff lists. Forms routes now answer 403 with code `feature_off`
+    while the switch is off.
+  - **Staff web:** a Forms button on each patient (their assignments and
+    occurrences, Assign form, End) and a Due forms tab for staff.
+  - **Demo seed:** `wehelpd seed` now also turns forms on and gives the
+    first demo patient a synthetic three-page branching form with a score,
+    open for a week (`seed.RunDemoForms`).
+  - `docs/MOBILE_CLIENT.md` §16 has the app contract.
 - iOS Forms client, first part (#198):
   - `ios/WeHelp/Forms/`, a Swift `wehelp.form.v1` evaluator, ported from
     `web/forms-eval.js` with Go's exact number handling. It covers:

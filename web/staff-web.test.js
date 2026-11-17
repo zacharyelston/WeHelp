@@ -143,3 +143,47 @@ test('the score editor reads and writes a sum of chosen items', () => {
   assert.equal(p.run('JSON.stringify(sumExpr(__def, ["q3", "q1"]))'), '{"sum":[{"scoreOf":"q1"},{"scoreOf":"q3"}]}');
   assert.equal(p.run('scoreItems(__def.scores[5].expr)'), null); // a division: shown as JSON
 });
+
+test('the Due forms tab shows for every staff role while forms are on (#196)', () => {
+  const on = { forms: true, messages: true, store: true, website: true };
+  for (const role of ['admin', 'office', 'provider']) {
+    assert.match(dashboard(role, on), /data-tab="dueforms"/, role);
+    assert.doesNotMatch(dashboard(role, { ...on, forms: false }), /data-tab="dueforms"/, role);
+  }
+});
+
+test('the patient Forms panel and the Due forms view render from the API (#196)', async () => {
+  const p = page();
+  p.run('session = { status: "active", role: "office", csrf_token: "x" }; practiceInfo = { type: { words: {} }, features: { forms: true } };');
+  p.run(`api = async (method, path) => {
+    if (path.startsWith('/assignments')) return { assignments: [{ id: 'a1', form_name: 'Intake <b>', schedule: { kind: 'weeks', every: 2, start_date: '2026-11-20', count: 4 },
+      channel: 'app', assigned_by_name: 'Dr. Ada', created_at: '2026-11-16T10:00:00Z', occurrences: [
+        { id: 'o1', state: 'open', due_at: '2026-11-20T14:00:00Z', opens_at: '2026-11-20T14:00:00Z', closes_at: '2026-11-23T14:00:00Z' }] }] };
+    if (path.startsWith('/responses?')) return { responses: [{ id: 'r1', form_name: 'Intake', version: 1, submitted_at: '2026-11-16T15:00:00Z', new: true, scores: { total: { value: '12', band: 'mild' } } }] };
+    if (path === '/responses/r1') return { id: 'r1', title: 'Intake', version: 1, channel: 'app', submitted_at: '2026-11-16T15:00:00Z', flags: [],
+      scores: [{ id: 'total', text: 'Total', value: '12', band: 'mild', band_text: 'Mild' }], items: [{ item_id: 'age', text: 'Your age', display: '40 <years>' }] };
+    if (path === '/forms') return { forms: [{ id: 'f1', name: 'Intake', published: 1 }, { id: 'f2', name: 'Old', published: 1, archived_at: 'x' }] };
+    if (path === '/form-occurrences/due') return { due_today: [{ patient_name: 'Jordan', form_name: 'Intake', due_at: '2026-11-16T14:00:00Z', closes_at: '2026-11-19T14:00:00Z', providers: [{ name: 'Dr. Ada' }] }], overdue: [], missed_this_week: [] };
+    throw new Error('unexpected ' + path);
+  };`);
+  await p.run('showPatientForms("p1", "Jordan")');
+  const panel = p.elements.pairing.innerHTML;
+  assert.match(panel, /Every 2 weeks from 2026-11-20, 4 times/);
+  assert.match(panel, /Intake &lt;b&gt;/); // escaped
+  assert.match(panel, /<option value="f1">Intake<\/option>/);
+  assert.doesNotMatch(panel, /value="f2"/); // archived forms can't be assigned
+  assert.match(panel, /data-fb="endAssignment"/);
+  assert.match(panel, /Intake v1 <span class="badge badge-pending">new<\/span>/);
+  assert.match(panel, /total: 12 \(mild\)/);
+  p.elements['fb-response'] = { innerHTML: '', scrollIntoView() {} };
+  await p.run('showFormResponse("r1", "p1", "Jordan")');
+  const detail = p.elements['fb-response'].innerHTML;
+  assert.match(detail, /Your age<\/td><td>40 &lt;years&gt;/);
+  assert.match(detail, /Mild/);
+  const el = { innerHTML: '' };
+  p.ctx.__el = el;
+  await p.run('loadDueForms(__el)');
+  assert.match(el.innerHTML, /Due today <span class="badge badge-pending">1<\/span>/);
+  assert.match(el.innerHTML, /Nothing overdue/);
+  assert.match(el.innerHTML, /Dr\. Ada/);
+});
