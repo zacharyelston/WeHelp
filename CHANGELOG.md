@@ -6,6 +6,9 @@ All notable changes to WeHelp are documented here. Format follows
 ## [Unreleased]
 
 ### Changed
+- The presentation's eleven staff web screenshots are retaken with the new
+  sidebar and teal look, on the training week's demo data (alt text and
+  speaker notes updated to match).
 - The staff web has a menu and a cleaner look:
   - a **sidebar grouped** into Care (patients, appointments, messages, inbox,
     care teams, links), Forms (forms, due forms), Practice (orders, store,
