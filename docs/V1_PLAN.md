@@ -26,6 +26,32 @@ not protected, so nothing requires it to pass before a merge.
 
 ## Milestones
 
+### Remaining-work decisions (2026-11-16)
+
+The original milestone narrative below includes historical topology and
+implementation plans. The current demo uses the Barnacle-hosted Relay and
+Registry (#180/#182), with separate Compose projects; a laptop Relay is an
+optional development topology. The issue specifications carry current scope.
+
+- #79: support-entered practice registration; #69: verify the existing single
+  role-based app, including real-device evidence.
+- #5: finish owned hostnames/public TLS and navigation-only Universal Links.
+- #11 and #162–#169: field attestation, account/device lifecycle, privacy,
+  version/transport policy, separated security logging, key/authorization
+  inventory, emergency access and distinct PHI-integrity evidence.
+- #143 tracks focused #208 (request bounds), #209 (auth/CSRF/rate limits),
+  #210 (contract/logout cleanup), #167 (safe errors) and #165 (compatibility).
+- #53–#57 and #63 stay in V1. #56 requires privacy-safe event retention and
+  independent source-chain anchors with a durable receiver contract before
+  M6 exits. #58's corporate dashboard PoC is deferred to Post-V1.
+- #190: fresh demo database/current training week, office identity retained,
+  phones re-paired. #44–#47/#84 require evidence and owner/external review;
+  specification approval is not a release acceptance or completed control.
+
+Specifications advance to `spec-review`, then through the CONTRIBUTING.md
+reviewer gate before `agent-ready`. Patient-record notebook exploration and
+the V2 questionnaire/health-data work do not expand V1's release scope.
+
 Each milestone ends with its exit check passing on the Demo topology (dev
 laptop as Relay, Barnacle as Back Office).
 
@@ -196,7 +222,7 @@ Design: [OBSERVABILITY.md](OBSERVABILITY.md).
 
 Issues: #53 Alloy sidecar, #54 OTel metrics, #55 dashboards and load guard,
 #56 audit stream export, #57 Relay telemetry, #63 Registry telemetry,
-#58 Cloud Dashboards PoC.
+#58 Cloud Dashboards PoC (Post-V1, not a V1 dependency).
 
 - **Alloy sidecar** on the Back Office; JSON logs and OTel metrics from
   `wehelpd`.

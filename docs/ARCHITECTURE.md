@@ -10,6 +10,38 @@ This document is the source of truth for V1. Security goals and the audit bar
 are in [SECURITY.md](SECURITY.md); build order and scope are in
 [V1_PLAN.md](V1_PLAN.md).
 
+## Approved remaining V1 work (2026-11-16)
+
+The following direction is approved; the linked issue specifications still
+need their reviewer pass and implementation evidence. Existing behavior is
+described separately below, so this list does not claim the controls ship.
+
+- Support enters practices in the Registry (#79); no public registration
+  workflow. The provider uses the existing role-based WeHelp app (#69).
+- Practice sites use company-owned office hostnames and public TLS, with
+  Universal Links for navigation only (#5). Links never establish pairing
+  trust. Custom domains and public patient enrollment remain out of scope.
+- New field enrollment requires App Attest (#11). Staff pairing also needs
+  the account holder's TOTP; device credentials require user presence and a
+  non-sliding renewal deadline (#163). Patients stay passwordless.
+- Staff/console recovery is local and operator-assisted (#162). Phone account
+  preferences retain identifiers/routing trust only, not patient names (#164).
+  Version discovery and an emergency minimum app build are explicit (#165).
+- Planned pin rollover and compromise recovery have separate procedures
+  (#168). Field transport policy is #166; security versus operational logging
+  is #167. Emergency access, FileVault freshness and live-row integrity
+  evidence are #169.
+- Required audit retention distinguishes privacy-safe event projections,
+  independent source-chain anchors and full source verification (#56).
+  Operational telemetry cannot carry patient/actor/device identifiers.
+- A demo reset recreates only the positively identified demo database;
+  office keys/enrollment survive and all phones re-pair (#190). The current
+  demo runs its always-on Relay and Registry on Barnacle (#180/#182).
+- The corporate cloud dashboard PoC (#58) is Post-V1. Required V1 telemetry,
+  audit retention, independent review and field acceptance remain in scope.
+
+Patient-record notebook exploration is separate from V1 release scope.
+
 ## The services
 
 ```
